@@ -1,0 +1,1 @@
+../../../Classes/SwiftNitroPrintingPlugin.swift

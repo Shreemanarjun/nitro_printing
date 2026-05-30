@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="dev.shreeman.nitro_printing">
+  <!-- Required for direct print via socket (port 9100) and IPP (port 631). -->
+  <uses-permission android:name="android.permission.INTERNET"/>
+</manifest>

@@ -1,0 +1,57 @@
+name: nitro_printing
+description: >-
+  A high-performance Flutter printing plugin built on NitroModules (JSI/FFI).
+  Supports text, image, PDF, raw/ESC-POS/ZPL printing, print-job management,
+  mDNS printer discovery, IPP status queries, and a built-in print-settings UI —
+  all with zero method-channel overhead.
+version: 0.0.1
+homepage: https://github.com/Shreemanarjun/nitro_printing
+repository: https://github.com/Shreemanarjun/nitro_printing
+issue_tracker: https://github.com/Shreemanarjun/nitro_printing/issues
+documentation: https://nitro.shreeman.dev
+funding:
+  - https://buymeacoffee.com/shreemanarjun
+
+topics:
+  - printing
+  - nitro
+  - ffi
+  - pdf
+  - escpos
+
+environment:
+  sdk: ^3.11.5
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  nitro: ^0.4.4
+  plugin_platform_interface: ^2.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.0
+  nitro_generator: ^0.4.4
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        pluginClass: NitroPrintingPlugin
+        package: dev.shreeman.nitro_printing
+        ffiPlugin: true
+      ios:
+        pluginClass: SwiftNitroPrintingPlugin
+        ffiPlugin: true
+      macos:
+        pluginClass: SwiftNitroPrintingPlugin
+        ffiPlugin: true
+      windows:
+        pluginClass: NitroPrintingPlugin
+        ffiPlugin: true
+      linux:
+        pluginClass: NitroPrintingPlugin
+        ffiPlugin: true
