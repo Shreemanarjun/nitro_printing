@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 class ModeSwitcher extends StatelessWidget {
   final bool showDialog;
   final ValueChanged<bool> onChanged;
-  const ModeSwitcher({super.key, required this.showDialog, required this.onChanged});
+  const ModeSwitcher({
+    super.key,
+    required this.showDialog,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +17,12 @@ class ModeSwitcher extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('INTERACTION ROUTE', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF64748B))),
+            Text(
+              'INTERACTION ROUTE',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: const Color(0xFF64748B)),
+            ),
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -35,7 +44,13 @@ class ModeSwitcher extends StatelessWidget {
                       children: [
                         Icon(Icons.open_in_new_rounded, size: 16),
                         SizedBox(width: 8),
-                        Text('System Dialog', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(
+                          'System Dialog',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                     Row(
@@ -43,7 +58,13 @@ class ModeSwitcher extends StatelessWidget {
                       children: [
                         Icon(Icons.flash_on_rounded, size: 16),
                         SizedBox(width: 8),
-                        Text('Direct Dispatch', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(
+                          'Direct Dispatch',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ],

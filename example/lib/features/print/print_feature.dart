@@ -22,7 +22,8 @@ class PrintTab extends StatefulWidget {
 
 class _PrintTabState extends State<PrintTab> {
   final _textCtrl = TextEditingController(
-    text: 'Hello from NitroPrinting!\n\nThis is a test print.\n'
+    text:
+        'Hello from NitroPrinting!\n\nThis is a test print.\n'
         'Line 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8',
   );
   final _jobCtrl = TextEditingController(text: 'Test Print');
@@ -46,17 +47,17 @@ class _PrintTabState extends State<PrintTab> {
   }
 
   p.PrintSettings _build() => p.PrintSettings(
-        jobName: _jobCtrl.text,
-        printerId: _printerIdCtrl.text.trim(),
-        paperSize: _paperSize,
-        orientationDegrees: _orientationDegrees,
-        quality: _quality,
-        color: _color,
-        duplex: _duplex,
-        copies: _copies,
-        pagesPerSheet: _pagesPerSheet,
-        showPrintDialog: _showDialog,
-      );
+    jobName: _jobCtrl.text,
+    printerId: _printerIdCtrl.text.trim(),
+    paperSize: _paperSize,
+    orientationDegrees: _orientationDegrees,
+    quality: _quality,
+    color: _color,
+    duplex: _duplex,
+    copies: _copies,
+    pagesPerSheet: _pagesPerSheet,
+    showPrintDialog: _showDialog,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +72,11 @@ class _PrintTabState extends State<PrintTab> {
             SizedBox(width: 10),
             Text(
               'Document Printing Panel',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -79,7 +84,11 @@ class _PrintTabState extends State<PrintTab> {
         elevation: 0,
       ),
       body: ListenableBuilder(
-        listenable: createListenableFromSignals([printResult, printLoading, batchResults]),
+        listenable: createListenableFromSignals([
+          printResult,
+          printLoading,
+          batchResults,
+        ]),
         builder: (context, _) {
           final loading = printLoading.value;
           final result = printResult.value;
@@ -88,7 +97,10 @@ class _PrintTabState extends State<PrintTab> {
           final settingsColumn = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ROUTING & MODE', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'ROUTING & MODE',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               widgets.ModeSwitcher(
                 showDialog: _showDialog,
@@ -104,11 +116,16 @@ class _PrintTabState extends State<PrintTab> {
                     const SizedBox(height: 16),
                   ],
                 ),
-                crossFadeState: _showDialog ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                crossFadeState: _showDialog
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
                 duration: const Duration(milliseconds: 200),
               ),
 
-              Text('DOCUMENT SETTINGS', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'DOCUMENT SETTINGS',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               widgets.SettingsPanel(
                 paperSize: _paperSize,
@@ -119,7 +136,8 @@ class _PrintTabState extends State<PrintTab> {
                 copies: _copies,
                 pagesPerSheet: _pagesPerSheet,
                 onPaperSize: (v) => setState(() => _paperSize = v),
-                onOrientationDegrees: (v) => setState(() => _orientationDegrees = v),
+                onOrientationDegrees: (v) =>
+                    setState(() => _orientationDegrees = v),
                 onQuality: (v) => setState(() => _quality = v),
                 onColor: (v) => setState(() => _color = v),
                 onDuplex: (v) => setState(() => _duplex = v),
@@ -132,7 +150,10 @@ class _PrintTabState extends State<PrintTab> {
           final contentColumn = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('DOCUMENT CONTENT', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'DOCUMENT CONTENT',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -162,7 +183,10 @@ class _PrintTabState extends State<PrintTab> {
               ),
               const SizedBox(height: 24),
 
-              Text('PRINT ACTIONS', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'PRINT ACTIONS',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -185,7 +209,10 @@ class _PrintTabState extends State<PrintTab> {
                             loading: loading,
                             onPressed: () async {
                               updatePrintSettings(_build());
-                              await printTextAction(widget.repo, _textCtrl.text);
+                              await printTextAction(
+                                widget.repo,
+                                _textCtrl.text,
+                              );
                             },
                           ),
                           widgets.PrintButton(
@@ -194,7 +221,10 @@ class _PrintTabState extends State<PrintTab> {
                             loading: loading,
                             onPressed: () async {
                               updatePrintSettings(_build());
-                              await printImageAction(widget.repo, await _testImage());
+                              await printImageAction(
+                                widget.repo,
+                                await _testImage(),
+                              );
                             },
                           ),
                           widgets.PrintButton(
@@ -214,7 +244,10 @@ class _PrintTabState extends State<PrintTab> {
               ),
               const SizedBox(height: 24),
 
-              Text('BATCH OPERATIONS', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'BATCH OPERATIONS',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -294,7 +327,10 @@ class _PrintTabState extends State<PrintTab> {
   Future<Uint8List> _testImage() async {
     final rec = ui.PictureRecorder();
     final canvas = Canvas(rec, const Rect.fromLTWH(0, 0, 400, 300));
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 400, 300), Paint()..color = const Color(0xFF1E1E38));
+    canvas.drawRect(
+      const Rect.fromLTWH(0, 0, 400, 300),
+      Paint()..color = const Color(0xFF1E1E38),
+    );
 
     // Paint a gorgeous glowing gradient circle
     final paint = Paint()
@@ -309,7 +345,12 @@ class _PrintTabState extends State<PrintTab> {
     final tp = TextPainter(
       text: const TextSpan(
         text: 'NitroPrinting',
-        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'monospace',
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -321,7 +362,8 @@ class _PrintTabState extends State<PrintTab> {
   }
 
   Uint8List _testPdf() {
-    const src = '%PDF-1.4\n'
+    const src =
+        '%PDF-1.4\n'
         '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n'
         '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n'
         '3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R'

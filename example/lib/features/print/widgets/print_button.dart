@@ -25,7 +25,9 @@ class _PrintButtonState extends State<PrintButton> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = widget.highlight ? const Color(0xFF8B5CF6) : const Color(0xFF6366F1);
+    final primaryColor = widget.highlight
+        ? const Color(0xFF8B5CF6)
+        : const Color(0xFF6366F1);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

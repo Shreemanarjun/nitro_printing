@@ -30,11 +30,16 @@ class _HoverButtonState extends State<HoverButton> {
         child: FilledButton.icon(
           onPressed: widget.onPressed,
           icon: Icon(widget.icon, size: 16),
-          label: Text(widget.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          label: Text(
+            widget.label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF6366F1),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
             elevation: _isHovered ? 4 : 0,
             shadowColor: const Color(0xFF6366F1).withValues(alpha: 0.4),
           ),

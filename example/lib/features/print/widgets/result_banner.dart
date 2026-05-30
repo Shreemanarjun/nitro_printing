@@ -19,7 +19,13 @@ class ResultBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(ok ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded, size: 20, color: color),
+          Icon(
+            ok
+                ? Icons.check_circle_outline_rounded
+                : Icons.error_outline_rounded,
+            size: 20,
+            color: color,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: SelectableText(

@@ -7,11 +7,7 @@ class RawPanel extends StatefulWidget {
   final bool loading;
   final Future<void> Function(Uint8List bytes) onSend;
 
-  const RawPanel({
-    super.key,
-    required this.loading,
-    required this.onSend,
-  });
+  const RawPanel({super.key, required this.loading, required this.onSend});
 
   @override
   State<RawPanel> createState() => _RawPanelState();
@@ -47,12 +43,20 @@ class _RawPanelState extends State<RawPanel> {
       children: [
         Row(
           children: [
-            const Icon(Icons.memory_rounded, color: Color(0xFF8B5CF6), size: 18),
+            const Icon(
+              Icons.memory_rounded,
+              color: Color(0xFF8B5CF6),
+              size: 18,
+            ),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
                 'Direct Binary Byte Array Sequence',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -68,7 +72,11 @@ class _RawPanelState extends State<RawPanel> {
         TextField(
           controller: _hexCtrl,
           maxLines: 4,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Color(0xFF34D399)),
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            color: Color(0xFF34D399),
+          ),
           decoration: const InputDecoration(
             labelText: 'Hexadecimal Raw Stream',
             hintText: '1B 40 48 65 6C 6C 6F 0A',
@@ -83,9 +91,13 @@ class _RawPanelState extends State<RawPanel> {
             return Row(
               children: [
                 Icon(
-                  bytes != null ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                  bytes != null
+                      ? Icons.check_circle_rounded
+                      : Icons.info_outline_rounded,
                   size: 13,
-                  color: bytes != null ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                  color: bytes != null
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFEF4444),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -95,7 +107,9 @@ class _RawPanelState extends State<RawPanel> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: bytes != null ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                    color: bytes != null
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444),
                   ),
                 ),
               ],

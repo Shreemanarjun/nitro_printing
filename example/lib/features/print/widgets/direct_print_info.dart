@@ -12,26 +12,41 @@ class DirectPrintInfo extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ROUTING ADDRESS', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF64748B))),
+            Text(
+              'ROUTING ADDRESS',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: const Color(0xFF64748B)),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               decoration: const InputDecoration(
                 labelText: 'Direct Destination Printer ID / URL',
                 hintText: 'e.g. ipp://192.168.1.10/ipp/print or Office-Jet',
-                prefixIcon: Icon(Icons.router_rounded, color: Color(0xFF64748B)),
+                prefixIcon: Icon(
+                  Icons.router_rounded,
+                  color: Color(0xFF64748B),
+                ),
               ),
             ),
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'iOS expects an AirPrint ipp:// connection. macOS uses exact Printer System Names. Leaves blank to auto-fallback.',
-                    style: TextStyle(fontSize: 11, color: const Color(0xFF64748B).withValues(alpha: 0.9)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: const Color(0xFF64748B).withValues(alpha: 0.9),
+                    ),
                   ),
                 ),
               ],

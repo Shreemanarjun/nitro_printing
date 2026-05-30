@@ -29,14 +29,14 @@ void toggleJobListening(PrinterRepository repo) {
       final current = jobEvents.value;
       jobEvents.value = [
         '[JOB] ID: ${update.jobId} → STATE: ${update.state.name} | PROGRESS: ${update.progress}%',
-        ...current
+        ...current,
       ].take(50).toList();
     });
     _statusSub = repo.onPrinterStatusChanged().listen((status) {
       final current = jobEvents.value;
       jobEvents.value = [
         '[STATUS] Printer: ${status.printerId} | Online: ${status.isOnline} | Printing: ${status.isPrinting}',
-        ...current
+        ...current,
       ].take(50).toList();
     });
     isListening.value = true;

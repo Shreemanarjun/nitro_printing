@@ -7,13 +7,17 @@ class PulsingDot extends StatefulWidget {
   State<PulsingDot> createState() => _PulsingDotState();
 }
 
-class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateMixin {
+class _PulsingDotState extends State<PulsingDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -33,11 +37,7 @@ class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateM
           color: Color(0xFF10B981),
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(
-              color: Color(0xFF10B981),
-              blurRadius: 6,
-              spreadRadius: 1,
-            ),
+            BoxShadow(color: Color(0xFF10B981), blurRadius: 6, spreadRadius: 1),
           ],
         ),
       ),

@@ -28,7 +28,11 @@ class ZplPanel extends StatelessWidget {
             const Expanded(
               child: Text(
                 'ZPL II Programming Language',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -44,7 +48,11 @@ class ZplPanel extends StatelessWidget {
         TextField(
           controller: zplCtrl,
           maxLines: 8,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF38BDF8)),
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Color(0xFF38BDF8),
+          ),
           decoration: const InputDecoration(
             labelText: 'ZPL Label Document Stream',
             alignLabelWithHint: true,
@@ -57,7 +65,10 @@ class ZplPanel extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onPreview,
                 icon: const Icon(Icons.code_rounded, size: 16),
-                label: const Text('View Raw Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: const Text(
+                  'View Raw Code',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -100,7 +111,11 @@ class ZplPreviewDialog extends StatelessWidget {
                 SizedBox(width: 8),
                 Text(
                   'ZPL Byte Layout Output',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -117,7 +132,11 @@ class ZplPreviewDialog extends StatelessWidget {
               child: SingleChildScrollView(
                 child: SelectableText(
                   zpl,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFF38BDF8)),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Color(0xFF38BDF8),
+                  ),
                 ),
               ),
             ),
@@ -125,7 +144,9 @@ class ZplPreviewDialog extends StatelessWidget {
             Align(
               alignment: Alignment.bottomRight,
               child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E293B)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E293B),
+                ),
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Close Workspace'),
               ),

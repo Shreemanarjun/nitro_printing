@@ -28,7 +28,8 @@ Uint8List _sampleEscPos(String text) {
 
 // ── Sample ZPL label ──────────────────────────────────────────────────────────
 
-String _sampleZpl(String text) => '''
+String _sampleZpl(String text) =>
+    '''
 ^XA
 ^FO50,50^A0N,40,40^FDNitroPrinting^FS
 ^FO50,110^A0N,28,28^FD$text^FS
@@ -79,14 +80,16 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
   int get _timeoutSeconds => int.tryParse(_timeoutCtrl.text.trim()) ?? 30;
 
   p.PrintSettings get _settings => p.PrintSettings(
-        printerId: _printerCtrl.text.trim(),
-        showPrintDialog: false,
-        networkTimeoutSeconds: _timeoutSeconds,
-      );
+    printerId: _printerCtrl.text.trim(),
+    showPrintDialog: false,
+    networkTimeoutSeconds: _timeoutSeconds,
+  );
 
   Future<void> _run(Future<p.PrintResult> Function() fn) async {
     if (_printerCtrl.text.trim().isEmpty) {
-      _show('Enter a printer IP or URI first (e.g. 192.168.1.100 or socket://192.168.1.100:9100)');
+      _show(
+        'Enter a printer IP or URI first (e.g. 192.168.1.100 or socket://192.168.1.100:9100)',
+      );
       return;
     }
     await runRawAction(fn);
@@ -125,7 +128,10 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('PRINTER ENDPOINT', style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  'PRINTER ENDPOINT',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
                 const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,10 +141,17 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
                         controller: _printerCtrl,
                         decoration: InputDecoration(
                           labelText: 'Printer TCP Address / URI',
-                          hintText: '192.168.1.100 or socket://192.168.1.100:9100',
-                          prefixIcon: const Icon(Icons.router_rounded, color: Color(0xFF64748B)),
+                          hintText:
+                              '192.168.1.100 or socket://192.168.1.100:9100',
+                          prefixIcon: const Icon(
+                            Icons.router_rounded,
+                            color: Color(0xFF64748B),
+                          ),
                           suffixIcon: IconButton(
-                            icon: const Icon(Icons.network_check_rounded, color: Color(0xFF6366F1)),
+                            icon: const Icon(
+                              Icons.network_check_rounded,
+                              color: Color(0xFF6366F1),
+                            ),
                             tooltip: 'Test socket connection',
                             onPressed: loading
                                 ? null
@@ -181,10 +194,15 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Text(
                     'PROTOCOL FORMAT',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF64748B)),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: const Color(0xFF64748B),
+                    ),
                   ),
                 ),
                 TabButton(
@@ -225,10 +243,7 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
             zplCtrl: _zplCtrl,
             loading: loading,
             onSend: () => _run(
-              () => widget.repo.printZpl(
-                _zplCtrl.text,
-                settings: _settings,
-              ),
+              () => widget.repo.printZpl(_zplCtrl.text, settings: _settings),
             ),
             onPreview: () {
               showDialog(
@@ -239,9 +254,8 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
           ),
           RawPanel(
             loading: loading,
-            onSend: (bytes) => _run(
-              () => widget.repo.printRaw(bytes, settings: _settings),
-            ),
+            onSend: (bytes) =>
+                _run(() => widget.repo.printRaw(bytes, settings: _settings)),
           ),
         ];
 
@@ -249,11 +263,19 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
           appBar: AppBar(
             title: const Row(
               children: [
-                Icon(Icons.terminal_rounded, color: Color(0xFF6366F1), size: 22),
+                Icon(
+                  Icons.terminal_rounded,
+                  color: Color(0xFF6366F1),
+                  size: 22,
+                ),
                 SizedBox(width: 10),
                 Text(
                   'Low-Level Network Printing',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -266,9 +288,18 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
                     labelColor: Colors.white,
                     unselectedLabelColor: const Color(0xFF94A3B8),
                     tabs: const [
-                      Tab(icon: Icon(Icons.receipt_long_rounded), text: 'ESC/POS'),
-                      Tab(icon: Icon(Icons.label_important_rounded), text: 'ZPL'),
-                      Tab(icon: Icon(Icons.data_object_rounded), text: 'Raw Bytes'),
+                      Tab(
+                        icon: Icon(Icons.receipt_long_rounded),
+                        text: 'ESC/POS',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.label_important_rounded),
+                        text: 'ZPL',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.data_object_rounded),
+                        text: 'Raw Bytes',
+                      ),
                     ],
                   )
                 : null,
@@ -283,7 +314,10 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
               if (loading)
                 Container(
                   color: const Color(0xFFEF4444).withValues(alpha: 0.05),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       const Expanded(
@@ -297,9 +331,14 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
                         icon: const Icon(Icons.cancel_rounded, size: 16),
                         label: Text(
                           'Cancel',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold).apply(color: Colors.red),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ).apply(color: Colors.red),
                         ),
-                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
                         onPressed: _cancel,
                       ),
                     ],
@@ -339,7 +378,9 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
                       )
                     : TabBarView(
                         controller: _tabs,
-                        children: tabContents.map((p) => SingleChildScrollView(child: p)).toList(),
+                        children: tabContents
+                            .map((p) => SingleChildScrollView(child: p))
+                            .toList(),
                       ),
               ),
             ],

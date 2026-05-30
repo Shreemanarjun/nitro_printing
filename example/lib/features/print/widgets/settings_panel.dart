@@ -103,8 +103,20 @@ class SettingsPanel extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: ToggleWidget(label: 'Full Color Output', value: color, onChanged: onColor)),
-                Expanded(child: ToggleWidget(label: '2-Sided Duplex', value: duplex, onChanged: onDuplex)),
+                Expanded(
+                  child: ToggleWidget(
+                    label: 'Full Color Output',
+                    value: color,
+                    onChanged: onColor,
+                  ),
+                ),
+                Expanded(
+                  child: ToggleWidget(
+                    label: '2-Sided Duplex',
+                    value: duplex,
+                    onChanged: onDuplex,
+                  ),
+                ),
               ],
             ),
           ],
@@ -114,12 +126,12 @@ class SettingsPanel extends StatelessWidget {
   }
 
   static String _orientationLabel(double deg) => switch (deg) {
-        0.0 => 'Portrait',
-        90.0 => 'Landscape',
-        180.0 => 'Reverse Portrait',
-        270.0 => 'Reverse Landscape',
-        _ => '${deg.toStringAsFixed(0)}°',
-      };
+    0.0 => 'Portrait',
+    90.0 => 'Landscape',
+    180.0 => 'Reverse Portrait',
+    270.0 => 'Reverse Landscape',
+    _ => '${deg.toStringAsFixed(0)}°',
+  };
 }
 
 class DropdownTile<T> extends StatelessWidget {
@@ -144,9 +156,7 @@ class DropdownTile<T> extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         isDense: true,
       ),
       child: DropdownButtonHideUnderline(
@@ -154,12 +164,23 @@ class DropdownTile<T> extends StatelessWidget {
           value: value,
           isDense: true,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Color(0xFF64748B),
+          ),
           items: items
-              .map((v) => DropdownMenuItem(
-                    value: v,
-                    child: Text(labelOf(v), style: const TextStyle(fontSize: 13, color: Color(0xFFE2E8F0))),
-                  ))
+              .map(
+                (v) => DropdownMenuItem(
+                  value: v,
+                  child: Text(
+                    labelOf(v),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFFE2E8F0),
+                    ),
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (v) {
             if (v != null) onChanged(v);
@@ -174,7 +195,12 @@ class ToggleWidget extends StatelessWidget {
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
-  const ToggleWidget({super.key, required this.label, required this.value, required this.onChanged});
+  const ToggleWidget({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +216,11 @@ class ToggleWidget extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFFCBD5E1)),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFFCBD5E1),
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),

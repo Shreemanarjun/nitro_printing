@@ -26,7 +26,11 @@ class EscPosPanel extends StatelessWidget {
             const Expanded(
               child: Text(
                 'ESC/POS Thermal Receipt Payload',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -126,16 +130,30 @@ class _EscPosPreviewState extends State<EscPosPreview> {
                 children: [
                   const Text(
                     '━━━━━━━━━━━━━━━━━━━━',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.black, height: 1.0),
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: Colors.black,
+                      height: 1.0,
+                    ),
                   ),
                   const Text(
                     'NitroPrinting',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     widget.text.text,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.black),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: Colors.black,
+                    ),
                     textAlign: TextAlign.left,
                   ),
                   const SizedBox(height: 12),
@@ -145,7 +163,11 @@ class _EscPosPreviewState extends State<EscPosPreview> {
                       Icon(Icons.content_cut, color: Colors.grey, size: 10),
                       Text(
                         ' - - - - - [CUT] - - - - -',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 8, color: Colors.grey),
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 8,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),

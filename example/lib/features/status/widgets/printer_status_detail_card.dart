@@ -10,8 +10,8 @@ class PrinterStatusDetailCard extends StatelessWidget {
     final stateColor = detail.printerState == 'idle'
         ? const Color(0xFF10B981) // Green
         : detail.printerState == 'processing'
-            ? const Color(0xFFF59E0B) // Amber
-            : const Color(0xFFEF4444); // Red
+        ? const Color(0xFFF59E0B) // Amber
+        : const Color(0xFFEF4444); // Red
 
     return Card(
       child: Container(
@@ -41,19 +41,30 @@ class PrinterStatusDetailCard extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.0,
-                    color: detail.isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                    color: detail.isOnline
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFEF4444),
                   ),
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: stateColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: stateColor.withValues(alpha: 0.3), width: 1),
+                    border: Border.all(
+                      color: stateColor.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
                   ),
                   child: Text(
-                    (detail.printerState.isEmpty ? 'unknown' : detail.printerState).toUpperCase(),
+                    (detail.printerState.isEmpty
+                            ? 'unknown'
+                            : detail.printerState)
+                        .toUpperCase(),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -67,28 +78,53 @@ class PrinterStatusDetailCard extends StatelessWidget {
             const SizedBox(height: 18),
 
             // Alert indicators Wrap
-            if (detail.hasPaperJam || detail.isOutOfPaper || detail.isOutOfInk || detail.isWarmingUp) ...[
+            if (detail.hasPaperJam ||
+                detail.isOutOfPaper ||
+                detail.isOutOfInk ||
+                detail.isWarmingUp) ...[
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (detail.hasPaperJam) const Alert('PAPER JAM', Color(0xFFEF4444)),
-                  if (detail.isOutOfPaper) const Alert('OUT OF PAPER', Color(0xFFF59E0B)),
-                  if (detail.isOutOfInk) const Alert('LOW TONER/INK', Color(0xFFF59E0B)),
-                  if (detail.isWarmingUp) const Alert('WARMING UP', Color(0xFF3B82F6)),
+                  if (detail.hasPaperJam)
+                    const Alert('PAPER JAM', Color(0xFFEF4444)),
+                  if (detail.isOutOfPaper)
+                    const Alert('OUT OF PAPER', Color(0xFFF59E0B)),
+                  if (detail.isOutOfInk)
+                    const Alert('LOW TONER/INK', Color(0xFFF59E0B)),
+                  if (detail.isWarmingUp)
+                    const Alert('WARMING UP', Color(0xFF3B82F6)),
                 ],
               ),
               const SizedBox(height: 16),
             ],
 
             // Stats in rounded rows
-            StatRow('Jobs in queue', '${detail.jobsInQueue}', icon: Icons.queue_rounded),
+            StatRow(
+              'Jobs in queue',
+              '${detail.jobsInQueue}',
+              icon: Icons.queue_rounded,
+            ),
             if (detail.stateReasons.isNotEmpty)
-              StatRow('State reasons', detail.stateReasons, icon: Icons.troubleshoot_rounded, mono: true),
+              StatRow(
+                'State reasons',
+                detail.stateReasons,
+                icon: Icons.troubleshoot_rounded,
+                mono: true,
+              ),
             if (detail.statusMessage.isNotEmpty)
-              StatRow('Status message', detail.statusMessage, icon: Icons.messenger_outline_rounded),
+              StatRow(
+                'Status message',
+                detail.statusMessage,
+                icon: Icons.messenger_outline_rounded,
+              ),
             if (detail.errorCode.isNotEmpty)
-              StatRow('Error code', detail.errorCode, icon: Icons.bug_report_rounded, mono: true),
+              StatRow(
+                'Error code',
+                detail.errorCode,
+                icon: Icons.bug_report_rounded,
+                mono: true,
+              ),
 
             const SizedBox(height: 20),
             const Divider(color: Color(0xFF1E293B)),
@@ -103,20 +139,45 @@ class PrinterStatusDetailCard extends StatelessWidget {
               Text(
                 'CONSUMABLES LEVEL',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: const Color(0xFF64748B),
-                    ),
+                  color: const Color(0xFF64748B),
+                ),
               ),
               const SizedBox(height: 14),
               if (detail.tonerLevel >= 0)
-                InkBar('Toner', detail.tonerLevel, const Color(0xFF60A5FA), Colors.blueGrey),
+                InkBar(
+                  'Toner',
+                  detail.tonerLevel,
+                  const Color(0xFF60A5FA),
+                  Colors.blueGrey,
+                ),
               if (detail.inkLevelBlack >= 0)
-                InkBar('Black Ink', detail.inkLevelBlack, const Color(0xFF475569), const Color(0xFF1E293B)),
+                InkBar(
+                  'Black Ink',
+                  detail.inkLevelBlack,
+                  const Color(0xFF475569),
+                  const Color(0xFF1E293B),
+                ),
               if (detail.inkLevelCyan >= 0)
-                InkBar('Cyan Ink', detail.inkLevelCyan, const Color(0xFF06B6D4), const Color(0xFF0891B2)),
+                InkBar(
+                  'Cyan Ink',
+                  detail.inkLevelCyan,
+                  const Color(0xFF06B6D4),
+                  const Color(0xFF0891B2),
+                ),
               if (detail.inkLevelMagenta >= 0)
-                InkBar('Magenta Ink', detail.inkLevelMagenta, const Color(0xFFEC4899), const Color(0xFFDB2777)),
+                InkBar(
+                  'Magenta Ink',
+                  detail.inkLevelMagenta,
+                  const Color(0xFFEC4899),
+                  const Color(0xFFDB2777),
+                ),
               if (detail.inkLevelYellow >= 0)
-                InkBar('Yellow Ink', detail.inkLevelYellow, const Color(0xFFFBBF24), const Color(0xFFD97706)),
+                InkBar(
+                  'Yellow Ink',
+                  detail.inkLevelYellow,
+                  const Color(0xFFFBBF24),
+                  const Color(0xFFD97706),
+                ),
               const SizedBox(height: 14),
             ],
 
@@ -125,8 +186,10 @@ class PrinterStatusDetailCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (detail.isColorSupported) const ChipWidget('COLOR SUPPORTED', Color(0xFF8B5CF6)),
-                if (detail.isDuplexSupported) const ChipWidget('DUPLEX SUPPORTED', Color(0xFF06B6D4)),
+                if (detail.isColorSupported)
+                  const ChipWidget('COLOR SUPPORTED', Color(0xFF8B5CF6)),
+                if (detail.isDuplexSupported)
+                  const ChipWidget('DUPLEX SUPPORTED', Color(0xFF06B6D4)),
               ],
             ),
           ],
@@ -143,7 +206,8 @@ class PulsingIndicator extends StatefulWidget {
   State<PulsingIndicator> createState() => _PulsingIndicatorState();
 }
 
-class _PulsingIndicatorState extends State<PulsingIndicator> with SingleTickerProviderStateMixin {
+class _PulsingIndicatorState extends State<PulsingIndicator>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
@@ -163,11 +227,14 @@ class _PulsingIndicatorState extends State<PulsingIndicator> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final color = widget.isOnline
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
     return ScaleTransition(
-      scale: Tween<double>(begin: 0.85, end: 1.15).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-      ),
+      scale: Tween<double>(
+        begin: 0.85,
+        end: 1.15,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
       child: Container(
         width: 12,
         height: 12,
@@ -193,7 +260,13 @@ class InkBar extends StatelessWidget {
   final Color startColor;
   final Color endColor;
 
-  const InkBar(this.label, this.level, this.startColor, this.endColor, {super.key});
+  const InkBar(
+    this.label,
+    this.level,
+    this.startColor,
+    this.endColor, {
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -216,8 +289,24 @@ class InkBar extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFE2E8F0))),
-                    Text('$level%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: low ? const Color(0xFFEF4444) : const Color(0xFF94A3B8))),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    Text(
+                      '$level%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: low
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF94A3B8),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -314,9 +403,9 @@ class CapabilitiesSection extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'CAPABILITIES',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: const Color(0xFF64748B),
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: const Color(0xFF64748B)),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -336,7 +425,11 @@ class CapabilitiesSection extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.inbox_rounded, size: 14, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.inbox_rounded,
+                size: 14,
+                color: Color(0xFF64748B),
+              ),
               const SizedBox(width: 6),
               Text(
                 'Paper Trays: ${caps.inputTrays}', // printed directly, as it's a String
@@ -361,11 +454,17 @@ class BadgeWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
+        border: Border.all(
+          color: const Color(0xFF334155).withValues(alpha: 0.5),
+        ),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFCBD5E1)),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFFCBD5E1),
+        ),
       ),
     );
   }
@@ -403,7 +502,13 @@ class StatRow extends StatelessWidget {
               color: (successColor ?? cs.primary).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, size: 16, color: successColor ?? (highlight ? const Color(0xFF8B5CF6) : cs.primary)),
+            child: Icon(
+              icon,
+              size: 16,
+              color:
+                  successColor ??
+                  (highlight ? const Color(0xFF8B5CF6) : cs.primary),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

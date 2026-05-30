@@ -15,11 +15,17 @@ class SpoolDetailCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.assignment_rounded, color: Color(0xFF8B5CF6), size: 18),
+                const Icon(
+                  Icons.assignment_rounded,
+                  color: Color(0xFF8B5CF6),
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'SPOOL QUERY RESULT',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(color: const Color(0xFF8B5CF6)),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFF8B5CF6),
+                  ),
                 ),
               ],
             ),
@@ -27,7 +33,11 @@ class SpoolDetailCard extends StatelessWidget {
             DetailRow('Spool Job ID', job.id, mono: true),
             DetailRow('Document Title', job.documentTitle),
             DetailRow('Target Printer', job.printerId, mono: true),
-            DetailRow('Spool State', job.state.name.toUpperCase(), highlight: true),
+            DetailRow(
+              'Spool State',
+              job.state.name.toUpperCase(),
+              highlight: true,
+            ),
             DetailRow('Queue Progress', '${job.progress}%'),
           ],
         ),
@@ -57,7 +67,14 @@ class DetailRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           Text(
             value,
             style: TextStyle(

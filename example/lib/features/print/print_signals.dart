@@ -39,7 +39,10 @@ Future<void> _run(Future<p.PrintResult> Function() action) async {
   }
 }
 
-Future<void> runBatchPrintAction(PrinterRepository repo, p.PrintSettings settings) async {
+Future<void> runBatchPrintAction(
+  PrinterRepository repo,
+  p.PrintSettings settings,
+) async {
   printLoading.value = true;
   printResult.value = null;
   batchResults.value = null;
@@ -49,19 +52,25 @@ Future<void> runBatchPrintAction(PrinterRepository repo, p.PrintSettings setting
         id: 'batch-1',
         title: 'Batch Doc 1',
         type: p.DocumentType.plainText,
-        data: Uint8List.fromList('Batch document 1\n\nPrinted by NitroPrinting.'.codeUnits),
+        data: Uint8List.fromList(
+          'Batch document 1\n\nPrinted by NitroPrinting.'.codeUnits,
+        ),
       ),
       p.PrintDocument(
         id: 'batch-2',
         title: 'Batch Doc 2',
         type: p.DocumentType.plainText,
-        data: Uint8List.fromList('Batch document 2\n\nSecond document in batch.'.codeUnits),
+        data: Uint8List.fromList(
+          'Batch document 2\n\nSecond document in batch.'.codeUnits,
+        ),
       ),
       p.PrintDocument(
         id: 'batch-3',
         title: 'Batch Doc 3',
         type: p.DocumentType.plainText,
-        data: Uint8List.fromList('Batch document 3\n\nFinal document in batch.'.codeUnits),
+        data: Uint8List.fromList(
+          'Batch document 3\n\nFinal document in batch.'.codeUnits,
+        ),
       ),
     ];
     final results = await repo.printBatch(docs, true, settings: settings);

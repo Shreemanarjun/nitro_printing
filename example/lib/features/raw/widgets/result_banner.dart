@@ -25,7 +25,13 @@ class ResultBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(ok ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded, size: 18, color: color),
+          Icon(
+            ok
+                ? Icons.check_circle_outline_rounded
+                : Icons.error_outline_rounded,
+            size: 18,
+            color: color,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

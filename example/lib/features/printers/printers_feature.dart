@@ -18,7 +18,11 @@ class PrintersTab extends StatelessWidget {
             SizedBox(width: 10),
             Text(
               'Printers',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -39,9 +43,14 @@ class PrintersTab extends StatelessWidget {
                           color: Color(0xFF6366F1),
                         ),
                       )
-                    : const Icon(Icons.refresh_rounded, color: Color(0xFF6366F1)),
+                    : const Icon(
+                        Icons.refresh_rounded,
+                        color: Color(0xFF6366F1),
+                      ),
                 tooltip: 'Refresh printers',
-                onPressed: printersLoading.value ? null : () => loadAllPrinters(repo),
+                onPressed: printersLoading.value
+                    ? null
+                    : () => loadAllPrinters(repo),
               ),
             ),
           ),
@@ -70,13 +79,14 @@ class PrintersTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (error != null)
-                          _ErrorBanner(error: error),
+                        if (error != null) _ErrorBanner(error: error),
                         if (loading && printers == null)
                           const Padding(
                             padding: EdgeInsets.only(bottom: 16),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.all(Radius.circular(4)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(4),
+                              ),
                               child: LinearProgressIndicator(
                                 minHeight: 3,
                                 backgroundColor: Color(0xFF1E293B),
@@ -84,7 +94,11 @@ class PrintersTab extends StatelessWidget {
                               ),
                             ),
                           ),
-                        _ControlBar(repo: repo, discovering: discovering, loading: loading),
+                        _ControlBar(
+                          repo: repo,
+                          discovering: discovering,
+                          loading: loading,
+                        ),
                         const SizedBox(height: 24),
                         if (printers != null) ...[
                           Text(
@@ -112,9 +126,8 @@ class PrintersTab extends StatelessWidget {
                           const SizedBox(height: 16),
                           Text(
                             'No printers loaded',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: const Color(0xFF64748B),
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(color: const Color(0xFF64748B)),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -139,9 +152,8 @@ class PrintersTab extends StatelessWidget {
                           const SizedBox(height: 16),
                           Text(
                             'No printers found',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: const Color(0xFF64748B),
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(color: const Color(0xFF64748B)),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -282,8 +294,12 @@ class _PrinterCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                isAvailable ? Icons.print_rounded : Icons.print_disabled_rounded,
-                color: isAvailable ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                isAvailable
+                    ? Icons.print_rounded
+                    : Icons.print_disabled_rounded,
+                color: isAvailable
+                    ? const Color(0xFF6366F1)
+                    : const Color(0xFF64748B),
                 size: 22,
               ),
             ),
@@ -304,12 +320,19 @@ class _PrinterCard extends StatelessWidget {
                       if (isDefault) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                            color: const Color(
+                              0xFF6366F1,
+                            ).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                              color: const Color(
+                                0xFF6366F1,
+                              ).withValues(alpha: 0.3),
                             ),
                           ),
                           child: const Text(
@@ -340,15 +363,20 @@ class _PrinterCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.router_rounded, size: 13, color: Color(0xFF64748B)),
+                        const Icon(
+                          Icons.router_rounded,
+                          size: 13,
+                          color: Color(0xFF64748B),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             printer.address,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -359,7 +387,9 @@ class _PrinterCard extends StatelessWidget {
                   Row(
                     children: [
                       _StatusDot(
-                        color: isAvailable ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        color: isAvailable
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
                         label: isAvailable ? 'Available' : 'Unavailable',
                       ),
                     ],
@@ -392,7 +422,11 @@ class _StatusDot extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
         ),
       ],
     );
@@ -411,11 +445,17 @@ class _ErrorBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFEF4444).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 20),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFEF4444),
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

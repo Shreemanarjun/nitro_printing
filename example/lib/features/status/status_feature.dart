@@ -36,7 +36,11 @@ class _StatusTabState extends State<StatusTab> {
             SizedBox(width: 10),
             Text(
               'Printer Status Dashboard',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -61,7 +65,10 @@ class _StatusTabState extends State<StatusTab> {
           final basicInfoColumn = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('QUICK LOOKUPS', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'QUICK LOOKUPS',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -82,7 +89,8 @@ class _StatusTabState extends State<StatusTab> {
                             label: 'Is Supported',
                             icon: Icons.check_circle_outline,
                             disabled: loading,
-                            onPressed: () => checkPrintingSupported(widget.repo),
+                            onPressed: () =>
+                                checkPrintingSupported(widget.repo),
                           ),
                           widgets.ActionChip(
                             label: 'Printer Count',
@@ -122,7 +130,10 @@ class _StatusTabState extends State<StatusTab> {
                   defaultPrinter.value != null ||
                   driverVersion.value != null ||
                   printerCapabilities.value != null) ...[
-                Text('HOST RESULTS', style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  'HOST RESULTS',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
                 const SizedBox(height: 12),
                 Card(
                   child: Padding(
@@ -134,8 +145,12 @@ class _StatusTabState extends State<StatusTab> {
                           widgets.StatRow(
                             'Printing supported',
                             isSupported.value! ? 'Yes' : 'No',
-                            icon: isSupported.value! ? Icons.check_circle : Icons.cancel_outlined,
-                            successColor: isSupported.value! ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                            icon: isSupported.value!
+                                ? Icons.check_circle
+                                : Icons.cancel_outlined,
+                            successColor: isSupported.value!
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
                           ),
                         if (printersCount.value != null)
                           widgets.StatRow(
@@ -164,7 +179,8 @@ class _StatusTabState extends State<StatusTab> {
                               mono: true,
                             ),
                         ],
-                        if (driverVersion.value != null && driverVersion.value!.isNotEmpty)
+                        if (driverVersion.value != null &&
+                            driverVersion.value!.isNotEmpty)
                           widgets.StatRow(
                             'Driver version',
                             driverVersion.value!,
@@ -175,7 +191,9 @@ class _StatusTabState extends State<StatusTab> {
                             padding: EdgeInsets.symmetric(vertical: 8.0),
                             child: Divider(),
                           ),
-                          widgets.CapabilitiesSection(caps: printerCapabilities.value!),
+                          widgets.CapabilitiesSection(
+                            caps: printerCapabilities.value!,
+                          ),
                         ],
                       ],
                     ),
@@ -188,7 +206,10 @@ class _StatusTabState extends State<StatusTab> {
           final ippColumn = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('IPP STATUS INQUIRY', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'IPP STATUS INQUIRY',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -206,25 +227,35 @@ class _StatusTabState extends State<StatusTab> {
                         decoration: InputDecoration(
                           labelText: 'Printer URI / IP address',
                           hintText: 'ipp://192.168.1.10/ipp/print',
-                          prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFF64748B)),
+                          prefixIcon: const Icon(
+                            Icons.link_rounded,
+                            color: Color(0xFF64748B),
+                          ),
                           suffixIcon: loading
                               ? const Padding(
                                   padding: EdgeInsets.all(12),
                                   child: SizedBox(
                                     width: 20,
                                     height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFF6366F1),
+                                    ),
                                   ),
                                 )
                               : IconButton(
-                                  icon: const Icon(Icons.search_rounded, color: Color(0xFF6366F1)),
+                                  icon: const Icon(
+                                    Icons.search_rounded,
+                                    color: Color(0xFF6366F1),
+                                  ),
                                   onPressed: () => loadStatusDetail(
                                     widget.repo,
                                     _ippCtrl.text.trim(),
                                   ),
                                 ),
                         ),
-                        onSubmitted: (v) => loadStatusDetail(widget.repo, v.trim()),
+                        onSubmitted: (v) =>
+                            loadStatusDetail(widget.repo, v.trim()),
                       ),
                     ],
                   ),
@@ -232,9 +263,14 @@ class _StatusTabState extends State<StatusTab> {
               ),
               if (printerStatusDetail.value != null) ...[
                 const SizedBox(height: 24),
-                Text('DETAILED STATUS', style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  'DETAILED STATUS',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
                 const SizedBox(height: 12),
-                widgets.PrinterStatusDetailCard(detail: printerStatusDetail.value!),
+                widgets.PrinterStatusDetailCard(
+                  detail: printerStatusDetail.value!,
+                ),
               ],
             ],
           );

@@ -38,7 +38,9 @@ class _ActionChipState extends State<ActionChip> {
             backgroundColor: _isHovered
                 ? const Color(0xFF6366F1).withValues(alpha: 0.2)
                 : const Color(0xFF1E293B),
-            foregroundColor: _isHovered ? Colors.white : const Color(0xFFCBD5E1),
+            foregroundColor: _isHovered
+                ? Colors.white
+                : const Color(0xFFCBD5E1),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

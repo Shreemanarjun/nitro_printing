@@ -1,6 +1,6 @@
 ## 0.0.1
 
-Initial release of `nitro_printing` — a high-performance Flutter printing plugin built on [NitroModules](https://nitro.margelo.com) with JSI/FFI and zero method-channel overhead.
+Initial release of `nitro_printing` — a high-performance Flutter printing plugin built on [Nitro for Flutter](https://nitro.shreeman.dev) with zero method-channel overhead.
 
 ### Added
 

@@ -34,13 +34,19 @@ class _ActionButtonState extends State<ActionButton> {
           icon: Icon(widget.icon, size: 14),
           label: Text(widget.label),
           style: FilledButton.styleFrom(
-            backgroundColor: _isHovered ? const Color(0xFF6366F1).withValues(alpha: 0.2) : const Color(0xFF1E293B),
-            foregroundColor: _isHovered ? Colors.white : const Color(0xFFCBD5E1),
+            backgroundColor: _isHovered
+                ? const Color(0xFF6366F1).withValues(alpha: 0.2)
+                : const Color(0xFF1E293B),
+            foregroundColor: _isHovered
+                ? Colors.white
+                : const Color(0xFFCBD5E1),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: _isHovered ? const Color(0xFF6366F1).withValues(alpha: 0.4) : const Color(0xFF334155).withValues(alpha: 0.3),
+                color: _isHovered
+                    ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+                    : const Color(0xFF334155).withValues(alpha: 0.3),
               ),
             ),
           ),

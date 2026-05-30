@@ -28,27 +28,28 @@ Future<void> _guard(Future<void> Function() fn) async {
 }
 
 Future<void> checkPrintingSupported(PrinterRepository repo) => _guard(() async {
-      isSupported.value = await repo.isPrintingSupported();
-    });
+  isSupported.value = await repo.isPrintingSupported();
+});
 
 Future<void> loadPrintersCount(PrinterRepository repo) => _guard(() async {
-      printersCount.value = await repo.getPrintersCount();
-    });
+  printersCount.value = await repo.getPrintersCount();
+});
 
 Future<void> loadDefaultPrinter(PrinterRepository repo) => _guard(() async {
-      defaultPrinter.value = await repo.getDefaultPrinter();
-    });
+  defaultPrinter.value = await repo.getDefaultPrinter();
+});
 
 Future<void> loadCapabilities(PrinterRepository repo) => _guard(() async {
-      final printer = await repo.getDefaultPrinter();
-      printerCapabilities.value = await repo.getPrinterCapabilities(printer.id);
-    });
+  final printer = await repo.getDefaultPrinter();
+  printerCapabilities.value = await repo.getPrinterCapabilities(printer.id);
+});
 
 Future<void> loadDriverVersion(PrinterRepository repo) => _guard(() async {
-      final printer = await repo.getDefaultPrinter();
-      driverVersion.value = await repo.getPrinterDriverVersion(printer.id);
-    });
+  final printer = await repo.getDefaultPrinter();
+  driverVersion.value = await repo.getPrinterDriverVersion(printer.id);
+});
 
-Future<void> loadStatusDetail(PrinterRepository repo, String printerId) => _guard(() async {
+Future<void> loadStatusDetail(PrinterRepository repo, String printerId) =>
+    _guard(() async {
       printerStatusDetail.value = await repo.getPrinterStatusDetail(printerId);
     });

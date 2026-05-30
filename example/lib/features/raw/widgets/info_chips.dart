@@ -15,11 +15,17 @@ class InfoChips extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: const Color(0xFF334155).withValues(alpha: 0.4),
+                ),
               ),
               child: Text(
                 t,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF94A3B8),
+                ),
               ),
             ),
           )

@@ -4,11 +4,7 @@ class ResultCard extends StatelessWidget {
   final String result;
   final bool isError;
 
-  const ResultCard({
-    super.key,
-    required this.result,
-    this.isError = false,
-  });
+  const ResultCard({super.key, required this.result, this.isError = false});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +19,11 @@ class ResultCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(isError ? Icons.error_outline_rounded : Icons.info_outline_rounded, size: 20, color: color),
+          Icon(
+            isError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
+            size: 20,
+            color: color,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: SelectableText(

@@ -32,8 +32,13 @@ Future<bool> testPrinterConnectionAction(
   rawLoading.value = true;
   rawResult.value = null;
   try {
-    final ok = await repo.testPrinterConnection(uri, timeoutSeconds: timeoutSeconds);
-    rawResult.value = ok ? 'OK — printer socket reachable' : 'Failed — printer socket unreachable';
+    final ok = await repo.testPrinterConnection(
+      uri,
+      timeoutSeconds: timeoutSeconds,
+    );
+    rawResult.value = ok
+        ? 'OK — printer socket reachable'
+        : 'Failed — printer socket unreachable';
     return ok;
   } catch (e) {
     rawResult.value = 'Connection error: $e';

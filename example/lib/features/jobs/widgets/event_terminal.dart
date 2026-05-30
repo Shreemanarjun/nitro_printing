@@ -21,7 +21,10 @@ class EventTerminal extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(
               color: Color(0xFF0B0F19),
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(14), topRight: Radius.circular(14)),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(14),
+                topRight: Radius.circular(14),
+              ),
               border: Border(bottom: BorderSide(color: Color(0xFF1E293B))),
             ),
             child: Row(
@@ -29,19 +32,28 @@ class EventTerminal extends StatelessWidget {
                 Container(
                   width: 10,
                   height: 10,
-                  decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Container(
                   width: 10,
                   height: 10,
-                  decoration: const BoxDecoration(color: Colors.amberAccent, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.amberAccent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Container(
                   width: 10,
                   height: 10,
-                  decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.greenAccent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 const Text(
@@ -63,11 +75,19 @@ class EventTerminal extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.terminal_rounded, size: 28, color: Color(0xFF1E293B)),
+                        Icon(
+                          Icons.terminal_rounded,
+                          size: 28,
+                          color: Color(0xFF1E293B),
+                        ),
                         SizedBox(height: 10),
                         Text(
                           '> telemetry feed standby',
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 13, color: Color(0xFF334155)),
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            color: Color(0xFF334155),
+                          ),
                         ),
                       ],
                     ),

@@ -756,26 +756,32 @@ void main() {
       expect(result, isA<bool>());
     });
 
-    test('getPrinterStatusDetail with timeout returns PrinterStatusDetail', () async {
-      final detail = await printing.getPrinterStatusDetail(
-        'ipp://0.0.0.0:631/ipp/print',
-        timeoutSeconds: 3,
-      );
-      expect(detail, isA<PrinterStatusDetail>());
-      expect(detail.printerId, isNotEmpty);
-      // Unreachable printer — should be offline
-      expect(detail.isOnline, isFalse);
-    });
+    test(
+      'getPrinterStatusDetail with timeout returns PrinterStatusDetail',
+      () async {
+        final detail = await printing.getPrinterStatusDetail(
+          'ipp://0.0.0.0:631/ipp/print',
+          timeoutSeconds: 3,
+        );
+        expect(detail, isA<PrinterStatusDetail>());
+        expect(detail.printerId, isNotEmpty);
+        // Unreachable printer — should be offline
+        expect(detail.isOnline, isFalse);
+      },
+    );
 
-    test('getPrinterStatusDetail with socket URI times out gracefully', () async {
-      final detail = await printing.getPrinterStatusDetail(
-        '0.0.0.0:9100',
-        timeoutSeconds: 2,
-      );
-      expect(detail, isA<PrinterStatusDetail>());
-      expect(detail.isOnline, isFalse);
-      expect(detail.isReady, isFalse);
-    });
+    test(
+      'getPrinterStatusDetail with socket URI times out gracefully',
+      () async {
+        final detail = await printing.getPrinterStatusDetail(
+          '0.0.0.0:9100',
+          timeoutSeconds: 2,
+        );
+        expect(detail, isA<PrinterStatusDetail>());
+        expect(detail.isOnline, isFalse);
+        expect(detail.isReady, isFalse);
+      },
+    );
   });
 
   // ─── Raw protocol printing ────────────────────────────────────────────────
@@ -810,7 +816,14 @@ void main() {
     });
 
     test('printEscPos() with unreachable printer fails gracefully', () async {
-      final escPosData = Uint8List.fromList([0x1B, 0x40, 0x1D, 0x56, 0x42, 0x00]);
+      final escPosData = Uint8List.fromList([
+        0x1B,
+        0x40,
+        0x1D,
+        0x56,
+        0x42,
+        0x00,
+      ]);
       final result = await printing.printEscPos(
         escPosData,
         settings: PrintSettings(
@@ -847,11 +860,14 @@ void main() {
       expect(cancelled, isFalse);
     });
 
-    test('cancelRawPrint() is idempotent — can be called multiple times', () async {
-      await printing.cancelRawPrint();
-      final result = await printing.cancelRawPrint();
-      expect(result, isFalse);
-    });
+    test(
+      'cancelRawPrint() is idempotent — can be called multiple times',
+      () async {
+        await printing.cancelRawPrint();
+        final result = await printing.cancelRawPrint();
+        expect(result, isFalse);
+      },
+    );
 
     test('printRaw() with custom timeout setting is accepted', () async {
       final result = await printing.printRaw(
@@ -946,7 +962,10 @@ void main() {
     });
 
     test('at most one printer is default in getAllPrinters()', () {
-      final defaults = printing.getAllPrinters().where((p) => p.isDefault).toList();
+      final defaults = printing
+          .getAllPrinters()
+          .where((p) => p.isDefault)
+          .toList();
       expect(defaults.length, lessThanOrEqualTo(1));
     });
   });
@@ -977,23 +996,25 @@ void main() {
       await sub.cancel();
     });
 
-    test('onPrinterDiscovered() emits DiscoveredPrinter events with valid fields',
-        () async {
-      final events = <DiscoveredPrinter>[];
-      StreamSubscription<DiscoveredPrinter>? sub;
-      try {
-        sub = printing.onPrinterDiscovered().listen(events.add);
-        await printing.startPrinterDiscovery();
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-        for (final e in events) {
-          expect(e.id, isA<String>());
-          expect(e.name, isA<String>());
+    test(
+      'onPrinterDiscovered() emits DiscoveredPrinter events with valid fields',
+      () async {
+        final events = <DiscoveredPrinter>[];
+        StreamSubscription<DiscoveredPrinter>? sub;
+        try {
+          sub = printing.onPrinterDiscovered().listen(events.add);
+          await printing.startPrinterDiscovery();
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          for (final e in events) {
+            expect(e.id, isA<String>());
+            expect(e.name, isA<String>());
+          }
+        } finally {
+          await printing.stopPrinterDiscovery();
+          await sub?.cancel();
         }
-      } finally {
-        await printing.stopPrinterDiscovery();
-        await sub?.cancel();
-      }
-    });
+      },
+    );
 
     test('re-subscribing onPrinterDiscovered after cancel works', () async {
       StreamSubscription<DiscoveredPrinter>? sub;
@@ -1008,29 +1029,33 @@ void main() {
   // ─── Preview and file ─────────────────────────────────────────────────────
 
   group('preview and file', () {
-    test('getPageCount() with text document returns non-negative integer',
-        () async {
-      final doc = PrintDocument(
-        id: 'pg-doc',
-        title: 'Page Count Test',
-        type: DocumentType.plainText,
-        data: Uint8List.fromList('Line 1\nLine 2\nLine 3'.codeUnits),
-      );
-      final count = await printing.getPageCount(doc);
-      expect(count, greaterThanOrEqualTo(0));
-    });
+    test(
+      'getPageCount() with text document returns non-negative integer',
+      () async {
+        final doc = PrintDocument(
+          id: 'pg-doc',
+          title: 'Page Count Test',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('Line 1\nLine 2\nLine 3'.codeUnits),
+        );
+        final count = await printing.getPageCount(doc);
+        expect(count, greaterThanOrEqualTo(0));
+      },
+    );
 
-    test('getPageCount() with PDF document returns non-negative integer',
-        () async {
-      final doc = PrintDocument(
-        id: 'pg-pdf',
-        title: 'PDF Page Count',
-        type: DocumentType.pdf,
-        data: _minimalPdf(),
-      );
-      final count = await printing.getPageCount(doc);
-      expect(count, greaterThanOrEqualTo(0));
-    });
+    test(
+      'getPageCount() with PDF document returns non-negative integer',
+      () async {
+        final doc = PrintDocument(
+          id: 'pg-pdf',
+          title: 'PDF Page Count',
+          type: DocumentType.pdf,
+          data: _minimalPdf(),
+        );
+        final count = await printing.getPageCount(doc);
+        expect(count, greaterThanOrEqualTo(0));
+      },
+    );
 
     test('renderPreview() with text document returns PreviewResult', () async {
       final doc = PrintDocument(
@@ -1068,71 +1093,87 @@ void main() {
       expect(result, isA<bool>());
     });
 
-    test('printToFile() with empty path returns bool without throwing',
-        () async {
-      final doc = PrintDocument(
-        id: 'file-doc-2',
-        title: 'Empty Path Test',
-        type: DocumentType.plainText,
-        data: Uint8List.fromList('test'.codeUnits),
-      );
-      final result = await printing.printToFile(doc, '');
-      expect(result, isA<bool>());
-    });
+    test(
+      'printToFile() with empty path returns bool without throwing',
+      () async {
+        final doc = PrintDocument(
+          id: 'file-doc-2',
+          title: 'Empty Path Test',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('test'.codeUnits),
+        );
+        final result = await printing.printToFile(doc, '');
+        expect(result, isA<bool>());
+      },
+    );
   });
 
   // ─── Platform UX ──────────────────────────────────────────────────────────
 
   group('platform UX', () {
-    test('setDefaultPrinter() with invalid id returns bool without throwing',
-        () async {
-      final result = await printing.setDefaultPrinter('invalid-printer-id');
-      expect(result, isA<bool>());
-    });
+    test(
+      'setDefaultPrinter() with invalid id returns bool without throwing',
+      () async {
+        final result = await printing.setDefaultPrinter('invalid-printer-id');
+        expect(result, isA<bool>());
+      },
+    );
 
-    test('setDefaultPrinter() with empty id returns bool without throwing',
-        () async {
-      final result = await printing.setDefaultPrinter('');
-      expect(result, isA<bool>());
-    });
+    test(
+      'setDefaultPrinter() with empty id returns bool without throwing',
+      () async {
+        final result = await printing.setDefaultPrinter('');
+        expect(result, isA<bool>());
+      },
+    );
 
-    test('openSystemPrintQueue() with empty id returns bool without throwing',
-        () async {
-      final result = await printing.openSystemPrintQueue('');
-      expect(result, isA<bool>());
-    });
+    test(
+      'openSystemPrintQueue() with empty id returns bool without throwing',
+      () async {
+        final result = await printing.openSystemPrintQueue('');
+        expect(result, isA<bool>());
+      },
+    );
 
-    test('openPrinterProperties() with empty id returns bool without throwing',
-        () async {
-      final result = await printing.openPrinterProperties('');
-      expect(result, isA<bool>());
-    });
+    test(
+      'openPrinterProperties() with empty id returns bool without throwing',
+      () async {
+        final result = await printing.openPrinterProperties('');
+        expect(result, isA<bool>());
+      },
+    );
 
-    test('openSystemPrintQueue() with default printer id does not throw',
-        () async {
-      final printer = printing.getDefaultPrinter();
-      final result = await printing.openSystemPrintQueue(printer.id);
-      expect(result, isA<bool>());
-    });
+    test(
+      'openSystemPrintQueue() with default printer id does not throw',
+      () async {
+        final printer = printing.getDefaultPrinter();
+        final result = await printing.openSystemPrintQueue(printer.id);
+        expect(result, isA<bool>());
+      },
+    );
 
-    test('openPrinterProperties() with default printer id does not throw',
-        () async {
-      final printer = printing.getDefaultPrinter();
-      final result = await printing.openPrinterProperties(printer.id);
-      expect(result, isA<bool>());
-    });
+    test(
+      'openPrinterProperties() with default printer id does not throw',
+      () async {
+        final printer = printing.getDefaultPrinter();
+        final result = await printing.openPrinterProperties(printer.id);
+        expect(result, isA<bool>());
+      },
+    );
   });
 
   // ─── Extended job management ───────────────────────────────────────────────
 
   group('extended job management', () {
-    test('getPrintJobStatus() with invalid id returns PrintJob without throwing',
-        () async {
-      final job = await printing.getPrintJobStatus('invalid-job-id');
-      expect(job, isA<PrintJob>());
-      expect(job.id, isA<String>());
-      expect(job.state, isA<PrintState>());
-    });
+    test(
+      'getPrintJobStatus() with invalid id returns PrintJob without throwing',
+      () async {
+        final job = await printing.getPrintJobStatus('invalid-job-id');
+        expect(job, isA<PrintJob>());
+        expect(job.id, isA<String>());
+        expect(job.state, isA<PrintState>());
+      },
+    );
 
     test('getPrintJobStatus() with empty id does not throw', () async {
       final job = await printing.getPrintJobStatus('');
@@ -1149,13 +1190,15 @@ void main() {
       expect(result, isA<bool>());
     });
 
-    test('pausePrintJob() then resumePrintJob() on same id do not throw',
-        () async {
-      const id = 'nonexistent-job';
-      await printing.pausePrintJob(id);
-      final resumed = await printing.resumePrintJob(id);
-      expect(resumed, isA<bool>());
-    });
+    test(
+      'pausePrintJob() then resumePrintJob() on same id do not throw',
+      () async {
+        const id = 'nonexistent-job';
+        await printing.pausePrintJob(id);
+        final resumed = await printing.resumePrintJob(id);
+        expect(resumed, isA<bool>());
+      },
+    );
 
     test('clearPrintQueue() returns bool without throwing', () async {
       final result = await printing.clearPrintQueue();

@@ -38,7 +38,11 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
             SizedBox(width: 10),
             Text(
               'Print Queue Manager',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -63,7 +67,10 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
           final controlColumn = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('QUEUE OPERATIONS', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'QUEUE OPERATIONS',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -106,7 +113,10 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
               ),
               const SizedBox(height: 24),
 
-              Text('TELEMETRY LISTENER', style: Theme.of(context).textTheme.labelLarge),
+              Text(
+                'TELEMETRY LISTENER',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -129,14 +139,23 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
                           Expanded(
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
                               decoration: BoxDecoration(
-                                color: (listening ? const Color(0xFF10B981) : const Color(0xFF64748B))
-                                    .withValues(alpha: 0.08),
+                                color:
+                                    (listening
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFF64748B))
+                                        .withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: (listening ? const Color(0xFF10B981) : const Color(0xFF64748B))
-                                      .withValues(alpha: 0.2),
+                                  color:
+                                      (listening
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFF64748B))
+                                          .withValues(alpha: 0.2),
                                   width: 1,
                                 ),
                               ),
@@ -147,11 +166,15 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
                                     const SizedBox(width: 8),
                                   ],
                                   Text(
-                                    listening ? 'Telemetry Feed Active' : 'Telemetry Feed Idle',
+                                    listening
+                                        ? 'Telemetry Feed Active'
+                                        : 'Telemetry Feed Idle',
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: listening ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                                      color: listening
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFF94A3B8),
                                     ),
                                   ),
                                 ],
@@ -172,16 +195,30 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
             children: [
               Row(
                 children: [
-                  Text('REAL-TIME PIPELINE LOGS', style: Theme.of(context).textTheme.labelLarge),
+                  Text(
+                    'REAL-TIME PIPELINE LOGS',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                   const Spacer(),
                   if (events.isNotEmpty)
                     TextButton.icon(
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 30),
+                      ),
                       onPressed: () => jobEvents.value = [],
-                      icon: const Icon(Icons.delete_sweep_rounded, size: 16, color: Color(0xFF6366F1)),
+                      icon: const Icon(
+                        Icons.delete_sweep_rounded,
+                        size: 16,
+                        color: Color(0xFF6366F1),
+                      ),
                       label: const Text(
                         'Clear',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF6366F1), fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6366F1),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                 ],

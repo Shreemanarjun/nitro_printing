@@ -20,15 +20,15 @@ Future<void> _guard(Future<void> Function() fn) async {
 }
 
 Future<void> loadAllPrinters(PrinterRepository repo) => _guard(() async {
-      allPrinters.value = await repo.getAllPrinters();
-    });
+  allPrinters.value = await repo.getAllPrinters();
+});
 
 Future<void> toggleDiscovery(PrinterRepository repo) => _guard(() async {
-      if (isDiscovering.value) {
-        await repo.stopPrinterDiscovery();
-        isDiscovering.value = false;
-      } else {
-        final started = await repo.startPrinterDiscovery();
-        isDiscovering.value = started;
-      }
-    });
+  if (isDiscovering.value) {
+    await repo.stopPrinterDiscovery();
+    isDiscovering.value = false;
+  } else {
+    final started = await repo.startPrinterDiscovery();
+    isDiscovering.value = started;
+  }
+});

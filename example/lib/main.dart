@@ -63,7 +63,10 @@ class App extends StatelessWidget {
           ),
           labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
           floatingLabelStyle: const TextStyle(color: Color(0xFF6366F1)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
@@ -109,14 +112,8 @@ class App extends StatelessWidget {
             fontWeight: FontWeight.w600,
             color: Color(0xFFE2E8F0),
           ),
-          bodyLarge: TextStyle(
-            fontSize: 15,
-            color: Color(0xFFCBD5E1),
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF94A3B8),
-          ),
+          bodyLarge: TextStyle(fontSize: 15, color: Color(0xFFCBD5E1)),
+          bodyMedium: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
           labelLarge: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -141,22 +138,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _tab = 0;
 
-  final List<({IconData icon, IconData selectedIcon, String label})> _destinations = const [
-    (
-      icon: Icons.info_outline,
-      selectedIcon: Icons.info,
-      label: 'Status',
-    ),
+  final List<({IconData icon, IconData selectedIcon, String label})>
+  _destinations = const [
+    (icon: Icons.info_outline, selectedIcon: Icons.info, label: 'Status'),
     (
       icon: Icons.devices_outlined,
       selectedIcon: Icons.devices_rounded,
       label: 'Printers',
     ),
-    (
-      icon: Icons.print_outlined,
-      selectedIcon: Icons.print,
-      label: 'Print',
-    ),
+    (icon: Icons.print_outlined, selectedIcon: Icons.print, label: 'Print'),
     (
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,
@@ -189,17 +179,16 @@ class _HomePageState extends State<HomePage> {
           if (isDesktop) _buildSidebar(context),
           if (isTablet) _buildNavigationRail(context),
           Expanded(
-            child: IndexedStack(
-              index: _tab,
-              children: tabs,
-            ),
+            child: IndexedStack(index: _tab, children: tabs),
           ),
         ],
       ),
       bottomNavigationBar: (!isDesktop && !isTablet)
           ? Container(
               decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
+                border: Border(
+                  top: BorderSide(color: Color(0xFF1E293B), width: 1),
+                ),
               ),
               child: NavigationBar(
                 backgroundColor: const Color(0xFF0B0F19),
@@ -208,11 +197,16 @@ class _HomePageState extends State<HomePage> {
                 onDestinationSelected: (i) => setState(() => _tab = i),
                 indicatorColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
                 destinations: _destinations
-                    .map((d) => NavigationDestination(
-                          icon: Icon(d.icon, color: const Color(0xFF94A3B8)),
-                          selectedIcon: Icon(d.selectedIcon, color: const Color(0xFF6366F1)),
-                          label: d.label,
-                        ))
+                    .map(
+                      (d) => NavigationDestination(
+                        icon: Icon(d.icon, color: const Color(0xFF94A3B8)),
+                        selectedIcon: Icon(
+                          d.selectedIcon,
+                          color: const Color(0xFF6366F1),
+                        ),
+                        label: d.label,
+                      ),
+                    )
                     .toList(),
               ),
             )
@@ -306,28 +300,42 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(12),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           gradient: isSelected
                               ? LinearGradient(
                                   colors: [
-                                    const Color(0xFF6366F1).withValues(alpha: 0.15),
-                                    const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+                                    const Color(
+                                      0xFF6366F1,
+                                    ).withValues(alpha: 0.15),
+                                    const Color(
+                                      0xFF8B5CF6,
+                                    ).withValues(alpha: 0.05),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 )
                               : null,
                           border: isSelected
-                              ? Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.25), width: 1)
+                              ? Border.all(
+                                  color: const Color(
+                                    0xFF6366F1,
+                                  ).withValues(alpha: 0.25),
+                                  width: 1,
+                                )
                               : Border.all(color: Colors.transparent, width: 1),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               isSelected ? d.selectedIcon : d.icon,
-                              color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF64748B),
+                              color: isSelected
+                                  ? const Color(0xFF6366F1)
+                                  : const Color(0xFF64748B),
                               size: 20,
                             ),
                             const SizedBox(width: 16),
@@ -335,8 +343,12 @@ class _HomePageState extends State<HomePage> {
                               d.label,
                               style: TextStyle(
                                 fontSize: 14,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF94A3B8),
                               ),
                             ),
                             if (isSelected) ...[
@@ -429,11 +441,16 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         destinations: _destinations
-            .map((d) => NavigationRailDestination(
-                  icon: Icon(d.icon, color: const Color(0xFF94A3B8)),
-                  selectedIcon: Icon(d.selectedIcon, color: const Color(0xFF6366F1)),
-                  label: Text(d.label),
-                ))
+            .map(
+              (d) => NavigationRailDestination(
+                icon: Icon(d.icon, color: const Color(0xFF94A3B8)),
+                selectedIcon: Icon(
+                  d.selectedIcon,
+                  color: const Color(0xFF6366F1),
+                ),
+                label: Text(d.label),
+              ),
+            )
             .toList(),
       ),
     );

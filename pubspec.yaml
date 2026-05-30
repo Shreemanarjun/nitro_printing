@@ -1,6 +1,6 @@
 name: nitro_printing
 description: >-
-  A high-performance Flutter printing plugin built on NitroModules (JSI/FFI).
+  A high-performance Flutter printing plugin built on Nitro for Flutter.
   Supports text, image, PDF, raw/ESC-POS/ZPL printing, print-job management,
   mDNS printer discovery, IPP status queries, and a built-in print-settings UI —
   all with zero method-channel overhead.

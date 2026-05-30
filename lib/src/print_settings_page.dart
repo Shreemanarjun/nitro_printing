@@ -54,14 +54,22 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
     super.initState();
     _s = widget.initialSettings;
     _printers = _loadPrinters();
-    _jobNameCtrl  = TextEditingController(text: _s.jobName);
-    _headerCtrl   = TextEditingController(text: _s.headerText);
-    _footerCtrl   = TextEditingController(text: _s.footerText);
+    _jobNameCtrl = TextEditingController(text: _s.jobName);
+    _headerCtrl = TextEditingController(text: _s.headerText);
+    _footerCtrl = TextEditingController(text: _s.footerText);
     _inputTrayCtrl = TextEditingController(text: _s.inputTray);
-    _customWCtrl  = TextEditingController(text: _s.customPaperWidth > 0 ? _s.customPaperWidth.toString() : '');
-    _customHCtrl  = TextEditingController(text: _s.customPaperHeight > 0 ? _s.customPaperHeight.toString() : '');
-    _pageFromCtrl = TextEditingController(text: _s.pageRangeFrom > 0 ? _s.pageRangeFrom.toString() : '');
-    _pageToCtrl   = TextEditingController(text: _s.pageRangeTo > 0 ? _s.pageRangeTo.toString() : '');
+    _customWCtrl = TextEditingController(
+      text: _s.customPaperWidth > 0 ? _s.customPaperWidth.toString() : '',
+    );
+    _customHCtrl = TextEditingController(
+      text: _s.customPaperHeight > 0 ? _s.customPaperHeight.toString() : '',
+    );
+    _pageFromCtrl = TextEditingController(
+      text: _s.pageRangeFrom > 0 ? _s.pageRangeFrom.toString() : '',
+    );
+    _pageToCtrl = TextEditingController(
+      text: _s.pageRangeTo > 0 ? _s.pageRangeTo.toString() : '',
+    );
   }
 
   @override
@@ -81,9 +89,7 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
     try {
       final printing = NitroPrinting.instance;
       final count = printing.getPrintersCount();
-      return [
-        for (int i = 0; i < count; i++) printing.getPrinterAt(i),
-      ];
+      return [for (int i = 0; i < count; i++) printing.getPrinterAt(i)];
     } catch (_) {
       return [];
     }
@@ -219,20 +225,32 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
               const ListTile(
                 leading: Icon(Icons.print_disabled),
                 title: Text('No printers found'),
-                subtitle: Text('Printers discovered via network will appear here'),
+                subtitle: Text(
+                  'Printers discovered via network will appear here',
+                ),
               )
             else
               _dropdownTile<String>(
                 leading: const Icon(Icons.print),
                 title: 'Printer',
                 value: _s.printerId.isEmpty
-                    ? (_printers.firstWhere((p) => p.isDefault, orElse: () => _printers.first).id)
+                    ? (_printers
+                          .firstWhere(
+                            (p) => p.isDefault,
+                            orElse: () => _printers.first,
+                          )
+                          .id)
                     : _s.printerId,
-                items: _printers.map((p) => DropdownMenuItem(
-                  value: p.id,
-                  child: Text(p.name, overflow: TextOverflow.ellipsis),
-                )).toList(),
-                onChanged: (v) => v != null ? _update(_s.copyWith(printerId: v)) : null,
+                items: _printers
+                    .map(
+                      (p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text(p.name, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) =>
+                    v != null ? _update(_s.copyWith(printerId: v)) : null,
               ),
             _switchTile(
               leading: const Icon(Icons.open_in_new),
@@ -254,11 +272,16 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
               leading: const Icon(Icons.article_outlined),
               title: 'Paper Size',
               value: _s.paperSize,
-              items: PaperSize.values.map((s) => DropdownMenuItem(
-                value: s,
-                child: Text(s.name.toUpperCase()),
-              )).toList(),
-              onChanged: (v) => v != null ? _update(_s.copyWith(paperSize: v)) : null,
+              items: PaperSize.values
+                  .map(
+                    (s) => DropdownMenuItem(
+                      value: s,
+                      child: Text(s.name.toUpperCase()),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) =>
+                  v != null ? _update(_s.copyWith(paperSize: v)) : null,
             ),
             if (_s.paperSize == PaperSize.custom) ...[
               _textTile(
@@ -279,12 +302,17 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
               title: 'Orientation',
               value: _s.orientationDegrees,
               items: const [
-                DropdownMenuItem(value: 0.0,   child: Text('Portrait')),
-                DropdownMenuItem(value: 90.0,  child: Text('Landscape')),
+                DropdownMenuItem(value: 0.0, child: Text('Portrait')),
+                DropdownMenuItem(value: 90.0, child: Text('Landscape')),
                 DropdownMenuItem(value: 180.0, child: Text('Reverse Portrait')),
-                DropdownMenuItem(value: 270.0, child: Text('Reverse Landscape')),
+                DropdownMenuItem(
+                  value: 270.0,
+                  child: Text('Reverse Landscape'),
+                ),
               ],
-              onChanged: (v) => v != null ? _update(_s.copyWith(orientationDegrees: v)) : null,
+              onChanged: (v) => v != null
+                  ? _update(_s.copyWith(orientationDegrees: v))
+                  : null,
             ),
           ]),
 
@@ -302,10 +330,14 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
                         ? () => _update(_s.copyWith(copies: _s.copies - 1))
                         : null,
                   ),
-                  Text('${_s.copies}', style: Theme.of(context).textTheme.bodyLarge),
+                  Text(
+                    '${_s.copies}',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.add),
-                    onPressed: () => _update(_s.copyWith(copies: _s.copies + 1)),
+                    onPressed: () =>
+                        _update(_s.copyWith(copies: _s.copies + 1)),
                   ),
                 ],
               ),
@@ -315,14 +347,15 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
               title: 'Pages per Sheet',
               value: _s.pagesPerSheet,
               items: const [
-                DropdownMenuItem(value: 1,  child: Text('1')),
-                DropdownMenuItem(value: 2,  child: Text('2')),
-                DropdownMenuItem(value: 4,  child: Text('4')),
-                DropdownMenuItem(value: 6,  child: Text('6')),
-                DropdownMenuItem(value: 8,  child: Text('8')),
+                DropdownMenuItem(value: 1, child: Text('1')),
+                DropdownMenuItem(value: 2, child: Text('2')),
+                DropdownMenuItem(value: 4, child: Text('4')),
+                DropdownMenuItem(value: 6, child: Text('6')),
+                DropdownMenuItem(value: 8, child: Text('8')),
                 DropdownMenuItem(value: 16, child: Text('16')),
               ],
-              onChanged: (v) => v != null ? _update(_s.copyWith(pagesPerSheet: v)) : null,
+              onChanged: (v) =>
+                  v != null ? _update(_s.copyWith(pagesPerSheet: v)) : null,
             ),
             ListTile(
               leading: const Icon(Icons.looks_one_outlined),
@@ -331,7 +364,7 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
                 _pageFromCtrl.text.isEmpty && _pageToCtrl.text.isEmpty
                     ? 'All pages'
                     : 'Pages ${_pageFromCtrl.text.isEmpty ? "1" : _pageFromCtrl.text}'
-                      '–${_pageToCtrl.text.isEmpty ? "end" : _pageToCtrl.text}',
+                          '–${_pageToCtrl.text.isEmpty ? "end" : _pageToCtrl.text}',
               ),
               trailing: SizedBox(
                 width: 120,
@@ -341,7 +374,10 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
                       child: TextField(
                         controller: _pageFromCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'From', isDense: true),
+                        decoration: const InputDecoration(
+                          labelText: 'From',
+                          isDense: true,
+                        ),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -350,7 +386,10 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
                       child: TextField(
                         controller: _pageToCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'To', isDense: true),
+                        decoration: const InputDecoration(
+                          labelText: 'To',
+                          isDense: true,
+                        ),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -373,21 +412,35 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
               leading: const Icon(Icons.tune),
               title: 'Print Quality',
               value: _s.quality,
-              items: PrintQuality.values.map((q) => DropdownMenuItem(
-                value: q,
-                child: Text(q.name[0].toUpperCase() + q.name.substring(1)),
-              )).toList(),
-              onChanged: (v) => v != null ? _update(_s.copyWith(quality: v)) : null,
+              items: PrintQuality.values
+                  .map(
+                    (q) => DropdownMenuItem(
+                      value: q,
+                      child: Text(
+                        q.name[0].toUpperCase() + q.name.substring(1),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) =>
+                  v != null ? _update(_s.copyWith(quality: v)) : null,
             ),
             _dropdownTile<MediaType>(
               leading: const Icon(Icons.layers_outlined),
               title: 'Media Type',
               value: _s.mediaType,
-              items: MediaType.values.map((m) => DropdownMenuItem(
-                value: m,
-                child: Text(m.name[0].toUpperCase() + m.name.substring(1)),
-              )).toList(),
-              onChanged: (v) => v != null ? _update(_s.copyWith(mediaType: v)) : null,
+              items: MediaType.values
+                  .map(
+                    (m) => DropdownMenuItem(
+                      value: m,
+                      child: Text(
+                        m.name[0].toUpperCase() + m.name.substring(1),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) =>
+                  v != null ? _update(_s.copyWith(mediaType: v)) : null,
             ),
             _switchTile(
               leading: const Icon(Icons.color_lens_outlined),
