@@ -4,7 +4,7 @@ description: >-
   Supports text, image, PDF, raw/ESC-POS/ZPL printing, print-job management,
   mDNS printer discovery, IPP status queries, and a built-in print-settings UI —
   all with zero method-channel overhead.
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/Shreemanarjun/nitro_printing
 repository: https://github.com/Shreemanarjun/nitro_printing
 issue_tracker: https://github.com/Shreemanarjun/nitro_printing/issues
