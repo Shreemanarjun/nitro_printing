@@ -13,19 +13,25 @@ part 'nitro_printing.g.dart';
 abstract class NitroPrinting extends HybridObject {
   static final NitroPrinting instance = _NitroPrintingImpl();
 
-  // ── Synchronous quick-lookup (no Isolate overhead) ────────────────────────
-  // These are direct FFI calls — no @nitroAsync, no Isolate.run dispatch.
-  // They must complete in microseconds; reserve @nitroAsync for real I/O.
-
+  // ── Synchronous quick-lookup (no I/O, sub-microsecond) ───────────────────
   bool isPrintingSupported();
   int getPrintersCount();
-
-  /// Get all available printers.
-  List<PrinterInfo> getAllPrinters();
-  PrinterInfo getPrinterAt(int index);
-  PrinterInfo getDefaultPrinter();
   String getPrinterDriverVersion(String printerId);
-  PrinterCapabilities getPrinterCapabilities(String printerId);
+
+  // ── Async: printer discovery / info ──────────────────────────────────────
+
+  /// Returns all available printers. Runs off the UI thread (@nitroAsync).
+  @nitroAsync
+  Future<List<PrinterInfo>> getAllPrinters();
+
+  @nitroAsync
+  Future<PrinterInfo> getPrinterAt(int index);
+
+  @nitroAsync
+  Future<PrinterInfo> getDefaultPrinter();
+
+  @nitroAsync
+  Future<PrinterCapabilities> getPrinterCapabilities(String printerId);
 
   // ── Async: print operations ───────────────────────────────────────────────
 
@@ -195,9 +201,12 @@ enum DocumentType { plainText, html, pdf, image }
 @HybridEnum()
 enum MediaType { plain, glossy, matte, photo, label, envelope }
 
-// ── Structs ───────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
+// Rules used below:
+//   @HybridRecord  — has String fields or enum fields (binary-encodes once, no per-call strdup)
+//   @HybridStruct  — no String fields AND carries Uint8List (zero-copy TypedData support)
 
-@HybridStruct()
+@HybridRecord()
 class PrinterInfo {
   final String id;
   final String name;
@@ -214,7 +223,7 @@ class PrinterInfo {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrinterCapabilities {
   final bool supportsColor;
   final bool supportsDuplex;
@@ -264,7 +273,7 @@ class PrinterCapabilities {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrintSettings {
   final String printerId;
   final PaperSize paperSize;
@@ -360,7 +369,7 @@ class PrintDocument {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrintJob {
   final String id;
   final String printerId;
@@ -392,7 +401,7 @@ class PrintJob {
       : null;
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrintResult {
   final bool success;
   final String jobId;
@@ -407,7 +416,7 @@ class PrintResult {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrintJobUpdate {
   final String jobId;
   final PrintState state;
@@ -422,7 +431,7 @@ class PrintJobUpdate {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrinterStatus {
   final String printerId;
   final bool isOnline;
@@ -460,7 +469,7 @@ class PreviewResult {
   PreviewResult({required this.bytes, required this.length});
 }
 
-@HybridStruct()
+@HybridRecord()
 class DiscoveredPrinter {
   final String id;
   final String name;
@@ -485,7 +494,7 @@ class DiscoveredPrinter {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrinterStatusDetail {
   final String printerId;
   final bool isOnline;

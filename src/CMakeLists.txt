@@ -3,7 +3,8 @@ project(nitro_printing_library VERSION 0.0.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(NITRO_NATIVE "/Users/shreemanarjunsahu/.puro/shared/pub_cache/hosted/pub.dev/nitro-0.4.2/src/native")
+set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/native")
+# NITRO_LINK_SPEC_CHECKSUM 152019dd408b9ca0
 set(GENERATED_CPP "${CMAKE_CURRENT_SOURCE_DIR}/../lib/src/generated/cpp")
 
 add_library(nitro_printing SHARED

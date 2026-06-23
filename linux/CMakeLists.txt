@@ -1,4 +1,4 @@
-set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../../packages/nitro/src/native")
+set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../src/native")
 
 # The Flutter tooling requires that developers have CMake 3.10 or later
 # installed. You should not increase this version, as doing so will cause

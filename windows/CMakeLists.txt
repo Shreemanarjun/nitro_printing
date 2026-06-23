@@ -1,4 +1,4 @@
-set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../../packages/nitro/src/native")
+set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../src/native")
 
 # The Flutter tooling requires that developers have a version of Visual Studio
 # installed that includes CMake 3.14 or later. You should not increase this
