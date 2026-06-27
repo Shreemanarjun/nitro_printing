@@ -6,9 +6,9 @@ abstract class PrinterRepository {
   Future<bool> isPrintingSupported();
   Future<int> getPrintersCount();
   Future<List<p.PrinterInfo>> getAllPrinters();
-  Future<p.PrinterInfo> getPrinterAt(int index);
-  Future<p.PrinterInfo> getDefaultPrinter();
-  Future<p.PrinterCapabilities> getPrinterCapabilities(String printerId);
+  Future<p.NitroResultValue<p.PrinterInfo>> getPrinterAt(int index);
+  Future<p.NitroResultValue<p.PrinterInfo>> getDefaultPrinter();
+  Future<p.NitroResultValue<p.PrinterCapabilities>> getPrinterCapabilities(String printerId);
   Future<String> getPrinterDriverVersion(String printerId);
 
   // ── Standard print operations ─────────────────────────────────────────────
@@ -53,11 +53,11 @@ abstract class PrinterRepository {
   Future<bool> resumePrintJob(String jobId);
   Future<bool> clearPrintQueue();
   Future<int> getPrintJobsCount();
-  Future<p.PrintJob> getPrintJobAt(int index);
-  Future<p.PrintJob> getPrintJobStatus(String jobId);
+  Future<p.NitroResultValue<p.PrintJob>> getPrintJobAt(int index);
+  Future<p.NitroResultValue<p.PrintJob>> getPrintJobStatus(String jobId);
 
   // ── Printer status ────────────────────────────────────────────────────────
-  Future<p.PrinterStatusDetail> getPrinterStatusDetail(
+  Future<p.NitroResultValue<p.PrinterStatusDetail>> getPrinterStatusDetail(
     String printerId, {
     int? timeoutSeconds,
   });
@@ -91,14 +91,14 @@ class NitroPrinterRepository implements PrinterRepository {
   Future<List<p.PrinterInfo>> getAllPrinters() =>
       Future.value(_i.getAllPrinters());
   @override
-  Future<p.PrinterInfo> getPrinterAt(int index) =>
-      Future.value(_i.getPrinterAt(index));
+  Future<p.NitroResultValue<p.PrinterInfo>> getPrinterAt(int index) =>
+      _i.getPrinterAt(index);
   @override
-  Future<p.PrinterInfo> getDefaultPrinter() =>
-      Future.value(_i.getDefaultPrinter());
+  Future<p.NitroResultValue<p.PrinterInfo>> getDefaultPrinter() =>
+      _i.getDefaultPrinter();
   @override
-  Future<p.PrinterCapabilities> getPrinterCapabilities(String printerId) =>
-      Future.value(_i.getPrinterCapabilities(printerId));
+  Future<p.NitroResultValue<p.PrinterCapabilities>> getPrinterCapabilities(String printerId) =>
+      _i.getPrinterCapabilities(printerId);
   @override
   Future<String> getPrinterDriverVersion(String printerId) =>
       Future.value(_i.getPrinterDriverVersion(printerId));
@@ -168,13 +168,14 @@ class NitroPrinterRepository implements PrinterRepository {
   @override
   Future<int> getPrintJobsCount() => _i.getPrintJobsCount();
   @override
-  Future<p.PrintJob> getPrintJobAt(int index) => _i.getPrintJobAt(index);
+  Future<p.NitroResultValue<p.PrintJob>> getPrintJobAt(int index) =>
+      _i.getPrintJobAt(index);
   @override
-  Future<p.PrintJob> getPrintJobStatus(String jobId) =>
+  Future<p.NitroResultValue<p.PrintJob>> getPrintJobStatus(String jobId) =>
       _i.getPrintJobStatus(jobId);
 
   @override
-  Future<p.PrinterStatusDetail> getPrinterStatusDetail(
+  Future<p.NitroResultValue<p.PrinterStatusDetail>> getPrinterStatusDetail(
     String printerId, {
     int? timeoutSeconds,
   }) => _i.getPrinterStatusDetail(printerId, timeoutSeconds: timeoutSeconds);

@@ -36,20 +36,27 @@ Future<void> loadPrintersCount(PrinterRepository repo) => _guard(() async {
 });
 
 Future<void> loadDefaultPrinter(PrinterRepository repo) => _guard(() async {
-  defaultPrinter.value = await repo.getDefaultPrinter();
+  final r = await repo.getDefaultPrinter();
+  if (r case p.NitroOk(:final value)) defaultPrinter.value = value;
 });
 
 Future<void> loadCapabilities(PrinterRepository repo) => _guard(() async {
-  final printer = await repo.getDefaultPrinter();
-  printerCapabilities.value = await repo.getPrinterCapabilities(printer.id);
+  final printerResult = await repo.getDefaultPrinter();
+  if (printerResult case p.NitroOk(:final value)) {
+    final capsResult = await repo.getPrinterCapabilities(value.id);
+    if (capsResult case p.NitroOk(:final value)) printerCapabilities.value = value;
+  }
 });
 
 Future<void> loadDriverVersion(PrinterRepository repo) => _guard(() async {
-  final printer = await repo.getDefaultPrinter();
-  driverVersion.value = await repo.getPrinterDriverVersion(printer.id);
+  final printerResult = await repo.getDefaultPrinter();
+  if (printerResult case p.NitroOk(:final value)) {
+    driverVersion.value = await repo.getPrinterDriverVersion(value.id);
+  }
 });
 
 Future<void> loadStatusDetail(PrinterRepository repo, String printerId) =>
     _guard(() async {
-      printerStatusDetail.value = await repo.getPrinterStatusDetail(printerId);
+      final r = await repo.getPrinterStatusDetail(printerId);
+      if (r case p.NitroOk(:final value)) printerStatusDetail.value = value;
     });

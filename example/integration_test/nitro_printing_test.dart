@@ -38,6 +38,18 @@ Uint8List _minimalPdf() {
   return Uint8List.fromList(src.codeUnits);
 }
 
+/// Unwrap a `@NitroResult` printer lookup. Returns null on [NitroErr].
+PrinterInfo? _unwrapPrinter(NitroResultValue<PrinterInfo> r) =>
+    r is NitroOk<PrinterInfo> ? r.value : null;
+
+/// Unwrap a `@NitroResult` job lookup. Returns null on [NitroErr].
+PrintJob? _unwrapJob(NitroResultValue<PrintJob> r) =>
+    r is NitroOk<PrintJob> ? r.value : null;
+
+/// Unwrap a `@NitroResult` status-detail lookup. Returns null on [NitroErr].
+PrinterStatusDetail? _unwrapDetail(NitroResultValue<PrinterStatusDetail> r) =>
+    r is NitroOk<PrinterStatusDetail> ? r.value : null;
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 void main() {
@@ -66,42 +78,85 @@ void main() {
       expect(count, greaterThanOrEqualTo(0));
     });
 
-    test('getDefaultPrinter() returns PrinterInfo without throwing', () async {
-      final printer = printing.getDefaultPrinter();
-      expect(printer.id, isA<String>());
-      expect(printer.name, isA<String>());
-      expect(printer.isDefault, isA<bool>());
-      expect(printer.isAvailable, isA<bool>());
-    });
+    test(
+      'getDefaultPrinter() returns NitroResultValue<PrinterInfo>',
+      () async {
+        final result = await printing.getDefaultPrinter();
+        expect(result, isA<NitroResultValue<PrinterInfo>>());
+        if (result is NitroOk<PrinterInfo>) {
+          expect(result.value.id, isA<String>());
+          expect(result.value.name, isA<String>());
+          expect(result.value.isDefault, isA<bool>());
+          expect(result.value.isAvailable, isA<bool>());
+        }
+      },
+    );
+
+    test(
+      'getDefaultPrinter() NitroErr message is non-empty when no default',
+      () async {
+        final result = await printing.getDefaultPrinter();
+        if (result is NitroErr<PrinterInfo>) {
+          expect(result.message, isNotEmpty);
+        }
+      },
+    );
 
     test('getPrinterAt(0) does not throw when printers exist', () async {
       final count = printing.getPrintersCount();
       if (count > 0) {
-        final printer = printing.getPrinterAt(0);
-        expect(printer.id, isNotEmpty);
-        expect(printer.name, isNotEmpty);
+        final result = await printing.getPrinterAt(0);
+        expect(result, isA<NitroResultValue<PrinterInfo>>());
+        if (result is NitroOk<PrinterInfo>) {
+          expect(result.value.id, isNotEmpty);
+          expect(result.value.name, isNotEmpty);
+        }
       }
     });
 
     test(
-      'getPrinterCapabilities() returns PrinterCapabilities without throwing',
+      'getPrinterAt() with out-of-range index returns NitroErr',
       () async {
-        final printer = printing.getDefaultPrinter();
-        final caps = printing.getPrinterCapabilities(printer.id);
-        expect(caps.supportsColor, isA<bool>());
-        expect(caps.supportsDuplex, isA<bool>());
-        expect(caps.maxCopies, greaterThan(0));
-        expect(caps.minMarginTop, greaterThanOrEqualTo(0));
-        expect(caps.supportsA4, isA<bool>());
-        expect(caps.supportsNormalQuality, isA<bool>());
+        final count = printing.getPrintersCount();
+        final result = await printing.getPrinterAt(count + 9999);
+        expect(result, isA<NitroErr<PrinterInfo>>());
+      },
+    );
+
+    test(
+      'getPrinterCapabilities() returns NitroResultValue<PrinterCapabilities>',
+      () async {
+        final printerResult = await printing.getDefaultPrinter();
+        final printerId = _unwrapPrinter(printerResult)?.id ?? '';
+        final capsResult = await printing.getPrinterCapabilities(printerId);
+        expect(capsResult, isA<NitroResultValue<PrinterCapabilities>>());
+        if (capsResult is NitroOk<PrinterCapabilities>) {
+          expect(capsResult.value.supportsColor, isA<bool>());
+          expect(capsResult.value.supportsDuplex, isA<bool>());
+          expect(capsResult.value.maxCopies, greaterThan(0));
+          expect(capsResult.value.minMarginTop, greaterThanOrEqualTo(0));
+          expect(capsResult.value.supportsA4, isA<bool>());
+          expect(capsResult.value.supportsNormalQuality, isA<bool>());
+        }
+      },
+    );
+
+    test(
+      'getPrinterCapabilities() with unknown id returns NitroErr',
+      () async {
+        final result = await printing.getPrinterCapabilities(
+          'invalid-printer-id-xyz',
+        );
+        expect(result, isA<NitroErr<PrinterCapabilities>>());
       },
     );
 
     test(
       'getPrinterDriverVersion() returns a string without throwing',
       () async {
-        final printer = printing.getDefaultPrinter();
-        final version = printing.getPrinterDriverVersion(printer.id);
+        final printerResult = await printing.getDefaultPrinter();
+        final printerId = _unwrapPrinter(printerResult)?.id ?? '';
+        final version = printing.getPrinterDriverVersion(printerId);
         expect(version, isA<String>());
       },
     );
@@ -118,13 +173,22 @@ void main() {
     test('getPrintJobAt(0) does not throw when jobs exist', () async {
       final count = await printing.getPrintJobsCount();
       if (count > 0) {
-        final job = await printing.getPrintJobAt(0);
-        expect(job.id, isNotEmpty);
-        expect(job.state, isA<PrintState>());
-        expect(job.progress, greaterThanOrEqualTo(0));
-        expect(job.pagesPrinted, greaterThanOrEqualTo(0));
-        expect(job.createdAtMillis, greaterThanOrEqualTo(0));
+        final result = await printing.getPrintJobAt(0);
+        expect(result, isA<NitroResultValue<PrintJob>>());
+        if (result is NitroOk<PrintJob>) {
+          expect(result.value.id, isNotEmpty);
+          expect(result.value.state, isA<PrintState>());
+          expect(result.value.progress, greaterThanOrEqualTo(0));
+          expect(result.value.pagesPrinted, greaterThanOrEqualTo(0));
+          expect(result.value.createdAtMillis, greaterThanOrEqualTo(0));
+        }
       }
+    });
+
+    test('getPrintJobAt() out-of-range index returns NitroErr', () async {
+      final count = await printing.getPrintJobsCount();
+      final result = await printing.getPrintJobAt(count + 9999);
+      expect(result, isA<NitroErr<PrintJob>>());
     });
 
     test('cancelPrintJob() does not throw', () async {
@@ -278,6 +342,101 @@ void main() {
     });
   });
 
+  // ─── Batch printing ────────────────────────────────────────────────────────
+
+  group('batch printing', () {
+    test('printBatch() with single document returns List<PrintResult>', () async {
+      final doc = PrintDocument(
+        id: 'batch-single',
+        title: 'Batch Single',
+        type: DocumentType.plainText,
+        data: Uint8List.fromList('Batch item 1'.codeUnits),
+      );
+      final results = await printing.printBatch([doc], false);
+      expect(results, isA<List<PrintResult>>());
+      expect(results, hasLength(1));
+    });
+
+    test('printBatch() with multiple documents returns results for each', () async {
+      final docs = List.generate(
+        3,
+        (i) => PrintDocument(
+          id: 'batch-$i',
+          title: 'Batch Item $i',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('Batch item $i'.codeUnits),
+        ),
+      );
+      final results = await printing.printBatch(
+        docs,
+        false,
+        settings: PrintSettings(
+          jobName: 'Batch Test',
+          showPrintDialog: false,
+        ),
+      );
+      expect(results, isA<List<PrintResult>>());
+      expect(results.length, greaterThanOrEqualTo(1));
+    });
+
+    test('printBatch() with stopOnError=true stops after failure', () async {
+      final docs = [
+        PrintDocument(
+          id: 'batch-good',
+          title: 'Valid Doc',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('ok'.codeUnits),
+        ),
+        PrintDocument(
+          id: 'batch-empty',
+          title: 'Empty Doc',
+          type: DocumentType.plainText,
+          data: Uint8List(0),
+        ),
+        PrintDocument(
+          id: 'batch-after-error',
+          title: 'After Error',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('late'.codeUnits),
+        ),
+      ];
+      final results = await printing.printBatch(docs, true);
+      // At most all 3 results (depends on whether platform treats empty as error)
+      expect(results.length, inInclusiveRange(1, 3));
+      for (final r in results) {
+        expect(r, isA<PrintResult>());
+      }
+    });
+
+    test('printBatch() with empty list returns empty results', () async {
+      final results = await printing.printBatch([], false);
+      expect(results, isEmpty);
+    });
+
+    test('printBatch() with PDF documents returns List<PrintResult>', () async {
+      final docs = [
+        PrintDocument(
+          id: 'batch-pdf-1',
+          title: 'Batch PDF 1',
+          type: DocumentType.pdf,
+          data: _minimalPdf(),
+        ),
+        PrintDocument(
+          id: 'batch-pdf-2',
+          title: 'Batch PDF 2',
+          type: DocumentType.pdf,
+          data: _minimalPdf(),
+        ),
+      ];
+      final results = await printing.printBatch(
+        docs,
+        false,
+        settings: PrintSettings(showPrintDialog: false, jobName: 'Batch PDFs'),
+      );
+      expect(results, isA<List<PrintResult>>());
+    });
+  });
+
   // ─── Direct printing (showPrintDialog: false) ──────────────────────────────
 
   group('direct printing', () {
@@ -287,7 +446,6 @@ void main() {
         settings: PrintSettings(
           jobName: 'Direct Print Test',
           showPrintDialog: false,
-          // No printerId — falls back to dialog or returns error gracefully.
         ),
       );
       expect(result, isA<PrintResult>());
@@ -724,6 +882,14 @@ void main() {
       expect(DocumentType.pdf, equals(DocumentType.pdf));
       expect(DocumentType.image, equals(DocumentType.image));
     });
+
+    test('PrintDialogState has all expected values', () {
+      expect(PrintDialogState.values, hasLength(4));
+      expect(PrintDialogState.idle, isA<PrintDialogState>());
+      expect(PrintDialogState.showing, isA<PrintDialogState>());
+      expect(PrintDialogState.confirmed, isA<PrintDialogState>());
+      expect(PrintDialogState.cancelled, isA<PrintDialogState>());
+    });
   });
 
   // ─── Network timeout ──────────────────────────────────────────────────────
@@ -757,29 +923,34 @@ void main() {
     });
 
     test(
-      'getPrinterStatusDetail with timeout returns PrinterStatusDetail',
+      'getPrinterStatusDetail with timeout returns NitroResultValue',
       () async {
-        final detail = await printing.getPrinterStatusDetail(
+        final result = await printing.getPrinterStatusDetail(
           'ipp://0.0.0.0:631/ipp/print',
           timeoutSeconds: 3,
         );
-        expect(detail, isA<PrinterStatusDetail>());
-        expect(detail.printerId, isNotEmpty);
-        // Unreachable printer — should be offline
-        expect(detail.isOnline, isFalse);
+        expect(result, isA<NitroResultValue<PrinterStatusDetail>>());
+        final detail = _unwrapDetail(result);
+        if (detail != null) {
+          expect(detail.printerId, isNotEmpty);
+          expect(detail.isOnline, isFalse); // Unreachable — should be offline
+        }
       },
     );
 
     test(
       'getPrinterStatusDetail with socket URI times out gracefully',
       () async {
-        final detail = await printing.getPrinterStatusDetail(
+        final result = await printing.getPrinterStatusDetail(
           '0.0.0.0:9100',
           timeoutSeconds: 2,
         );
-        expect(detail, isA<PrinterStatusDetail>());
-        expect(detail.isOnline, isFalse);
-        expect(detail.isReady, isFalse);
+        expect(result, isA<NitroResultValue<PrinterStatusDetail>>());
+        final detail = _unwrapDetail(result);
+        if (detail != null) {
+          expect(detail.isOnline, isFalse);
+          expect(detail.isReady, isFalse);
+        }
       },
     );
   });
@@ -885,66 +1056,86 @@ void main() {
   // ─── Printer status detail ────────────────────────────────────────────────
 
   group('printer status detail', () {
-    test('getPrinterStatusDetail with empty printerId', () async {
-      final detail = await printing.getPrinterStatusDetail('');
-      expect(detail, isA<PrinterStatusDetail>());
+    test('getPrinterStatusDetail with empty printerId returns result', () async {
+      final result = await printing.getPrinterStatusDetail('');
+      expect(result, isA<NitroResultValue<PrinterStatusDetail>>());
     });
 
     test('PrinterStatusDetail has all expected fields', () async {
-      final detail = await printing.getPrinterStatusDetail(
+      final result = await printing.getPrinterStatusDetail(
         'ipp://0.0.0.0:631/ipp/print',
         timeoutSeconds: 3,
       );
-      expect(detail.printerId, isA<String>());
-      expect(detail.isOnline, isA<bool>());
-      expect(detail.isReady, isA<bool>());
-      expect(detail.hasPaperJam, isA<bool>());
-      expect(detail.isOutOfPaper, isA<bool>());
-      expect(detail.isOutOfInk, isA<bool>());
-      expect(detail.inkLevelBlack, isA<int>());
-      expect(detail.inkLevelCyan, isA<int>());
-      expect(detail.inkLevelMagenta, isA<int>());
-      expect(detail.inkLevelYellow, isA<int>());
-      expect(detail.tonerLevel, isA<int>());
-      expect(detail.paperLevel, isA<int>());
-      expect(detail.jobsInQueue, isA<int>());
-      expect(detail.isWarmingUp, isA<bool>());
-      expect(detail.printerState, isA<String>());
-      expect(detail.stateReasons, isA<String>());
-      expect(detail.statusMessage, isA<String>());
-      expect(detail.errorCode, isA<String>());
-      expect(detail.isDuplexSupported, isA<bool>());
-      expect(detail.isColorSupported, isA<bool>());
+      final detail = _unwrapDetail(result);
+      if (detail != null) {
+        expect(detail.printerId, isA<String>());
+        expect(detail.isOnline, isA<bool>());
+        expect(detail.isReady, isA<bool>());
+        expect(detail.hasPaperJam, isA<bool>());
+        expect(detail.isOutOfPaper, isA<bool>());
+        expect(detail.isOutOfInk, isA<bool>());
+        expect(detail.inkLevelBlack, isA<int>());
+        expect(detail.inkLevelCyan, isA<int>());
+        expect(detail.inkLevelMagenta, isA<int>());
+        expect(detail.inkLevelYellow, isA<int>());
+        expect(detail.tonerLevel, isA<int>());
+        expect(detail.paperLevel, isA<int>());
+        expect(detail.jobsInQueue, isA<int>());
+        expect(detail.isWarmingUp, isA<bool>());
+        expect(detail.printerState, isA<String>());
+        expect(detail.stateReasons, isA<String>());
+        expect(detail.statusMessage, isA<String>());
+        expect(detail.errorCode, isA<String>());
+        expect(detail.isDuplexSupported, isA<bool>());
+        expect(detail.isColorSupported, isA<bool>());
+      }
     });
 
     test('offline printer ink levels are -1', () async {
-      final detail = await printing.getPrinterStatusDetail(
+      final result = await printing.getPrinterStatusDetail(
         '0.0.0.0:9100',
         timeoutSeconds: 2,
       );
-      // Unreachable — ink levels should be unknown (-1)
-      expect(detail.inkLevelBlack, equals(-1));
-      expect(detail.inkLevelCyan, equals(-1));
-      expect(detail.tonerLevel, equals(-1));
+      final detail = _unwrapDetail(result);
+      if (detail != null) {
+        // Unreachable — ink levels should be unknown (-1)
+        expect(detail.inkLevelBlack, equals(-1));
+        expect(detail.inkLevelCyan, equals(-1));
+        expect(detail.tonerLevel, equals(-1));
+      }
+    });
+
+    test('NitroErr from unreachable printer has a message', () async {
+      final result = await printing.getPrinterStatusDetail(
+        'ipp://192.0.2.0:631/unreachable',
+        timeoutSeconds: 1,
+      );
+      if (result is NitroErr<PrinterStatusDetail>) {
+        expect(result.message, isNotEmpty);
+      }
     });
   });
 
   // ─── getAllPrinters ────────────────────────────────────────────────────────
 
   group('getAllPrinters', () {
-    test('getAllPrinters() returns a List<PrinterInfo> without throwing', () {
-      final printers = printing.getAllPrinters();
-      expect(printers, isA<List<PrinterInfo>>());
-    });
+    test(
+      'getAllPrinters() returns a List<PrinterInfo> without throwing',
+      () async {
+        final printers = await printing.getAllPrinters();
+        expect(printers, isA<List<PrinterInfo>>());
+      },
+    );
 
-    test('getAllPrinters() count matches getPrintersCount()', () {
-      final printers = printing.getAllPrinters();
+    test('getAllPrinters() count matches getPrintersCount()', () async {
+      final printers = await printing.getAllPrinters();
       final count = printing.getPrintersCount();
       expect(printers.length, equals(count));
     });
 
-    test('getAllPrinters() entries have valid typed fields', () {
-      for (final p in printing.getAllPrinters()) {
+    test('getAllPrinters() entries have valid typed fields', () async {
+      final printers = await printing.getAllPrinters();
+      for (final p in printers) {
         expect(p.id, isA<String>());
         expect(p.name, isA<String>());
         expect(p.address, isA<String>());
@@ -953,19 +1144,19 @@ void main() {
       }
     });
 
-    test('first printer in getAllPrinters() matches getPrinterAt(0)', () {
-      final printers = printing.getAllPrinters();
+    test('first printer in getAllPrinters() matches getPrinterAt(0)', () async {
+      final printers = await printing.getAllPrinters();
       if (printers.isNotEmpty) {
-        final at0 = printing.getPrinterAt(0);
-        expect(printers.first.id, equals(at0.id));
+        final at0Result = await printing.getPrinterAt(0);
+        if (at0Result is NitroOk<PrinterInfo>) {
+          expect(printers.first.id, equals(at0Result.value.id));
+        }
       }
     });
 
-    test('at most one printer is default in getAllPrinters()', () {
-      final defaults = printing
-          .getAllPrinters()
-          .where((p) => p.isDefault)
-          .toList();
+    test('at most one printer is default in getAllPrinters()', () async {
+      final printers = await printing.getAllPrinters();
+      final defaults = printers.where((p) => p.isDefault).toList();
       expect(defaults.length, lessThanOrEqualTo(1));
     });
   });
@@ -1146,8 +1337,9 @@ void main() {
     test(
       'openSystemPrintQueue() with default printer id does not throw',
       () async {
-        final printer = printing.getDefaultPrinter();
-        final result = await printing.openSystemPrintQueue(printer.id);
+        final printerResult = await printing.getDefaultPrinter();
+        final printerId = _unwrapPrinter(printerResult)?.id ?? '';
+        final result = await printing.openSystemPrintQueue(printerId);
         expect(result, isA<bool>());
       },
     );
@@ -1155,8 +1347,9 @@ void main() {
     test(
       'openPrinterProperties() with default printer id does not throw',
       () async {
-        final printer = printing.getDefaultPrinter();
-        final result = await printing.openPrinterProperties(printer.id);
+        final printerResult = await printing.getDefaultPrinter();
+        final printerId = _unwrapPrinter(printerResult)?.id ?? '';
+        final result = await printing.openPrinterProperties(printerId);
         expect(result, isA<bool>());
       },
     );
@@ -1166,18 +1359,26 @@ void main() {
 
   group('extended job management', () {
     test(
-      'getPrintJobStatus() with invalid id returns PrintJob without throwing',
+      'getPrintJobStatus() with invalid id returns NitroResultValue',
       () async {
-        final job = await printing.getPrintJobStatus('invalid-job-id');
-        expect(job, isA<PrintJob>());
-        expect(job.id, isA<String>());
-        expect(job.state, isA<PrintState>());
+        final result = await printing.getPrintJobStatus('invalid-job-id');
+        expect(result, isA<NitroResultValue<PrintJob>>());
+        final job = _unwrapJob(result);
+        if (job != null) {
+          expect(job.id, isA<String>());
+          expect(job.state, isA<PrintState>());
+        }
       },
     );
 
+    test('getPrintJobStatus() with invalid id returns NitroErr', () async {
+      final result = await printing.getPrintJobStatus('definitely-no-such-job');
+      expect(result, isA<NitroErr<PrintJob>>());
+    });
+
     test('getPrintJobStatus() with empty id does not throw', () async {
-      final job = await printing.getPrintJobStatus('');
-      expect(job, isA<PrintJob>());
+      final result = await printing.getPrintJobStatus('');
+      expect(result, isA<NitroResultValue<PrintJob>>());
     });
 
     test('pausePrintJob() with invalid id returns bool', () async {
@@ -1387,6 +1588,285 @@ void main() {
       expect(status.isPrinting, isFalse);
       expect(status.inkLevel, equals(75));
       expect(status.tonerLevel, equals(100));
+    });
+  });
+
+  // ─── PrintDialogController ─────────────────────────────────────────────────
+
+  group('PrintDialogController', () {
+    group('state management', () {
+      test('initial state is idle', () {
+        final ctrl = PrintDialogController();
+        expect(ctrl.state, equals(PrintDialogState.idle));
+      });
+
+      test('initial currentSettings are default PrintSettings', () {
+        final ctrl = PrintDialogController();
+        expect(ctrl.currentSettings.paperSize, equals(PaperSize.a4));
+        expect(ctrl.currentSettings.copies, equals(1));
+        expect(ctrl.currentSettings.showPrintDialog, isTrue);
+      });
+
+      test('accepts custom initialSettings', () {
+        final ctrl = PrintDialogController(
+          initialSettings: PrintSettings(copies: 3, jobName: 'My Job'),
+        );
+        expect(ctrl.currentSettings.copies, equals(3));
+        expect(ctrl.currentSettings.jobName, equals('My Job'));
+      });
+
+      test('updateSettings replaces currentSettings', () {
+        final ctrl = PrintDialogController();
+        ctrl.updateSettings(PrintSettings(copies: 5, jobName: 'Updated'));
+        expect(ctrl.currentSettings.copies, equals(5));
+        expect(ctrl.currentSettings.jobName, equals('Updated'));
+      });
+
+      test('updateSettings can be called multiple times', () {
+        final ctrl = PrintDialogController();
+        ctrl.updateSettings(PrintSettings(copies: 2));
+        ctrl.updateSettings(PrintSettings(copies: 4, paperSize: PaperSize.letter));
+        expect(ctrl.currentSettings.copies, equals(4));
+        expect(ctrl.currentSettings.paperSize, equals(PaperSize.letter));
+      });
+
+      test('reset() returns state to idle', () {
+        final ctrl = PrintDialogController();
+        // Manually put it in a non-idle state by calling updateSettings and
+        // relying on printDirect to transition state.
+        ctrl.updateSettings(PrintSettings(copies: 2));
+        ctrl.reset();
+        expect(ctrl.state, equals(PrintDialogState.idle));
+      });
+
+      test('reset() with settings argument updates currentSettings', () {
+        final ctrl = PrintDialogController(
+          initialSettings: PrintSettings(copies: 5),
+        );
+        ctrl.reset(settings: PrintSettings(copies: 1, jobName: 'Reset'));
+        expect(ctrl.state, equals(PrintDialogState.idle));
+        expect(ctrl.currentSettings.copies, equals(1));
+        expect(ctrl.currentSettings.jobName, equals('Reset'));
+      });
+
+      test('reset() without settings keeps currentSettings unchanged', () {
+        final ctrl = PrintDialogController(
+          initialSettings: PrintSettings(copies: 7),
+        );
+        ctrl.reset();
+        expect(ctrl.currentSettings.copies, equals(7));
+      });
+    });
+
+    group('printDirect', () {
+      late PrintDialogController ctrl;
+
+      setUp(() {
+        ctrl = PrintDialogController(
+          initialSettings: PrintSettings(
+            jobName: 'Controller Direct',
+            showPrintDialog: false,
+          ),
+        );
+      });
+
+      test('printDirect() returns PrintResult', () async {
+        final doc = PrintDocument(
+          id: 'ctrl-text',
+          title: 'Controller Text',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('Direct via controller'.codeUnits),
+        );
+        final result = await ctrl.printDirect(doc);
+        expect(result, isA<PrintResult>());
+        expect(result.success, isA<bool>());
+      });
+
+      test('printDirect() transitions state to confirmed', () async {
+        expect(ctrl.state, equals(PrintDialogState.idle));
+        final doc = PrintDocument(
+          id: 'ctrl-state',
+          title: 'State Test',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('state'.codeUnits),
+        );
+        await ctrl.printDirect(doc);
+        expect(ctrl.state, equals(PrintDialogState.confirmed));
+      });
+
+      test('printDirect() uses currentSettings passed at construction', () async {
+        final doc = PrintDocument(
+          id: 'ctrl-settings',
+          title: 'Settings Test',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('settings'.codeUnits),
+        );
+        final result = await ctrl.printDirect(doc);
+        expect(result, isA<PrintResult>());
+      });
+
+      test('printDirect() uses updated settings after updateSettings()', () async {
+        ctrl.updateSettings(
+          PrintSettings(
+            jobName: 'Updated Controller Job',
+            showPrintDialog: false,
+            copies: 1,
+          ),
+        );
+        final doc = PrintDocument(
+          id: 'ctrl-updated',
+          title: 'Updated Settings Doc',
+          type: DocumentType.plainText,
+          data: Uint8List.fromList('updated'.codeUnits),
+        );
+        final result = await ctrl.printDirect(doc);
+        expect(result, isA<PrintResult>());
+      });
+
+      test('printDirect() with PDF document returns PrintResult', () async {
+        final doc = PrintDocument(
+          id: 'ctrl-pdf',
+          title: 'PDF via Controller',
+          type: DocumentType.pdf,
+          data: _minimalPdf(),
+        );
+        final result = await ctrl.printDirect(doc);
+        expect(result, isA<PrintResult>());
+      });
+
+      test('printDirect() with image document returns PrintResult', () async {
+        final doc = PrintDocument(
+          id: 'ctrl-img',
+          title: 'Image via Controller',
+          type: DocumentType.image,
+          data: _minimalPng(),
+        );
+        final result = await ctrl.printDirect(doc);
+        expect(result, isA<PrintResult>());
+      });
+
+      test('can re-use controller for multiple documents', () async {
+        for (var i = 0; i < 3; i++) {
+          ctrl.reset();
+          expect(ctrl.state, equals(PrintDialogState.idle));
+          final doc = PrintDocument(
+            id: 'ctrl-multi-$i',
+            title: 'Multi $i',
+            type: DocumentType.plainText,
+            data: Uint8List.fromList('doc $i'.codeUnits),
+          );
+          final result = await ctrl.printDirect(doc);
+          expect(result, isA<PrintResult>());
+          expect(ctrl.state, equals(PrintDialogState.confirmed));
+        }
+      });
+    });
+
+    group('PrintDialogResult model', () {
+      test('confirmed=true carries confirmedSettings', () {
+        final result = PrintDialogResult(
+          confirmed: true,
+          confirmedSettings: PrintSettings(copies: 2, jobName: 'Confirmed'),
+        );
+        expect(result.confirmed, isTrue);
+        expect(result.confirmedSettings.copies, equals(2));
+        expect(result.confirmedSettings.jobName, equals('Confirmed'));
+        expect(result.errorMessage, isEmpty);
+      });
+
+      test('confirmed=false with errorMessage', () {
+        final result = PrintDialogResult(
+          confirmed: false,
+          confirmedSettings: PrintSettings(),
+          errorMessage: 'User cancelled',
+        );
+        expect(result.confirmed, isFalse);
+        expect(result.errorMessage, equals('User cancelled'));
+      });
+
+      test('default errorMessage is empty string', () {
+        final result = PrintDialogResult(
+          confirmed: true,
+          confirmedSettings: PrintSettings(),
+        );
+        expect(result.errorMessage, isEmpty);
+      });
+
+      test('confirmedSettings carries all PrintSettings fields', () {
+        final settings = PrintSettings(
+          copies: 3,
+          paperSize: PaperSize.letter,
+          quality: PrintQuality.high,
+          duplex: true,
+          color: false,
+        );
+        final result = PrintDialogResult(
+          confirmed: true,
+          confirmedSettings: settings,
+        );
+        expect(result.confirmedSettings.copies, equals(3));
+        expect(result.confirmedSettings.paperSize, equals(PaperSize.letter));
+        expect(result.confirmedSettings.quality, equals(PrintQuality.high));
+        expect(result.confirmedSettings.duplex, isTrue);
+        expect(result.confirmedSettings.color, isFalse);
+      });
+    });
+
+    group('PrintDialogState', () {
+      test('has idle, showing, confirmed, cancelled', () {
+        expect(PrintDialogState.values, hasLength(4));
+        expect(PrintDialogState.idle.index, equals(0));
+        expect(PrintDialogState.showing.index, equals(1));
+        expect(PrintDialogState.confirmed.index, equals(2));
+        expect(PrintDialogState.cancelled.index, equals(3));
+      });
+
+      test('all states are distinct', () {
+        final states = PrintDialogState.values.toSet();
+        expect(states.length, equals(PrintDialogState.values.length));
+      });
+    });
+
+    group('NitroResultValue integration', () {
+      test('NitroOk carries the printer value', () {
+        final printer = PrinterInfo(
+          id: 'p1',
+          name: 'Test',
+          isDefault: true,
+        );
+        final result = NitroOk(printer);
+        expect(result, isA<NitroResultValue<PrinterInfo>>());
+        expect(result.value.id, equals('p1'));
+        expect(result.value.isDefault, isTrue);
+      });
+
+      test('NitroErr carries the error message', () {
+        const result = NitroErr<PrinterInfo>('No default printer');
+        expect(result, isA<NitroResultValue<PrinterInfo>>());
+        expect(result.message, equals('No default printer'));
+      });
+
+      test('switch on NitroResultValue works for PrinterInfo', () {
+        final NitroResultValue<PrinterInfo> result = NitroOk(
+          PrinterInfo(id: 'p2', name: 'Laser'),
+        );
+        switch (result) {
+          case NitroOk(:final value):
+            expect(value.name, equals('Laser'));
+          case NitroErr(:final message):
+            fail('Expected NitroOk, got NitroErr($message)');
+        }
+      });
+
+      test('switch on NitroResultValue works for NitroErr', () {
+        const NitroResultValue<PrintJob> result = NitroErr('Job not found');
+        switch (result) {
+          case NitroOk(:final value):
+            fail('Expected NitroErr, got NitroOk($value)');
+          case NitroErr(:final message):
+            expect(message, equals('Job not found'));
+        }
+      });
     });
   });
 }

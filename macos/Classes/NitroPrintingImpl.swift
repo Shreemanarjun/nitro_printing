@@ -61,11 +61,11 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         return _printerRepository
     }
 
-    public func getPrinterAt(index: Int64) -> PrinterInfo {
+    public func getPrinterAt(index: Int64) throws -> PrinterInfo {
         _repoLock.lock(); defer { _repoLock.unlock() }
         guard index >= 0, Int(index) < _printerRepository.count else {
-            return PrinterInfo(id: "unknown", name: "Unknown Printer", address: "",
-                               isDefault: false, isAvailable: false)
+            throw NSError(domain: "NitroPrinting", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Index \(index) out of range (count: \(_printerRepository.count))"])
         }
         return _printerRepository[Int(index)]
     }
@@ -83,17 +83,20 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         return NSPrinter(name: printerId)?.type.rawValue ?? ""
     }
 
-    public func getPrinterCapabilities(printerId: String) -> PrinterCapabilities {
-        let supportsColor = true
-        let trays = ""
+    public func getPrinterCapabilities(printerId: String) throws -> PrinterCapabilities {
+        _repoLock.lock(); defer { _repoLock.unlock() }
+        guard _printerRepository.contains(where: { $0.id == printerId }) else {
+            throw NSError(domain: "NitroPrinting", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Printer '\(printerId)' not found"])
+        }
         return PrinterCapabilities(
-            supportsColor: supportsColor, supportsDuplex: true, supportsCopy: true,
+            supportsColor: true, supportsDuplex: true, supportsCopy: true,
             maxCopies: 999, minMarginTop: 0, minMarginBottom: 0, minMarginLeft: 0, minMarginRight: 0,
             supportsA4: true, supportsA5: true, supportsLetter: true, supportsLegal: true,
             supportsDraftQuality: true, supportsNormalQuality: true,
             supportsHighQuality: true, supportsBestQuality: true,
             maxResolutionDpi: 600, supportsCustomPaper: true, supportsBorderless: false,
-            inputTrays: trays
+            inputTrays: ""
         )
     }
 
@@ -170,6 +173,55 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         case .html:      return try await printHtml(html: String(data: document.data, encoding: .utf8) ?? "", settings: settings)
         case .pdf:       return try await printPdf(pdfData: document.data, settings: settings)
         case .image:     return try await printImage(imageData: document.data, settings: settings)
+        }
+    }
+
+    public func printBatch(
+        documents: [PrintDocument],
+        stopOnError: Bool,
+        settings: PrintSettings?
+    ) async throws -> [PrintResult] {
+        var results: [PrintResult] = []
+        for doc in documents {
+            let result = try await printDocument(document: doc, settings: settings)
+            results.append(result)
+            if stopOnError && !result.success { break }
+        }
+        return results
+    }
+
+    public func showPrintDialog(
+        document: PrintDocument,
+        initialSettings: PrintSettings?
+    ) async throws -> PrintDialogResult {
+        let confirmedSettings = initialSettings ?? PrintSettings(
+            printerId: "", paperSize: .a4, orientationDegrees: 0, quality: .normal,
+            copies: 1, collate: false, duplex: false, color: true,
+            marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
+            jobName: "", pagesPerSheet: 1, showPrintDialog: true,
+            pageRangeFrom: 0, pageRangeTo: 0, customPaperWidth: 0, customPaperHeight: 0,
+            fitToPage: false, mediaType: .plain, headerText: "", footerText: "",
+            inputTray: "", networkTimeoutSeconds: 30
+        )
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<PrintDialogResult, Error>) in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else {
+                    cont.resume(returning: PrintDialogResult(
+                        confirmed: false, confirmedSettings: confirmedSettings,
+                        errorMessage: "Deallocated"))
+                    return
+                }
+                let info = self.buildPrintInfo(initialSettings)
+                let view = self.makeView(for: document, info: info)
+                let op = NSPrintOperation(view: view, printInfo: info)
+                op.showsPrintPanel = true
+                op.showsProgressPanel = false
+                let ok = op.run()
+                cont.resume(returning: PrintDialogResult(
+                    confirmed: ok,
+                    confirmedSettings: confirmedSettings,
+                    errorMessage: ok ? "" : "User cancelled the print dialog."))
+            }
         }
     }
 
@@ -600,9 +652,12 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
     }
 
     private func makeResult(ok: Bool) -> PrintResult {
-        PrintResult(success: ok, jobId: ok ? UUID().uuidString : "",
-                    errorMessage: ok ? "" : "Print failed or was cancelled",
-                    errorCode: ok ? "" : "CANCELLED")
+        let jobId = ok ? UUID().uuidString : ""
+        let state: PrintState = ok ? .completed : .cancelled
+        _onPrintJobChanged.send(PrintJobUpdate(jobId: ok ? jobId : UUID().uuidString, state: state, progress: ok ? 100 : 0, message: ok ? "" : "Print failed or was cancelled"))
+        return PrintResult(success: ok, jobId: jobId,
+                           errorMessage: ok ? "" : "Print failed or was cancelled",
+                           errorCode: ok ? "" : "CANCELLED")
     }
 
     private func parseHostPort(_ uri: String) -> (String, Int) {
@@ -945,20 +1000,31 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
                 }
             }
         }
-        // Plain IP / socket URI: TCP probe respecting timeout
+        // Plain IP / socket URI: TCP probe using NWConnection for proper reachability check
         let (host, port) = parseSocketAddr(printerId)
-        var inputStream: InputStream?, outputStream: OutputStream?
-        var probeResult = false
-        let group = DispatchGroup(); group.enter()
-        DispatchQueue.global(qos: .utility).async {
-            Stream.getStreamsToHost(withName: host, port: port,
-                                     inputStream: &inputStream, outputStream: &outputStream)
-            probeResult = outputStream != nil
-            outputStream?.close(); inputStream?.close()
-            group.leave()
+        let nwPort = NWEndpoint.Port(integerLiteral: UInt16(clamping: port))
+        let online: Bool = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let probeQ = DispatchQueue(label: "nitro.tcp.probe")
+            let connection = NWConnection(
+                to: .hostPort(host: NWEndpoint.Host(host), port: nwPort),
+                using: .tcp)
+            var resumed = false
+            let deadline = DispatchTime.now() + timeout
+            connection.stateUpdateHandler = { state in
+                // Called on probeQ (serial) — safe to mutate resumed without extra dispatch
+                switch state {
+                case .ready:
+                    if !resumed { resumed = true; cont.resume(returning: true); connection.cancel() }
+                case .failed, .cancelled:
+                    if !resumed { resumed = true; cont.resume(returning: false) }
+                default: break
+                }
+            }
+            connection.start(queue: probeQ)
+            probeQ.asyncAfter(deadline: deadline) {
+                if !resumed { resumed = true; cont.resume(returning: false); connection.cancel() }
+            }
         }
-        let _ = group.wait(timeout: .now() + timeout)
-        let online = probeResult
         return PrinterStatusDetail(printerId: printerId, isOnline: online, isReady: online,
                                     hasPaperJam: false, isOutOfPaper: false, isOutOfInk: false,
                                     inkLevelBlack: -1, inkLevelCyan: -1, inkLevelMagenta: -1,
@@ -1124,13 +1190,20 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         return await runShell("/usr/bin/lp", args: args)
     }
 
-    private func runShell(_ path: String, args: [String]) async -> Bool {
-        return await withCheckedContinuation { cont in
+    private func runShell(_ path: String, args: [String], timeoutSeconds: Double = 5) async -> Bool {
+        return await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
             DispatchQueue.global(qos: .utility).async {
                 let proc = Process()
                 proc.executableURL = URL(fileURLWithPath: path)
                 proc.arguments = args
-                try? proc.run(); proc.waitUntilExit()
+                proc.standardOutput = FileHandle.nullDevice
+                proc.standardError = FileHandle.nullDevice
+                guard (try? proc.run()) != nil else { cont.resume(returning: false); return }
+                let deadline = DispatchTime.now() + timeoutSeconds
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: deadline) {
+                    if proc.isRunning { proc.terminate() }
+                }
+                proc.waitUntilExit()
                 cont.resume(returning: proc.terminationStatus == 0)
             }
         }

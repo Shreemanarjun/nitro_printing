@@ -59,7 +59,8 @@ Future<void> loadJobAt(PrinterRepository repo, int index) async {
   jobsLoading.value = true;
   jobsError.value = null;
   try {
-    selectedJob.value = await repo.getPrintJobAt(index);
+    final r = await repo.getPrintJobAt(index);
+    if (r case p.NitroOk(:final value)) selectedJob.value = value;
   } catch (e) {
     jobsError.value = e.toString();
   } finally {

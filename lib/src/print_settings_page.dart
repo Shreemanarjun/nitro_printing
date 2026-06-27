@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'nitro_printing.native.dart';
+import 'package:nitro_printing/nitro_printing.dart';
 
 /// A full-screen Material 3 print-settings editor.
 ///
@@ -50,10 +50,10 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
   late final TextEditingController _pageToCtrl;
 
   @override
-  void initState() {
+  void initState() async {
     super.initState();
     _s = widget.initialSettings;
-    _printers = _loadPrinters();
+    _printers = await _loadPrinters();
     _jobNameCtrl = TextEditingController(text: _s.jobName);
     _headerCtrl = TextEditingController(text: _s.headerText);
     _footerCtrl = TextEditingController(text: _s.footerText);
@@ -85,11 +85,14 @@ class _NitroPrintSettingsPageState extends State<NitroPrintSettingsPage> {
     super.dispose();
   }
 
-  List<PrinterInfo> _loadPrinters() {
+  Future<List<PrinterInfo>> _loadPrinters() async {
     try {
       final printing = NitroPrinting.instance;
       final count = printing.getPrintersCount();
-      return [for (int i = 0; i < count; i++) printing.getPrinterAt(i)];
+      return [
+        for (int i = 0; i < count; i++)
+          if (await printing.getPrinterAt(i) case NitroOk(:final value)) value,
+      ];
     } catch (_) {
       return [];
     }

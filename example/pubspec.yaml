@@ -60,6 +60,15 @@ dev_dependencies:
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
+
+dependency_overrides:
+  nitro:
+    path: ../../../flutter_package/nitro_ecosystem/packages/nitro
+  nitro_annotations:
+    path: ../../../flutter_package/nitro_ecosystem/packages/nitro_annotations
+  nitro_generator:
+    path: ../../../flutter_package/nitro_ecosystem/packages/nitro_generator
+
 # The following section is specific to Flutter packages.
 flutter:
 

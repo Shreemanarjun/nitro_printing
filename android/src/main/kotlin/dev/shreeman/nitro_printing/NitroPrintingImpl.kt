@@ -39,6 +39,8 @@ import nitro.nitro_printing_module.PrintState
 import nitro.nitro_printing_module.PrinterCapabilities
 import nitro.nitro_printing_module.PrinterInfo
 import nitro.nitro_printing_module.PrinterStatus
+import nitro.nitro_printing_module.PrintDialogResult
+import nitro.nitro_printing_module.PrintDialogState
 import nitro.nitro_printing_module.PrinterStatusDetail
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -87,23 +89,25 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
     override fun isPrintingSupported(): Boolean = true
 
     override fun getPrintersCount(): Long = _printerRepository.size.toLong()
-    override fun getAllPrinters(): List<PrinterInfo> = _printerRepository.toList()
+    override suspend fun getAllPrinters(): List<PrinterInfo> = _printerRepository.toList()
 
-    override fun getPrinterAt(index: Long): PrinterInfo {
+    override suspend fun getPrinterAt(index: Long): PrinterInfo {
         val repo = _printerRepository
         if (index < 0 || index >= repo.size)
-            return PrinterInfo(id = "unknown", name = "Unknown Printer", address = "", isDefault = false, isAvailable = false)
+            throw IndexOutOfBoundsException("Index $index out of range (count: ${repo.size})")
         return repo[index.toInt()]
     }
 
-    override fun getDefaultPrinter(): PrinterInfo =
+    override suspend fun getDefaultPrinter(): PrinterInfo =
         _printerRepository.firstOrNull { it.isDefault }
             ?: PrinterInfo(id = "", name = "System Default", address = "", isDefault = true, isAvailable = true)
 
     override fun getPrinterDriverVersion(printerId: String): String = ""
 
-    override fun getPrinterCapabilities(printerId: String): PrinterCapabilities =
-        PrinterCapabilities(
+    override suspend fun getPrinterCapabilities(printerId: String): PrinterCapabilities {
+        if (_printerRepository.none { it.id == printerId })
+            throw NoSuchElementException("Printer '$printerId' not found")
+        return PrinterCapabilities(
             supportsColor = true, supportsDuplex = false, supportsCopy = true,
             maxCopies = 99L, minMarginTop = 0.0, minMarginBottom = 0.0,
             minMarginLeft = 0.0, minMarginRight = 0.0,
@@ -113,8 +117,13 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
             maxResolutionDpi = 600L, supportsCustomPaper = false,
             supportsBorderless = false, inputTrays = ""
         )
+    }
 
     // MARK: - Print methods
+
+    private fun emitJobUpdate(jobId: String, state: PrintState, progress: Long = 0, message: String = "") {
+        _onPrintJobChanged.tryEmit(PrintJobUpdate(jobId = jobId, state = state, progress = progress, message = message))
+    }
 
     override suspend fun printText(text: String, settings: PrintSettings?): PrintResult {
         if (settings?.showPrintDialog == false) {
@@ -123,9 +132,12 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
         val jobName = settings?.jobName?.takeIf { it.isNotEmpty() } ?: "Document"
         val jobId = UUID.randomUUID().toString()
         return try {
+            emitJobUpdate(jobId, PrintState.IDLE)
             printManager.print(jobName, textAdapter(jobName, text, settings), buildAttributes(settings))
+            emitJobUpdate(jobId, PrintState.PRINTING, 50)
             PrintResult(success = true, jobId = jobId, errorMessage = "", errorCode = "")
         } catch (e: Exception) {
+            emitJobUpdate(jobId, PrintState.FAILED, 0, e.message ?: "Unknown error")
             PrintResult(success = false, jobId = "", errorMessage = e.message ?: "Unknown error", errorCode = "PRINT_FAILED")
         }
     }
@@ -258,18 +270,56 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
 
     override suspend fun printDocument(document: PrintDocument, settings: PrintSettings?): PrintResult =
         when (document.type) {
-            DocumentType.PLAINTEXT.nativeValue ->
+            DocumentType.PLAINTEXT ->
                 printText(String(document.data, Charsets.UTF_8), settings)
-            DocumentType.HTML.nativeValue -> {
+            DocumentType.HTML -> {
                 val plain = android.text.Html.fromHtml(
                     String(document.data, Charsets.UTF_8), android.text.Html.FROM_HTML_MODE_LEGACY
                 ).toString()
                 printText(plain, settings)
             }
-            DocumentType.PDF.nativeValue   -> printPdf(document.data, settings)
-            DocumentType.IMAGE.nativeValue -> printImage(document.data, settings)
-            else -> PrintResult(success = false, jobId = "", errorMessage = "Unknown document type", errorCode = "UNKNOWN_TYPE")
+            DocumentType.PDF   -> printPdf(document.data, settings)
+            DocumentType.IMAGE -> printImage(document.data, settings)
         }
+
+    @Suppress("UNCHECKED_CAST")
+    override suspend fun printBatch(
+        documents: Any?,
+        stopOnError: Boolean,
+        settings: PrintSettings?
+    ): List<PrintResult> {
+        val docs = documents as? List<PrintDocument> ?: emptyList()
+        val results = mutableListOf<PrintResult>()
+        for (doc in docs) {
+            val result = printDocument(doc, settings)
+            results.add(result)
+            if (stopOnError && !result.success) break
+        }
+        return results
+    }
+
+    override suspend fun showPrintDialog(
+        document: PrintDocument,
+        initialSettings: PrintSettings?
+    ): PrintDialogResult {
+        val confirmedSettings = initialSettings ?: PrintSettings(
+            printerId = "", paperSize = PaperSize.A4, orientationDegrees = 0.0,
+            quality = PrintQuality.NORMAL, copies = 1, collate = false, duplex = false,
+            color = true, marginTop = 0.0, marginBottom = 0.0, marginLeft = 0.0, marginRight = 0.0,
+            jobName = "", pagesPerSheet = 1, showPrintDialog = true,
+            pageRangeFrom = 0, pageRangeTo = 0, customPaperWidth = 0.0, customPaperHeight = 0.0,
+            fitToPage = false, mediaType = MediaType.PLAIN,
+            headerText = "", footerText = "", inputTray = "", networkTimeoutSeconds = 30,
+        )
+        // Android doesn't have a synchronous system print dialog that returns a result.
+        // We open the print activity and immediately return a confirmed=false result
+        // since we can't block waiting for user interaction on Android.
+        return PrintDialogResult(
+            confirmed = false,
+            confirmedSettings = confirmedSettings,
+            errorMessage = "Android print dialogs are non-blocking. Use printDocument() with showPrintDialog=true instead.",
+        )
+    }
 
     override suspend fun printFile(filePath: String, settings: PrintSettings?): Boolean {
         val file = java.io.File(filePath)
@@ -292,7 +342,7 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
     }
 
     override suspend fun getPageCount(document: PrintDocument): Long {
-        if (document.type != DocumentType.PDF.nativeValue) return 1L
+        if (document.type != DocumentType.PDF) return 1L
         return withContext(Dispatchers.IO) {
             val tmp = java.io.File.createTempFile("nitro_pdf", ".pdf")
             try {
@@ -576,18 +626,18 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
 
     private fun documentToPdf(document: PrintDocument, settings: PrintSettings?): ByteArray =
         when (document.type) {
-            DocumentType.PDF.nativeValue   -> document.data
-            DocumentType.IMAGE.nativeValue -> {
+            DocumentType.PDF   -> document.data
+            DocumentType.IMAGE -> {
                 val bmp = BitmapFactory.decodeByteArray(document.data, 0, document.data.size)
                 if (bmp != null) bitmapToPdf(bmp, settings) else ByteArray(0)
             }
-            DocumentType.HTML.nativeValue -> {
+            DocumentType.HTML -> {
                 val plain = android.text.Html.fromHtml(
                     String(document.data, Charsets.UTF_8), android.text.Html.FROM_HTML_MODE_LEGACY
                 ).toString()
                 textToPdf(plain, settings)
             }
-            else -> textToPdf(String(document.data, Charsets.UTF_8), settings)
+            DocumentType.PLAINTEXT -> textToPdf(String(document.data, Charsets.UTF_8), settings)
         }
 
     private fun textToPdf(text: String, settings: PrintSettings?): ByteArray {
@@ -643,10 +693,10 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
 
     private fun pageDimensions(settings: PrintSettings?, isLandscape: Boolean): Pair<Int, Int> {
         val (w, h) = when (settings?.paperSize) {
-            PaperSize.A5.nativeValue     -> Pair(420, 595)
-            PaperSize.LETTER.nativeValue -> Pair(612, 792)
-            PaperSize.LEGAL.nativeValue  -> Pair(612, 1008)
-            PaperSize.CUSTOM.nativeValue -> {
+            PaperSize.A5     -> Pair(420, 595)
+            PaperSize.LETTER -> Pair(612, 792)
+            PaperSize.LEGAL  -> Pair(612, 1008)
+            PaperSize.CUSTOM -> {
                 val cw = settings.customPaperWidth.toInt().takeIf { it > 0 } ?: 595
                 val ch = settings.customPaperHeight.toInt().takeIf { it > 0 } ?: 842
                 Pair(cw, ch)
@@ -722,18 +772,18 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
         val b = PrintAttributes.Builder()
         val isLandscape = isLandscapeDeg(s.orientationDegrees)
         val mediaSize = when (s.paperSize) {
-            PaperSize.A4.nativeValue     -> PrintAttributes.MediaSize.ISO_A4
-            PaperSize.A5.nativeValue     -> PrintAttributes.MediaSize.ISO_A5
-            PaperSize.LETTER.nativeValue -> PrintAttributes.MediaSize.NA_LETTER
-            PaperSize.LEGAL.nativeValue  -> PrintAttributes.MediaSize.NA_LEGAL
-            else                         -> PrintAttributes.MediaSize.ISO_A4
+            PaperSize.A4     -> PrintAttributes.MediaSize.ISO_A4
+            PaperSize.A5     -> PrintAttributes.MediaSize.ISO_A5
+            PaperSize.LETTER -> PrintAttributes.MediaSize.NA_LETTER
+            PaperSize.LEGAL  -> PrintAttributes.MediaSize.NA_LEGAL
+            else             -> PrintAttributes.MediaSize.ISO_A4
         }
         b.setMediaSize(if (isLandscape) mediaSize.asLandscape() else mediaSize.asPortrait())
         b.setResolution(when (s.quality) {
-            PrintQuality.DRAFT.nativeValue -> PrintAttributes.Resolution("draft", "Draft", 150, 150)
-            PrintQuality.HIGH.nativeValue  -> PrintAttributes.Resolution("high",  "High",  600, 600)
-            PrintQuality.BEST.nativeValue  -> PrintAttributes.Resolution("best",  "Best",  1200, 1200)
-            else                           -> PrintAttributes.Resolution("normal", "Normal", 300, 300)
+            PrintQuality.DRAFT -> PrintAttributes.Resolution("draft", "Draft", 150, 150)
+            PrintQuality.HIGH  -> PrintAttributes.Resolution("high",  "High",  600, 600)
+            PrintQuality.BEST  -> PrintAttributes.Resolution("best",  "Best",  1200, 1200)
+            else               -> PrintAttributes.Resolution("normal", "Normal", 300, 300)
         })
         b.setColorMode(if (s.color) PrintAttributes.COLOR_MODE_COLOR else PrintAttributes.COLOR_MODE_MONOCHROME)
         if (s.duplex) b.setDuplexMode(PrintAttributes.DUPLEX_MODE_LONG_EDGE)
@@ -753,13 +803,13 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
         id = id.toString(), printerId = "",
         documentTitle = info?.label?.toString() ?: "",
         state = when {
-            isQueued    -> PrintState.IDLE.nativeValue
-            isStarted   -> PrintState.PRINTING.nativeValue
-            isCompleted -> PrintState.COMPLETED.nativeValue
-            isCancelled -> PrintState.CANCELLED.nativeValue
-            isFailed    -> PrintState.FAILED.nativeValue
-            isBlocked   -> PrintState.PAUSED.nativeValue
-            else        -> PrintState.IDLE.nativeValue
+            isQueued    -> PrintState.IDLE
+            isStarted   -> PrintState.PRINTING
+            isCompleted -> PrintState.COMPLETED
+            isCancelled -> PrintState.CANCELLED
+            isFailed    -> PrintState.FAILED
+            isBlocked   -> PrintState.PAUSED
+            else        -> PrintState.IDLE
         },
         progress = 0L, createdAtMillis = 0L, completedAtMillis = 0L,
         errorMessage = "", pagesPrinted = 0L

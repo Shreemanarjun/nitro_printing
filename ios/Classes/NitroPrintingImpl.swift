@@ -71,11 +71,11 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         return _printerRepository
     }
 
-    public func getPrinterAt(index: Int64) -> PrinterInfo {
+    public func getPrinterAt(index: Int64) throws -> PrinterInfo {
         _repoLock.lock(); defer { _repoLock.unlock() }
         guard index >= 0, Int(index) < _printerRepository.count else {
-            return PrinterInfo(id: "unknown", name: "Unknown Printer", address: "",
-                               isDefault: false, isAvailable: false)
+            throw NSError(domain: "NitroPrinting", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Index \(index) out of range (count: \(_printerRepository.count))"])
         }
         return _printerRepository[Int(index)]
     }
@@ -89,7 +89,12 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
 
     public func getPrinterDriverVersion(printerId: String) -> String { return "" }
 
-    public func getPrinterCapabilities(printerId: String) -> PrinterCapabilities {
+    public func getPrinterCapabilities(printerId: String) throws -> PrinterCapabilities {
+        _repoLock.lock(); defer { _repoLock.unlock() }
+        guard _printerRepository.contains(where: { $0.id == printerId }) else {
+            throw NSError(domain: "NitroPrinting", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Printer '\(printerId)' not found"])
+        }
         return PrinterCapabilities(
             supportsColor: true, supportsDuplex: false, supportsCopy: false,
             maxCopies: 99, minMarginTop: 0, minMarginBottom: 0, minMarginLeft: 0, minMarginRight: 0,
@@ -183,6 +188,84 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         case .html:      return try await printHtml(html: String(data: document.data, encoding: .utf8) ?? "", settings: settings)
         case .pdf:       return try await printPdf(pdfData: document.data, settings: settings)
         case .image:     return try await printImage(imageData: document.data, settings: settings)
+        }
+    }
+
+    public func printBatch(
+        documents: [PrintDocument],
+        stopOnError: Bool,
+        settings: PrintSettings?
+    ) async throws -> [PrintResult] {
+        var results: [PrintResult] = []
+        for doc in documents {
+            let result = try await printDocument(document: doc, settings: settings)
+            results.append(result)
+            if stopOnError && !result.success { break }
+        }
+        return results
+    }
+
+    public func showPrintDialog(
+        document: PrintDocument,
+        initialSettings: PrintSettings?
+    ) async throws -> PrintDialogResult {
+        let confirmedSettings = initialSettings ?? PrintSettings(
+            printerId: "", paperSize: .a4, orientationDegrees: 0, quality: .normal,
+            copies: 1, collate: false, duplex: false, color: true,
+            marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
+            jobName: "", pagesPerSheet: 1, showPrintDialog: true,
+            pageRangeFrom: 0, pageRangeTo: 0, customPaperWidth: 0, customPaperHeight: 0,
+            fitToPage: false, mediaType: .plain, headerText: "", footerText: "",
+            inputTray: "", networkTimeoutSeconds: 30
+        )
+        guard UIPrintInteractionController.isPrintingAvailable else {
+            return PrintDialogResult(confirmed: false, confirmedSettings: confirmedSettings,
+                                    errorMessage: "Printing not available on this device.")
+        }
+        return try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.main.async {
+                let c = UIPrintInteractionController.shared
+                self.prepareController(c, settings: initialSettings, outputType: .general)
+                switch document.type {
+                case .plainText:
+                    c.printFormatter = UISimpleTextPrintFormatter(
+                        text: String(data: document.data, encoding: .utf8) ?? ""
+                    )
+                case .html:
+                    c.printFormatter = UIMarkupTextPrintFormatter(
+                        markupText: String(data: document.data, encoding: .utf8) ?? ""
+                    )
+                case .pdf:
+                    if let pdfDoc = PDFDocument(data: document.data) {
+                        let copies = Int(max(1, initialSettings?.copies ?? 1))
+                        let pps = Int(max(1, initialSettings?.pagesPerSheet ?? 1))
+                        c.printPageRenderer = _PDFPrintPageRenderer(document: pdfDoc, copies: copies, pagesPerSheet: pps)
+                    } else {
+                        c.printingItem = document.data
+                    }
+                case .image:
+                    if let image = UIImage(data: document.data) {
+                        c.printPageRenderer = self.makeImageRenderer(image: image, settings: initialSettings)
+                    }
+                }
+                self.dispatchPrint(c, settings: initialSettings) { [weak self] _, completed, error in
+                    guard self != nil else {
+                        cont.resume(returning: PrintDialogResult(
+                            confirmed: false, confirmedSettings: confirmedSettings,
+                            errorMessage: "Deallocated"))
+                        return
+                    }
+                    if let err = error {
+                        cont.resume(returning: PrintDialogResult(
+                            confirmed: false, confirmedSettings: confirmedSettings,
+                            errorMessage: err.localizedDescription))
+                    } else {
+                        cont.resume(returning: PrintDialogResult(
+                            confirmed: completed, confirmedSettings: confirmedSettings,
+                            errorMessage: completed ? "" : "User cancelled the print dialog."))
+                    }
+                }
+            }
         }
     }
 
@@ -408,6 +491,8 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
 
     private func dispatchPrint(_ c: UIPrintInteractionController, settings: PrintSettings?,
                                  cont: CheckedContinuation<PrintResult, Error>) {
+        let jobId = UUID().uuidString
+        _onPrintJobChanged.send(PrintJobUpdate(jobId: jobId, state: .idle, progress: 0, message: ""))
         dispatchPrint(c, settings: settings) { [weak self] _, completed, error in
             guard let self else { cont.resume(returning: .init(success: false, jobId: "", errorMessage: "Deallocated", errorCode: "INTERNAL")); return }
             cont.resume(returning: self.makeResult(completed: completed, error: error))
@@ -735,10 +820,14 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
     }
 
     private func makeResult(completed: Bool, error: Error?) -> PrintResult {
+        let jobId = UUID().uuidString
         if let err = error {
+            _onPrintJobChanged.send(PrintJobUpdate(jobId: jobId, state: .failed, progress: 0, message: err.localizedDescription))
             return PrintResult(success: false, jobId: "", errorMessage: err.localizedDescription, errorCode: "PRINT_ERROR")
         }
-        return PrintResult(success: completed, jobId: completed ? UUID().uuidString : "",
+        let state: PrintState = completed ? .completed : .cancelled
+        _onPrintJobChanged.send(PrintJobUpdate(jobId: jobId, state: state, progress: completed ? 100 : 0, message: completed ? "" : "Print was cancelled"))
+        return PrintResult(success: completed, jobId: completed ? jobId : "",
                            errorMessage: completed ? "" : "Print was cancelled",
                            errorCode: completed ? "" : "CANCELLED")
     }
@@ -873,20 +962,30 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
                 }
             }
         }
-        // Socket / plain IP: TCP probe respecting timeout
+        // Socket / plain IP: TCP probe using NWConnection for proper reachability check
         let (host, port) = parseSocketAddr(printerId)
-        var inputStream: InputStream?, outputStream: OutputStream?
-        var probeResult: Bool = false
-        let group = DispatchGroup(); group.enter()
-        DispatchQueue.global(qos: .utility).async {
-            Stream.getStreamsToHost(withName: host, port: port,
-                                     inputStream: &inputStream, outputStream: &outputStream)
-            probeResult = outputStream != nil
-            outputStream?.close(); inputStream?.close()
-            group.leave()
+        let nwPort = NWEndpoint.Port(integerLiteral: UInt16(clamping: port))
+        let online: Bool = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let probeQ = DispatchQueue(label: "nitro.tcp.probe")
+            let connection = NWConnection(
+                to: .hostPort(host: NWEndpoint.Host(host), port: nwPort),
+                using: .tcp)
+            var resumed = false
+            let deadline = DispatchTime.now() + timeout
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    if !resumed { resumed = true; cont.resume(returning: true); connection.cancel() }
+                case .failed, .cancelled:
+                    if !resumed { resumed = true; cont.resume(returning: false) }
+                default: break
+                }
+            }
+            connection.start(queue: probeQ)
+            probeQ.asyncAfter(deadline: deadline) {
+                if !resumed { resumed = true; cont.resume(returning: false); connection.cancel() }
+            }
         }
-        let _ = group.wait(timeout: .now() + timeout)
-        let online = probeResult
         return PrinterStatusDetail(printerId: printerId, isOnline: online, isReady: online,
                                     hasPaperJam: false, isOutOfPaper: false, isOutOfInk: false,
                                     inkLevelBlack: -1, inkLevelCyan: -1, inkLevelMagenta: -1,

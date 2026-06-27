@@ -24,14 +24,22 @@ abstract class NitroPrinting extends HybridObject {
   @nitroAsync
   Future<List<PrinterInfo>> getAllPrinters();
 
+  /// Returns the printer at [index]. Fails with [NitroErr] if out of range.
   @nitroAsync
-  Future<PrinterInfo> getPrinterAt(int index);
+  @NitroResult()
+  Future<NitroResultValue<PrinterInfo>> getPrinterAt(int index);
 
+  /// Returns the system-default printer. Fails with [NitroErr] if none is set.
   @nitroAsync
-  Future<PrinterInfo> getDefaultPrinter();
+  @NitroResult()
+  Future<NitroResultValue<PrinterInfo>> getDefaultPrinter();
 
+  /// Returns capabilities of [printerId]. Fails with [NitroErr] if printer not found.
   @nitroAsync
-  Future<PrinterCapabilities> getPrinterCapabilities(String printerId);
+  @NitroResult()
+  Future<NitroResultValue<PrinterCapabilities>> getPrinterCapabilities(
+    String printerId,
+  );
 
   // ── Async: print operations ───────────────────────────────────────────────
 
@@ -55,6 +63,34 @@ abstract class NitroPrinting extends HybridObject {
 
   @nitroAsync
   Future<bool> printFile(String filePath, {PrintSettings? settings});
+
+  /// Print a batch of [documents] using the native platform job queue.
+  ///
+  /// More efficient than sequential Dart calls: the native side can
+  /// pipeline spooling and avoid repeated bridge round-trips.
+  /// Stops at the first failure when [stopOnError] is true.
+  @nitroAsync
+  Future<List<PrintResult>> printBatch(
+    List<PrintDocument> documents,
+    bool stopOnError, {
+    PrintSettings? settings,
+  });
+
+  // ── Async: OS print dialog ────────────────────────────────────────────────
+
+  /// Show the OS print dialog for [document] with [initialSettings] pre-filled.
+  ///
+  /// Resolves when the user clicks **Print** or **Cancel**:
+  /// - [PrintDialogResult.confirmed] == true → user clicked Print;
+  ///   [PrintDialogResult.confirmedSettings] holds the chosen options.
+  /// - [PrintDialogResult.confirmed] == false → user cancelled.
+  ///
+  /// Use [PrintDialogController] for a higher-level API.
+  @nitroAsync
+  Future<PrintDialogResult> showPrintDialog(
+    PrintDocument document, {
+    PrintSettings? initialSettings,
+  });
 
   // ── Async: export / virtual print ────────────────────────────────────────
 
@@ -94,17 +130,19 @@ abstract class NitroPrinting extends HybridObject {
   @nitroAsync
   Future<int> getPrintJobsCount();
 
+  /// Returns the job at [index]. Fails with [NitroErr] if out of range.
   @nitroAsync
-  Future<PrintJob> getPrintJobAt(int index);
+  @NitroResult()
+  Future<NitroResultValue<PrintJob>> getPrintJobAt(int index);
 
-  /// Look up a single job by its [jobId] string.
+  /// Look up a single job by [jobId]. Fails with [NitroErr] if not found.
   @nitroAsync
-  Future<PrintJob> getPrintJobStatus(String jobId);
+  @NitroResult()
+  Future<NitroResultValue<PrintJob>> getPrintJobStatus(String jobId);
 
   // ── Async: discovery ─────────────────────────────────────────────────────
 
   /// Start Bonjour/mDNS discovery for IPP printers.
-  /// Discovered printers are pushed to [onPrinterDiscovered].
   @nitroAsync
   Future<bool> startPrinterDiscovery();
 
@@ -113,7 +151,7 @@ abstract class NitroPrinting extends HybridObject {
 
   // ── Async: connection / admin ─────────────────────────────────────────────
 
-  /// TCP probe to [printerId] host:port. [timeoutSeconds] bounds how long to wait (default 5 s).
+  /// TCP probe to [printerId] host:port. [timeoutSeconds] bounds the wait (default 5 s).
   @nitroAsync
   Future<bool> testPrinterConnection(String printerId, {int? timeoutSeconds});
 
@@ -124,10 +162,6 @@ abstract class NitroPrinting extends HybridObject {
   // ── Async: platform UX ───────────────────────────────────────────────────
 
   /// Open OS print-queue window. Pass empty string for all printers.
-  /// macOS: System Settings › Printers & Scanners.
-  /// Windows: printui.dll queue or control panel.
-  /// Android: Print Services settings Intent.
-  /// iOS: unsupported (returns false).
   @nitroAsync
   Future<bool> openSystemPrintQueue(String printerId);
 
@@ -137,37 +171,32 @@ abstract class NitroPrinting extends HybridObject {
 
   // ── Async: raw protocol printing ─────────────────────────────────────────
 
-  /// Send raw bytes directly to the printer via TCP socket (port 9100) or IPP.
-  /// Requires [PrintSettings.printerId] to be set (IP, socket:// or ipp:// URI).
-  /// Bypasses the OS print dialog entirely.
+  /// Send raw bytes directly to the printer via TCP socket or IPP.
   @nitroAsync
   Future<PrintResult> printRaw(Uint8List data, {PrintSettings? settings});
 
   /// Send ESC/POS-encoded bytes to a thermal receipt printer via TCP socket.
-  /// Requires [PrintSettings.printerId] (IP or socket://host:port URI).
   @nitroAsync
   Future<PrintResult> printEscPos(
     Uint8List escPosData, {
     PrintSettings? settings,
   });
 
-  /// Send ZPL (Zebra Programming Language) label data to a Zebra printer via TCP.
-  /// Requires [PrintSettings.printerId] (IP or socket://host:9100 URI).
+  /// Send ZPL label data to a Zebra printer via TCP.
   @nitroAsync
   Future<PrintResult> printZpl(String zpl, {PrintSettings? settings});
 
   /// Cancel any in-progress raw/ESC-POS/ZPL network print job.
-  /// Closes the active TCP socket or cancels the active IPP request.
-  /// Returns true if a job was active and cancelled, false if nothing was running.
   @nitroAsync
   Future<bool> cancelRawPrint();
 
   // ── Async: detailed printer status ───────────────────────────────────────
 
   /// Query detailed printer status via IPP Get-Printer-Attributes.
-  /// [timeoutSeconds] controls the connect + read deadline (default 30 s).
+  /// Fails with [NitroErr] when the printer is unreachable within [timeoutSeconds].
   @nitroAsync
-  Future<PrinterStatusDetail> getPrinterStatusDetail(
+  @NitroResult()
+  Future<NitroResultValue<PrinterStatusDetail>> getPrinterStatusDetail(
     String printerId, {
     int? timeoutSeconds,
   });
@@ -200,6 +229,9 @@ enum DocumentType { plainText, html, pdf, image }
 
 @HybridEnum()
 enum MediaType { plain, glossy, matte, photo, label, envelope }
+
+@HybridEnum()
+enum PrintDialogState { idle, showing, confirmed, cancelled }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Rules used below:
@@ -241,7 +273,6 @@ class PrinterCapabilities {
   final bool supportsNormalQuality;
   final bool supportsHighQuality;
   final bool supportsBestQuality;
-  // Extended
   final int maxResolutionDpi;
   final bool supportsCustomPaper;
   final bool supportsBorderless;
@@ -296,7 +327,7 @@ class PrintSettings {
 
   /// false = silent direct print to [printerId] without a dialog.
   final bool showPrintDialog;
-  // Extended settings
+
   /// First page of range to print (1-based). 0 = print from the start.
   final int pageRangeFrom;
 
@@ -322,7 +353,7 @@ class PrintSettings {
   /// Printer input tray name, e.g. "Tray 1". Empty = printer default.
   final String inputTray;
 
-  /// Timeout in seconds for TCP socket and IPP network operations. 0 = use default (30 s).
+  /// Timeout in seconds for TCP socket and IPP network operations. 0 = use platform default (30 s).
   final int networkTimeoutSeconds;
 
   PrintSettings({
@@ -354,7 +385,7 @@ class PrintSettings {
   });
 }
 
-@HybridStruct()
+@HybridRecord()
 class PrintDocument {
   final String id;
   final String title;
@@ -417,6 +448,25 @@ class PrintResult {
 }
 
 @HybridRecord()
+class PrintDialogResult {
+  /// true if the user confirmed (clicked Print); false if they cancelled.
+  final bool confirmed;
+
+  /// Settings chosen by the user in the OS dialog.
+  /// Always present — holds the initial settings when [confirmed] is false.
+  final PrintSettings confirmedSettings;
+
+  /// Non-empty when the dialog failed to open or an OS error occurred.
+  final String errorMessage;
+
+  PrintDialogResult({
+    required this.confirmed,
+    required this.confirmedSettings,
+    this.errorMessage = '',
+  });
+}
+
+@HybridRecord()
 class PrintJobUpdate {
   final String jobId;
   final PrintState state;
@@ -440,7 +490,7 @@ class PrinterStatus {
   final String statusMessage;
   final int inkLevel;
   final int tonerLevel;
-  // Extended
+
   /// Paper remaining: 0-100, -1 = unknown.
   final int paperLevel;
   final String errorCode;
@@ -549,22 +599,107 @@ class PrinterStatusDetail {
   });
 }
 
-// ── Batch printing (Dart-side orchestration) ──────────────────────────────────
+// ── PrintDialogController ─────────────────────────────────────────────────────
 
-extension NitroPrintingBatchExt on NitroPrinting {
-  /// Print a list of documents sequentially.
-  /// If [stopOnError] is true, stops at the first failure.
-  Future<List<PrintResult>> printBatch(
-    List<PrintDocument> documents,
-    bool stopOnError, {
-    PrintSettings? settings,
-  }) async {
-    final results = <PrintResult>[];
-    for (final doc in documents) {
-      final result = await printDocument(doc, settings: settings);
-      results.add(result);
-      if (stopOnError && !result.success) break;
+/// Dart-side controller for orchestrating the OS print dialog flow.
+///
+/// Creates a stateful wrapper around a [PrintDocument] + [PrintSettings] pair
+/// that drives the OS print dialog and/or direct print operations.
+///
+/// ```dart
+/// final controller = PrintDialogController(
+///   document: doc,
+///   initialSettings: PrintSettings(copies: 2),
+/// );
+///
+/// // Show the OS dialog and wait for user confirmation:
+/// final dialogResult = await controller.showDialog();
+/// if (dialogResult.confirmed) {
+///   // confirmedSettings reflect what the user chose in the dialog
+/// }
+///
+/// // Or skip the dialog and print directly:
+/// final printResult = await controller.printDirect(doc);
+/// ```
+class PrintDialogController {
+  final NitroPrinting _printing;
+  PrintSettings _settings;
+  PrintDialogState _state;
+
+  PrintDialogController({
+    PrintSettings? initialSettings,
+    NitroPrinting? printing,
+  })  : _printing = printing ?? NitroPrinting.instance,
+        _settings = initialSettings ?? PrintSettings(),
+        _state = PrintDialogState.idle;
+
+  /// Current dialog lifecycle state.
+  PrintDialogState get state => _state;
+
+  /// Settings that will be passed to the OS dialog or [printDirect].
+  PrintSettings get currentSettings => _settings;
+
+  /// Replace [currentSettings] before calling [showDialog] or [printDirect].
+  void updateSettings(PrintSettings settings) {
+    _settings = settings;
+  }
+
+  /// Reset to [PrintDialogState.idle], optionally replacing [currentSettings].
+  void reset({PrintSettings? settings}) {
+    _state = PrintDialogState.idle;
+    if (settings != null) _settings = settings;
+  }
+
+  /// Show the OS print dialog for [document] with [currentSettings] pre-filled.
+  ///
+  /// Transitions [state]:
+  /// - → [PrintDialogState.showing] while the dialog is open
+  /// - → [PrintDialogState.confirmed] if the user clicked **Print**
+  /// - → [PrintDialogState.cancelled] if the user dismissed without printing
+  ///
+  /// On confirmation, [currentSettings] is updated to reflect the user's choices.
+  Future<PrintDialogResult> showDialog(PrintDocument document) async {
+    _state = PrintDialogState.showing;
+    try {
+      final result = await _printing.showPrintDialog(
+        document,
+        initialSettings: _settings,
+      );
+      if (result.confirmed) {
+        _settings = result.confirmedSettings;
+        _state = PrintDialogState.confirmed;
+      } else {
+        _state = PrintDialogState.cancelled;
+      }
+      return result;
+    } catch (_) {
+      _state = PrintDialogState.cancelled;
+      rethrow;
     }
-    return results;
+  }
+
+  /// Print [document] directly using [currentSettings], bypassing the OS dialog.
+  ///
+  /// Transitions [state] to [PrintDialogState.confirmed] immediately.
+  Future<PrintResult> printDirect(PrintDocument document) async {
+    _state = PrintDialogState.confirmed;
+    return _printing.printDocument(document, settings: _settings);
+  }
+
+  /// Show the OS dialog and, if the user confirms, print [document].
+  ///
+  /// Returns a [PrintResult] for both outcomes:
+  /// - Cancelled: `success = false`, `errorCode = 'CANCELLED'`
+  /// - Confirmed: result from the actual native print call
+  Future<PrintResult> showAndPrint(PrintDocument document) async {
+    final dialogResult = await showDialog(document);
+    if (!dialogResult.confirmed) {
+      return PrintResult(
+        success: false,
+        errorMessage: 'User cancelled the print dialog.',
+        errorCode: 'CANCELLED',
+      );
+    }
+    return _printing.printDocument(document, settings: dialogResult.confirmedSettings);
   }
 }
