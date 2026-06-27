@@ -1139,75 +1139,75 @@ interface HybridNitroPrintingSpec {
     fun onActivityAttached(activity: Activity) {}
     fun onActivityDetached() {}
 
-    // source: nitro_printing.native.dart:17
+    // source: nitro_printing.native.dart:16
     fun isPrintingSupported(): Boolean
-    // source: nitro_printing.native.dart:18
+    // source: nitro_printing.native.dart:17
     fun getPrintersCount(): Long
-    // source: nitro_printing.native.dart:19
+    // source: nitro_printing.native.dart:18
     fun getPrinterDriverVersion(printerId: String): String
-    // source: nitro_printing.native.dart:25
+    // source: nitro_printing.native.dart:24
     suspend fun getAllPrinters(): List<PrinterInfo>
-    // source: nitro_printing.native.dart:30
+    // source: nitro_printing.native.dart:29
     suspend fun getPrinterAt(index: Long): PrinterInfo
-    // source: nitro_printing.native.dart:35
+    // source: nitro_printing.native.dart:34
     suspend fun getDefaultPrinter(): PrinterInfo
-    // source: nitro_printing.native.dart:40
+    // source: nitro_printing.native.dart:39
     suspend fun getPrinterCapabilities(printerId: String): PrinterCapabilities
-    // source: nitro_printing.native.dart:47
+    // source: nitro_printing.native.dart:46
     suspend fun printText(text: String, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:50
+    // source: nitro_printing.native.dart:49
     suspend fun printImage(imageData: ByteArray, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:56
+    // source: nitro_printing.native.dart:55
     suspend fun printPdf(pdfData: ByteArray, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:59
+    // source: nitro_printing.native.dart:58
     suspend fun printDocument(document: PrintDocument, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:65
+    // source: nitro_printing.native.dart:64
     suspend fun printFile(filePath: String, settings: PrintSettings?): Boolean
-    // source: nitro_printing.native.dart:73
+    // source: nitro_printing.native.dart:72
     suspend fun printBatch(documents: Any?, stopOnError: Boolean, settings: PrintSettings?): List<PrintResult>
-    // source: nitro_printing.native.dart:90
+    // source: nitro_printing.native.dart:89
     suspend fun showPrintDialog(document: PrintDocument, initialSettings: PrintSettings?): PrintDialogResult
-    // source: nitro_printing.native.dart:99
+    // source: nitro_printing.native.dart:98
     suspend fun renderPreview(document: PrintDocument, settings: PrintSettings?): PreviewResult
-    // source: nitro_printing.native.dart:106
+    // source: nitro_printing.native.dart:105
     suspend fun getPageCount(document: PrintDocument): Long
-    // source: nitro_printing.native.dart:110
+    // source: nitro_printing.native.dart:109
     suspend fun printToFile(document: PrintDocument, outputPath: String, settings: PrintSettings?): Boolean
-    // source: nitro_printing.native.dart:119
+    // source: nitro_printing.native.dart:118
     suspend fun cancelPrintJob(jobId: String): Boolean
-    // source: nitro_printing.native.dart:122
+    // source: nitro_printing.native.dart:121
     suspend fun pausePrintJob(jobId: String): Boolean
-    // source: nitro_printing.native.dart:125
+    // source: nitro_printing.native.dart:124
     suspend fun resumePrintJob(jobId: String): Boolean
-    // source: nitro_printing.native.dart:128
+    // source: nitro_printing.native.dart:127
     suspend fun clearPrintQueue(): Boolean
-    // source: nitro_printing.native.dart:131
+    // source: nitro_printing.native.dart:130
     suspend fun getPrintJobsCount(): Long
-    // source: nitro_printing.native.dart:136
+    // source: nitro_printing.native.dart:135
     suspend fun getPrintJobAt(index: Long): PrintJob
-    // source: nitro_printing.native.dart:141
+    // source: nitro_printing.native.dart:140
     suspend fun getPrintJobStatus(jobId: String): PrintJob
-    // source: nitro_printing.native.dart:147
+    // source: nitro_printing.native.dart:146
     suspend fun startPrinterDiscovery(): Boolean
-    // source: nitro_printing.native.dart:150
+    // source: nitro_printing.native.dart:149
     suspend fun stopPrinterDiscovery(): Boolean
-    // source: nitro_printing.native.dart:156
+    // source: nitro_printing.native.dart:155
     suspend fun testPrinterConnection(printerId: String, timeoutSeconds: Long?): Boolean
-    // source: nitro_printing.native.dart:160
+    // source: nitro_printing.native.dart:159
     suspend fun setDefaultPrinter(printerId: String): Boolean
-    // source: nitro_printing.native.dart:166
+    // source: nitro_printing.native.dart:165
     suspend fun openSystemPrintQueue(printerId: String): Boolean
-    // source: nitro_printing.native.dart:170
+    // source: nitro_printing.native.dart:169
     suspend fun openPrinterProperties(printerId: String): Boolean
-    // source: nitro_printing.native.dart:176
+    // source: nitro_printing.native.dart:175
     suspend fun printRaw(data: ByteArray, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:180
+    // source: nitro_printing.native.dart:179
     suspend fun printEscPos(escPosData: ByteArray, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:187
+    // source: nitro_printing.native.dart:186
     suspend fun printZpl(zpl: String, settings: PrintSettings?): PrintResult
-    // source: nitro_printing.native.dart:191
+    // source: nitro_printing.native.dart:190
     suspend fun cancelRawPrint(): Boolean
-    // source: nitro_printing.native.dart:199
+    // source: nitro_printing.native.dart:198
     suspend fun getPrinterStatusDetail(printerId: String, timeoutSeconds: Long?): PrinterStatusDetail
     val onPrintJobChanged: Flow<PrintJobUpdate>
     val onPrinterStatusChanged: Flow<PrinterStatus>
@@ -1250,22 +1250,22 @@ object NitroPrintingJniBridge {
         implementation?.onActivityDetached()
     }
 
-    // source: nitro_printing.native.dart:17
+    // source: nitro_printing.native.dart:16
     @JvmStatic fun isPrintingSupported_call(): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return impl.isPrintingSupported()
     }
-    // source: nitro_printing.native.dart:18
+    // source: nitro_printing.native.dart:17
     @JvmStatic fun getPrintersCount_call(): Long {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return impl.getPrintersCount()
     }
-    // source: nitro_printing.native.dart:19
+    // source: nitro_printing.native.dart:18
     @JvmStatic fun getPrinterDriverVersion_call(printerId: String): String {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return impl.getPrinterDriverVersion(printerId)
     }
-    // source: nitro_printing.native.dart:25
+    // source: nitro_printing.native.dart:24
     @JvmStatic fun getAllPrinters_call(): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.getAllPrinters() } }).get()
@@ -1289,7 +1289,7 @@ object NitroPrintingJniBridge {
         lenBuf.putInt(payload.size)
         return lenBuf.array() + payload
     }
-    // source: nitro_printing.native.dart:30
+    // source: nitro_printing.native.dart:29
     @JvmStatic fun getPrinterAt_call(index: Long): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return try {
@@ -1299,7 +1299,7 @@ object NitroPrintingJniBridge {
             nitroEncodeResultError(_e.message ?: "Unknown error")
         }
     }
-    // source: nitro_printing.native.dart:35
+    // source: nitro_printing.native.dart:34
     @JvmStatic fun getDefaultPrinter_call(): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return try {
@@ -1309,7 +1309,7 @@ object NitroPrintingJniBridge {
             nitroEncodeResultError(_e.message ?: "Unknown error")
         }
     }
-    // source: nitro_printing.native.dart:40
+    // source: nitro_printing.native.dart:39
     @JvmStatic fun getPrinterCapabilities_call(printerId: String): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return try {
@@ -1319,7 +1319,7 @@ object NitroPrintingJniBridge {
             nitroEncodeResultError(_e.message ?: "Unknown error")
         }
     }
-    // source: nitro_printing.native.dart:47
+    // source: nitro_printing.native.dart:46
     @JvmStatic fun printText_call(text: String, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1330,7 +1330,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printText(text, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:50
+    // source: nitro_printing.native.dart:49
     @JvmStatic fun printImage_call(imageData: ByteArray, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1341,7 +1341,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printImage(imageData, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:56
+    // source: nitro_printing.native.dart:55
     @JvmStatic fun printPdf_call(pdfData: ByteArray, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1352,7 +1352,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printPdf(pdfData, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:59
+    // source: nitro_printing.native.dart:58
     @JvmStatic fun printDocument_call(document: ByteArray, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -1366,7 +1366,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printDocument(documentDecoded, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:65
+    // source: nitro_printing.native.dart:64
     @JvmStatic fun printFile_call(filePath: String, settings: ByteArray?): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1378,7 +1378,7 @@ object NitroPrintingJniBridge {
             runBlocking { impl.printFile(filePath, settingsDecoded) }
         }).get()
     }
-    // source: nitro_printing.native.dart:73
+    // source: nitro_printing.native.dart:72
     @JvmStatic fun printBatch_call(documents: ByteArray, stopOnError: Boolean, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val documentsBuf = java.nio.ByteBuffer.wrap(documents).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -1416,7 +1416,7 @@ object NitroPrintingJniBridge {
         lenBuf.putInt(payload.size)
         return lenBuf.array() + payload
     }
-    // source: nitro_printing.native.dart:90
+    // source: nitro_printing.native.dart:89
     @JvmStatic fun showPrintDialog_call(document: ByteArray, initialSettings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -1430,7 +1430,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.showPrintDialog(documentDecoded, initialSettingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:99
+    // source: nitro_printing.native.dart:98
     @JvmStatic fun renderPreview_call(document: ByteArray, settings: ByteArray?): PreviewResult {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -1445,7 +1445,7 @@ object NitroPrintingJniBridge {
             runBlocking { impl.renderPreview(documentDecoded, settingsDecoded) }
         }).get()
     }
-    // source: nitro_printing.native.dart:106
+    // source: nitro_printing.native.dart:105
     @JvmStatic fun getPageCount_call(document: ByteArray): Long {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -1455,7 +1455,7 @@ object NitroPrintingJniBridge {
             runBlocking { impl.getPageCount(documentDecoded) }
         }).get()
     }
-    // source: nitro_printing.native.dart:110
+    // source: nitro_printing.native.dart:109
     @JvmStatic fun printToFile_call(document: ByteArray, outputPath: String, settings: ByteArray?): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -1470,42 +1470,42 @@ object NitroPrintingJniBridge {
             runBlocking { impl.printToFile(documentDecoded, outputPath, settingsDecoded) }
         }).get()
     }
-    // source: nitro_printing.native.dart:119
+    // source: nitro_printing.native.dart:118
     @JvmStatic fun cancelPrintJob_call(jobId: String): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.cancelPrintJob(jobId) }
         }).get()
     }
-    // source: nitro_printing.native.dart:122
+    // source: nitro_printing.native.dart:121
     @JvmStatic fun pausePrintJob_call(jobId: String): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.pausePrintJob(jobId) }
         }).get()
     }
-    // source: nitro_printing.native.dart:125
+    // source: nitro_printing.native.dart:124
     @JvmStatic fun resumePrintJob_call(jobId: String): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.resumePrintJob(jobId) }
         }).get()
     }
-    // source: nitro_printing.native.dart:128
+    // source: nitro_printing.native.dart:127
     @JvmStatic fun clearPrintQueue_call(): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.clearPrintQueue() }
         }).get()
     }
-    // source: nitro_printing.native.dart:131
+    // source: nitro_printing.native.dart:130
     @JvmStatic fun getPrintJobsCount_call(): Long {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.getPrintJobsCount() }
         }).get()
     }
-    // source: nitro_printing.native.dart:136
+    // source: nitro_printing.native.dart:135
     @JvmStatic fun getPrintJobAt_call(index: Long): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return try {
@@ -1515,7 +1515,7 @@ object NitroPrintingJniBridge {
             nitroEncodeResultError(_e.message ?: "Unknown error")
         }
     }
-    // source: nitro_printing.native.dart:141
+    // source: nitro_printing.native.dart:140
     @JvmStatic fun getPrintJobStatus_call(jobId: String): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return try {
@@ -1525,21 +1525,21 @@ object NitroPrintingJniBridge {
             nitroEncodeResultError(_e.message ?: "Unknown error")
         }
     }
-    // source: nitro_printing.native.dart:147
+    // source: nitro_printing.native.dart:146
     @JvmStatic fun startPrinterDiscovery_call(): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.startPrinterDiscovery() }
         }).get()
     }
-    // source: nitro_printing.native.dart:150
+    // source: nitro_printing.native.dart:149
     @JvmStatic fun stopPrinterDiscovery_call(): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.stopPrinterDiscovery() }
         }).get()
     }
-    // source: nitro_printing.native.dart:156
+    // source: nitro_printing.native.dart:155
     @JvmStatic fun testPrinterConnection_call(printerId: String, timeoutSeconds: ByteArray): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         // Dart layer sends NitroNullableInt (ByteArray) for timeoutSeconds.
@@ -1548,28 +1548,28 @@ object NitroPrintingJniBridge {
             runBlocking { impl.testPrinterConnection(printerId, timeoutSecondsArg) }
         }).get()
     }
-    // source: nitro_printing.native.dart:160
+    // source: nitro_printing.native.dart:159
     @JvmStatic fun setDefaultPrinter_call(printerId: String): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.setDefaultPrinter(printerId) }
         }).get()
     }
-    // source: nitro_printing.native.dart:166
+    // source: nitro_printing.native.dart:165
     @JvmStatic fun openSystemPrintQueue_call(printerId: String): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.openSystemPrintQueue(printerId) }
         }).get()
     }
-    // source: nitro_printing.native.dart:170
+    // source: nitro_printing.native.dart:169
     @JvmStatic fun openPrinterProperties_call(printerId: String): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.openPrinterProperties(printerId) }
         }).get()
     }
-    // source: nitro_printing.native.dart:176
+    // source: nitro_printing.native.dart:175
     @JvmStatic fun printRaw_call(data: ByteArray, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1580,7 +1580,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printRaw(data, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:180
+    // source: nitro_printing.native.dart:179
     @JvmStatic fun printEscPos_call(escPosData: ByteArray, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1591,7 +1591,7 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printEscPos(escPosData, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:187
+    // source: nitro_printing.native.dart:186
     @JvmStatic fun printZpl_call(zpl: String, settings: ByteArray?): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
@@ -1602,14 +1602,14 @@ object NitroPrintingJniBridge {
         val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printZpl(zpl, settingsDecoded) } }).get()
         return result.encode()
     }
-    // source: nitro_printing.native.dart:191
+    // source: nitro_printing.native.dart:190
     @JvmStatic fun cancelRawPrint_call(): Boolean {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         return _asyncExecutor.submit(java.util.concurrent.Callable {
             runBlocking { impl.cancelRawPrint() }
         }).get()
     }
-    // source: nitro_printing.native.dart:199
+    // source: nitro_printing.native.dart:198
     @JvmStatic fun getPrinterStatusDetail_call(printerId: String, timeoutSeconds: ByteArray): ByteArray {
         val impl = implementation ?: throw IllegalStateException("NitroPrinting not registered")
         // Dart layer sends NitroNullableInt (ByteArray) for timeoutSeconds.

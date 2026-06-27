@@ -1126,75 +1126,75 @@ private func _nitroEncodeResultError(_ error: Error) -> UnsafeMutablePointer<UIn
  * Keep mutable state thread-safe or marshal work onto your own queue/actor.
  */
 public protocol HybridNitroPrintingProtocol: AnyObject {
-    // source: nitro_printing.native.dart:17
+    // source: nitro_printing.native.dart:16
     func isPrintingSupported() -> Bool
-    // source: nitro_printing.native.dart:18
+    // source: nitro_printing.native.dart:17
     func getPrintersCount() -> Int64
-    // source: nitro_printing.native.dart:19
+    // source: nitro_printing.native.dart:18
     func getPrinterDriverVersion(printerId: String) -> String
-    // source: nitro_printing.native.dart:25
+    // source: nitro_printing.native.dart:24
     func getAllPrinters() async throws -> [PrinterInfo]
-    // source: nitro_printing.native.dart:30
+    // source: nitro_printing.native.dart:29
     func getPrinterAt(index: Int64) async throws -> PrinterInfo
-    // source: nitro_printing.native.dart:35
+    // source: nitro_printing.native.dart:34
     func getDefaultPrinter() async throws -> PrinterInfo
-    // source: nitro_printing.native.dart:40
+    // source: nitro_printing.native.dart:39
     func getPrinterCapabilities(printerId: String) async throws -> PrinterCapabilities
-    // source: nitro_printing.native.dart:47
+    // source: nitro_printing.native.dart:46
     func printText(text: String, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:50
+    // source: nitro_printing.native.dart:49
     func printImage(imageData: Data, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:56
+    // source: nitro_printing.native.dart:55
     func printPdf(pdfData: Data, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:59
+    // source: nitro_printing.native.dart:58
     func printDocument(document: PrintDocument, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:65
+    // source: nitro_printing.native.dart:64
     func printFile(filePath: String, settings: PrintSettings?) async throws -> Bool
-    // source: nitro_printing.native.dart:73
+    // source: nitro_printing.native.dart:72
     func printBatch(documents: [PrintDocument], stopOnError: Bool, settings: PrintSettings?) async throws -> [PrintResult]
-    // source: nitro_printing.native.dart:90
+    // source: nitro_printing.native.dart:89
     func showPrintDialog(document: PrintDocument, initialSettings: PrintSettings?) async throws -> PrintDialogResult
-    // source: nitro_printing.native.dart:99
+    // source: nitro_printing.native.dart:98
     func renderPreview(document: PrintDocument, settings: PrintSettings?) async throws -> PreviewResult
-    // source: nitro_printing.native.dart:106
+    // source: nitro_printing.native.dart:105
     func getPageCount(document: PrintDocument) async throws -> Int64
-    // source: nitro_printing.native.dart:110
+    // source: nitro_printing.native.dart:109
     func printToFile(document: PrintDocument, outputPath: String, settings: PrintSettings?) async throws -> Bool
-    // source: nitro_printing.native.dart:119
+    // source: nitro_printing.native.dart:118
     func cancelPrintJob(jobId: String) async throws -> Bool
-    // source: nitro_printing.native.dart:122
+    // source: nitro_printing.native.dart:121
     func pausePrintJob(jobId: String) async throws -> Bool
-    // source: nitro_printing.native.dart:125
+    // source: nitro_printing.native.dart:124
     func resumePrintJob(jobId: String) async throws -> Bool
-    // source: nitro_printing.native.dart:128
+    // source: nitro_printing.native.dart:127
     func clearPrintQueue() async throws -> Bool
-    // source: nitro_printing.native.dart:131
+    // source: nitro_printing.native.dart:130
     func getPrintJobsCount() async throws -> Int64
-    // source: nitro_printing.native.dart:136
+    // source: nitro_printing.native.dart:135
     func getPrintJobAt(index: Int64) async throws -> PrintJob
-    // source: nitro_printing.native.dart:141
+    // source: nitro_printing.native.dart:140
     func getPrintJobStatus(jobId: String) async throws -> PrintJob
-    // source: nitro_printing.native.dart:147
+    // source: nitro_printing.native.dart:146
     func startPrinterDiscovery() async throws -> Bool
-    // source: nitro_printing.native.dart:150
+    // source: nitro_printing.native.dart:149
     func stopPrinterDiscovery() async throws -> Bool
-    // source: nitro_printing.native.dart:156
+    // source: nitro_printing.native.dart:155
     func testPrinterConnection(printerId: String, timeoutSeconds: Int64?) async throws -> Bool
-    // source: nitro_printing.native.dart:160
+    // source: nitro_printing.native.dart:159
     func setDefaultPrinter(printerId: String) async throws -> Bool
-    // source: nitro_printing.native.dart:166
+    // source: nitro_printing.native.dart:165
     func openSystemPrintQueue(printerId: String) async throws -> Bool
-    // source: nitro_printing.native.dart:170
+    // source: nitro_printing.native.dart:169
     func openPrinterProperties(printerId: String) async throws -> Bool
-    // source: nitro_printing.native.dart:176
+    // source: nitro_printing.native.dart:175
     func printRaw(data: Data, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:180
+    // source: nitro_printing.native.dart:179
     func printEscPos(escPosData: Data, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:187
+    // source: nitro_printing.native.dart:186
     func printZpl(zpl: String, settings: PrintSettings?) async throws -> PrintResult
-    // source: nitro_printing.native.dart:191
+    // source: nitro_printing.native.dart:190
     func cancelRawPrint() async throws -> Bool
-    // source: nitro_printing.native.dart:199
+    // source: nitro_printing.native.dart:198
     func getPrinterStatusDetail(printerId: String, timeoutSeconds: Int64?) async throws -> PrinterStatusDetail
     var onPrintJobChanged: AnyPublisher<PrintJobUpdate, Never> { get }
     var onPrinterStatusChanged: AnyPublisher<PrinterStatus, Never> { get }
@@ -1220,27 +1220,27 @@ public class NitroPrintingRegistry {
 
 // MARK: - C bridge stubs — exported as C symbols called by the generated .cpp shim
 
-// source: nitro_printing.native.dart:17
+// source: nitro_printing.native.dart:16
 @_cdecl("_nitro_printing_call_isPrintingSupported")
 public func _nitro_printing_call_isPrintingSupported() -> Int8 {
     return Int8((NitroPrintingRegistry.impl?.isPrintingSupported() ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:18
+// source: nitro_printing.native.dart:17
 @_cdecl("_nitro_printing_call_getPrintersCount")
 public func _nitro_printing_call_getPrintersCount() -> Int64 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
     return impl.getPrintersCount()
 }
 
-// source: nitro_printing.native.dart:19
+// source: nitro_printing.native.dart:18
 @_cdecl("_nitro_printing_call_getPrinterDriverVersion")
 public func _nitro_printing_call_getPrinterDriverVersion(_ printerId: UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>? {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""
     return strdup(NitroPrintingRegistry.impl?.getPrinterDriverVersion(printerId: printerIdStr) ?? "")
 }
 
-// source: nitro_printing.native.dart:25
+// source: nitro_printing.native.dart:24
 @_cdecl("_nitro_printing_call_getAllPrinters")
 public func _nitro_printing_call_getAllPrinters() -> UnsafeMutableRawPointer? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1255,7 +1255,7 @@ public func _nitro_printing_call_getAllPrinters() -> UnsafeMutableRawPointer? {
     return NitroRecordWriter.encodeIndexedList(r) { w, e in e.writeFields(w) }.map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:30
+// source: nitro_printing.native.dart:29
 @_cdecl("_nitro_printing_call_getPrinterAt")
 public func _nitro_printing_call_getPrinterAt(_ index: Int64) -> UnsafeMutablePointer<UInt8>? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1273,7 +1273,7 @@ public func _nitro_printing_call_getPrinterAt(_ index: Int64) -> UnsafeMutablePo
     return _nitroEncodeResultRecord(_ok)
 }
 
-// source: nitro_printing.native.dart:35
+// source: nitro_printing.native.dart:34
 @_cdecl("_nitro_printing_call_getDefaultPrinter")
 public func _nitro_printing_call_getDefaultPrinter() -> UnsafeMutablePointer<UInt8>? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1291,7 +1291,7 @@ public func _nitro_printing_call_getDefaultPrinter() -> UnsafeMutablePointer<UIn
     return _nitroEncodeResultRecord(_ok)
 }
 
-// source: nitro_printing.native.dart:40
+// source: nitro_printing.native.dart:39
 @_cdecl("_nitro_printing_call_getPrinterCapabilities")
 public func _nitro_printing_call_getPrinterCapabilities(_ printerId: UnsafePointer<CChar>?) -> UnsafeMutablePointer<UInt8>? {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""
@@ -1310,7 +1310,7 @@ public func _nitro_printing_call_getPrinterCapabilities(_ printerId: UnsafePoint
     return _nitroEncodeResultRecord(_ok)
 }
 
-// source: nitro_printing.native.dart:47
+// source: nitro_printing.native.dart:46
 @_cdecl("_nitro_printing_call_printText")
 public func _nitro_printing_call_printText(_ text: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let textStr = text != nil ? String(cString: text!) : ""
@@ -1325,7 +1325,7 @@ public func _nitro_printing_call_printText(_ text: UnsafePointer<CChar>?, _ sett
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:50
+// source: nitro_printing.native.dart:49
 @_cdecl("_nitro_printing_call_printImage")
 public func _nitro_printing_call_printImage(_ imageData: UnsafeMutablePointer<UInt8>?, _ imageData_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let imageDataArr = imageData.map { Data(bytes: $0, count: Int(imageData_length)) } ?? Data()
@@ -1340,7 +1340,7 @@ public func _nitro_printing_call_printImage(_ imageData: UnsafeMutablePointer<UI
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:56
+// source: nitro_printing.native.dart:55
 @_cdecl("_nitro_printing_call_printPdf")
 public func _nitro_printing_call_printPdf(_ pdfData: UnsafeMutablePointer<UInt8>?, _ pdfData_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let pdfDataArr = pdfData.map { Data(bytes: $0, count: Int(pdfData_length)) } ?? Data()
@@ -1355,7 +1355,7 @@ public func _nitro_printing_call_printPdf(_ pdfData: UnsafeMutablePointer<UInt8>
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:59
+// source: nitro_printing.native.dart:58
 @_cdecl("_nitro_printing_call_printDocument")
 public func _nitro_printing_call_printDocument(_ document: UnsafeMutableRawPointer?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1369,7 +1369,7 @@ public func _nitro_printing_call_printDocument(_ document: UnsafeMutableRawPoint
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:65
+// source: nitro_printing.native.dart:64
 @_cdecl("_nitro_printing_call_printFile")
 public func _nitro_printing_call_printFile(_ filePath: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> Int8 {
     let filePathStr = filePath != nil ? String(cString: filePath!) : ""
@@ -1384,7 +1384,7 @@ public func _nitro_printing_call_printFile(_ filePath: UnsafePointer<CChar>?, _ 
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:73
+// source: nitro_printing.native.dart:72
 @_cdecl("_nitro_printing_call_printBatch")
 public func _nitro_printing_call_printBatch(_ documents: UnsafeMutableRawPointer?, _ stopOnError: Int8, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let documentsPtr = documents?.assumingMemoryBound(to: UInt8.self)
@@ -1401,7 +1401,7 @@ public func _nitro_printing_call_printBatch(_ documents: UnsafeMutableRawPointer
     return NitroRecordWriter.encodeIndexedList(r) { w, e in e.writeFields(w) }.map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:90
+// source: nitro_printing.native.dart:89
 @_cdecl("_nitro_printing_call_showPrintDialog")
 public func _nitro_printing_call_showPrintDialog(_ document: UnsafeMutableRawPointer?, _ initialSettings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1415,7 +1415,7 @@ public func _nitro_printing_call_showPrintDialog(_ document: UnsafeMutableRawPoi
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:99
+// source: nitro_printing.native.dart:98
 @_cdecl("_nitro_printing_call_renderPreview")
 public func _nitro_printing_call_renderPreview(_ document: UnsafeMutableRawPointer?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1432,7 +1432,7 @@ public func _nitro_printing_call_renderPreview(_ document: UnsafeMutableRawPoint
     return UnsafeMutableRawPointer(ptr)
 }
 
-// source: nitro_printing.native.dart:106
+// source: nitro_printing.native.dart:105
 @_cdecl("_nitro_printing_call_getPageCount")
 public func _nitro_printing_call_getPageCount(_ document: UnsafeMutableRawPointer?) -> Int64 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
@@ -1446,7 +1446,7 @@ public func _nitro_printing_call_getPageCount(_ document: UnsafeMutableRawPointe
     return result ?? 0
 }
 
-// source: nitro_printing.native.dart:110
+// source: nitro_printing.native.dart:109
 @_cdecl("_nitro_printing_call_printToFile")
 public func _nitro_printing_call_printToFile(_ document: UnsafeMutableRawPointer?, _ outputPath: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> Int8 {
     let outputPathStr = outputPath != nil ? String(cString: outputPath!) : ""
@@ -1461,7 +1461,7 @@ public func _nitro_printing_call_printToFile(_ document: UnsafeMutableRawPointer
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:119
+// source: nitro_printing.native.dart:118
 @_cdecl("_nitro_printing_call_cancelPrintJob")
 public func _nitro_printing_call_cancelPrintJob(_ jobId: UnsafePointer<CChar>?) -> Int8 {
     let jobIdStr = jobId != nil ? String(cString: jobId!) : ""
@@ -1476,7 +1476,7 @@ public func _nitro_printing_call_cancelPrintJob(_ jobId: UnsafePointer<CChar>?) 
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:122
+// source: nitro_printing.native.dart:121
 @_cdecl("_nitro_printing_call_pausePrintJob")
 public func _nitro_printing_call_pausePrintJob(_ jobId: UnsafePointer<CChar>?) -> Int8 {
     let jobIdStr = jobId != nil ? String(cString: jobId!) : ""
@@ -1491,7 +1491,7 @@ public func _nitro_printing_call_pausePrintJob(_ jobId: UnsafePointer<CChar>?) -
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:125
+// source: nitro_printing.native.dart:124
 @_cdecl("_nitro_printing_call_resumePrintJob")
 public func _nitro_printing_call_resumePrintJob(_ jobId: UnsafePointer<CChar>?) -> Int8 {
     let jobIdStr = jobId != nil ? String(cString: jobId!) : ""
@@ -1506,7 +1506,7 @@ public func _nitro_printing_call_resumePrintJob(_ jobId: UnsafePointer<CChar>?) 
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:128
+// source: nitro_printing.native.dart:127
 @_cdecl("_nitro_printing_call_clearPrintQueue")
 public func _nitro_printing_call_clearPrintQueue() -> Int8 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
@@ -1520,7 +1520,7 @@ public func _nitro_printing_call_clearPrintQueue() -> Int8 {
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:131
+// source: nitro_printing.native.dart:130
 @_cdecl("_nitro_printing_call_getPrintJobsCount")
 public func _nitro_printing_call_getPrintJobsCount() -> Int64 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
@@ -1534,7 +1534,7 @@ public func _nitro_printing_call_getPrintJobsCount() -> Int64 {
     return result ?? 0
 }
 
-// source: nitro_printing.native.dart:136
+// source: nitro_printing.native.dart:135
 @_cdecl("_nitro_printing_call_getPrintJobAt")
 public func _nitro_printing_call_getPrintJobAt(_ index: Int64) -> UnsafeMutablePointer<UInt8>? {
     guard let impl = NitroPrintingRegistry.impl else { return nil }
@@ -1552,7 +1552,7 @@ public func _nitro_printing_call_getPrintJobAt(_ index: Int64) -> UnsafeMutableP
     return _nitroEncodeResultRecord(_ok)
 }
 
-// source: nitro_printing.native.dart:141
+// source: nitro_printing.native.dart:140
 @_cdecl("_nitro_printing_call_getPrintJobStatus")
 public func _nitro_printing_call_getPrintJobStatus(_ jobId: UnsafePointer<CChar>?) -> UnsafeMutablePointer<UInt8>? {
     let jobIdStr = jobId != nil ? String(cString: jobId!) : ""
@@ -1571,7 +1571,7 @@ public func _nitro_printing_call_getPrintJobStatus(_ jobId: UnsafePointer<CChar>
     return _nitroEncodeResultRecord(_ok)
 }
 
-// source: nitro_printing.native.dart:147
+// source: nitro_printing.native.dart:146
 @_cdecl("_nitro_printing_call_startPrinterDiscovery")
 public func _nitro_printing_call_startPrinterDiscovery() -> Int8 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
@@ -1585,7 +1585,7 @@ public func _nitro_printing_call_startPrinterDiscovery() -> Int8 {
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:150
+// source: nitro_printing.native.dart:149
 @_cdecl("_nitro_printing_call_stopPrinterDiscovery")
 public func _nitro_printing_call_stopPrinterDiscovery() -> Int8 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
@@ -1599,7 +1599,7 @@ public func _nitro_printing_call_stopPrinterDiscovery() -> Int8 {
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:156
+// source: nitro_printing.native.dart:155
 @_cdecl("_nitro_printing_call_testPrinterConnection")
 public func _nitro_printing_call_testPrinterConnection(_ printerId: UnsafePointer<CChar>?, _ timeoutSeconds: UnsafeMutableRawPointer?) -> Int8 {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""
@@ -1614,7 +1614,7 @@ public func _nitro_printing_call_testPrinterConnection(_ printerId: UnsafePointe
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:160
+// source: nitro_printing.native.dart:159
 @_cdecl("_nitro_printing_call_setDefaultPrinter")
 public func _nitro_printing_call_setDefaultPrinter(_ printerId: UnsafePointer<CChar>?) -> Int8 {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""
@@ -1629,7 +1629,7 @@ public func _nitro_printing_call_setDefaultPrinter(_ printerId: UnsafePointer<CC
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:166
+// source: nitro_printing.native.dart:165
 @_cdecl("_nitro_printing_call_openSystemPrintQueue")
 public func _nitro_printing_call_openSystemPrintQueue(_ printerId: UnsafePointer<CChar>?) -> Int8 {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""
@@ -1644,7 +1644,7 @@ public func _nitro_printing_call_openSystemPrintQueue(_ printerId: UnsafePointer
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:170
+// source: nitro_printing.native.dart:169
 @_cdecl("_nitro_printing_call_openPrinterProperties")
 public func _nitro_printing_call_openPrinterProperties(_ printerId: UnsafePointer<CChar>?) -> Int8 {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""
@@ -1659,7 +1659,7 @@ public func _nitro_printing_call_openPrinterProperties(_ printerId: UnsafePointe
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:176
+// source: nitro_printing.native.dart:175
 @_cdecl("_nitro_printing_call_printRaw")
 public func _nitro_printing_call_printRaw(_ data: UnsafeMutablePointer<UInt8>?, _ data_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let dataArr = data.map { Data(bytes: $0, count: Int(data_length)) } ?? Data()
@@ -1674,7 +1674,7 @@ public func _nitro_printing_call_printRaw(_ data: UnsafeMutablePointer<UInt8>?, 
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:180
+// source: nitro_printing.native.dart:179
 @_cdecl("_nitro_printing_call_printEscPos")
 public func _nitro_printing_call_printEscPos(_ escPosData: UnsafeMutablePointer<UInt8>?, _ escPosData_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let escPosDataArr = escPosData.map { Data(bytes: $0, count: Int(escPosData_length)) } ?? Data()
@@ -1689,7 +1689,7 @@ public func _nitro_printing_call_printEscPos(_ escPosData: UnsafeMutablePointer<
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:187
+// source: nitro_printing.native.dart:186
 @_cdecl("_nitro_printing_call_printZpl")
 public func _nitro_printing_call_printZpl(_ zpl: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
     let zplStr = zpl != nil ? String(cString: zpl!) : ""
@@ -1704,7 +1704,7 @@ public func _nitro_printing_call_printZpl(_ zpl: UnsafePointer<CChar>?, _ settin
     return result?.toNative().map { UnsafeMutableRawPointer($0) }
 }
 
-// source: nitro_printing.native.dart:191
+// source: nitro_printing.native.dart:190
 @_cdecl("_nitro_printing_call_cancelRawPrint")
 public func _nitro_printing_call_cancelRawPrint() -> Int8 {
     guard let impl = NitroPrintingRegistry.impl else { return 0 }
@@ -1718,7 +1718,7 @@ public func _nitro_printing_call_cancelRawPrint() -> Int8 {
     return Int8((result ?? false) ? 1 : 0)
 }
 
-// source: nitro_printing.native.dart:199
+// source: nitro_printing.native.dart:198
 @_cdecl("_nitro_printing_call_getPrinterStatusDetail")
 public func _nitro_printing_call_getPrinterStatusDetail(_ printerId: UnsafePointer<CChar>?, _ timeoutSeconds: UnsafeMutableRawPointer?) -> UnsafeMutablePointer<UInt8>? {
     let printerIdStr = printerId != nil ? String(cString: printerId!) : ""

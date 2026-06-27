@@ -512,75 +512,75 @@ public:
     virtual ~HybridNitroPrinting() = default;
 
     // ── Methods ──────────────────────────────────────────────────────────
-    // source: nitro_printing.native.dart:17
+    // source: nitro_printing.native.dart:16
     virtual bool isPrintingSupported() = 0;
-    // source: nitro_printing.native.dart:18
+    // source: nitro_printing.native.dart:17
     virtual int64_t getPrintersCount() = 0;
-    // source: nitro_printing.native.dart:19
+    // source: nitro_printing.native.dart:18
     virtual std::string getPrinterDriverVersion(const std::string& printerId) = 0;
-    // source: nitro_printing.native.dart:25
+    // source: nitro_printing.native.dart:24
     virtual NitroCppBuffer getAllPrinters() = 0;
-    // source: nitro_printing.native.dart:30
+    // source: nitro_printing.native.dart:29
     virtual NitroCppBuffer getPrinterAt(int64_t index) = 0;
-    // source: nitro_printing.native.dart:35
+    // source: nitro_printing.native.dart:34
     virtual NitroCppBuffer getDefaultPrinter() = 0;
-    // source: nitro_printing.native.dart:40
+    // source: nitro_printing.native.dart:39
     virtual NitroCppBuffer getPrinterCapabilities(const std::string& printerId) = 0;
-    // source: nitro_printing.native.dart:47
+    // source: nitro_printing.native.dart:46
     virtual NitroCppBuffer printText(const std::string& text, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:50
+    // source: nitro_printing.native.dart:49
     virtual NitroCppBuffer printImage(const uint8_t* imageData, size_t imageData_length, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:56
+    // source: nitro_printing.native.dart:55
     virtual NitroCppBuffer printPdf(const uint8_t* pdfData, size_t pdfData_length, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:59
+    // source: nitro_printing.native.dart:58
     virtual NitroCppBuffer printDocument(NitroCppBuffer document, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:65
+    // source: nitro_printing.native.dart:64
     virtual bool printFile(const std::string& filePath, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:73
+    // source: nitro_printing.native.dart:72
     virtual NitroCppBuffer printBatch(NitroCppBuffer documents, bool stopOnError, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:90
+    // source: nitro_printing.native.dart:89
     virtual NitroCppBuffer showPrintDialog(NitroCppBuffer document, NitroCppBuffer initialSettings) = 0;
-    // source: nitro_printing.native.dart:99
+    // source: nitro_printing.native.dart:98
     virtual PreviewResult renderPreview(NitroCppBuffer document, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:106
+    // source: nitro_printing.native.dart:105
     virtual int64_t getPageCount(NitroCppBuffer document) = 0;
-    // source: nitro_printing.native.dart:110
+    // source: nitro_printing.native.dart:109
     virtual bool printToFile(NitroCppBuffer document, const std::string& outputPath, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:119
+    // source: nitro_printing.native.dart:118
     virtual bool cancelPrintJob(const std::string& jobId) = 0;
-    // source: nitro_printing.native.dart:122
+    // source: nitro_printing.native.dart:121
     virtual bool pausePrintJob(const std::string& jobId) = 0;
-    // source: nitro_printing.native.dart:125
+    // source: nitro_printing.native.dart:124
     virtual bool resumePrintJob(const std::string& jobId) = 0;
-    // source: nitro_printing.native.dart:128
+    // source: nitro_printing.native.dart:127
     virtual bool clearPrintQueue() = 0;
-    // source: nitro_printing.native.dart:131
+    // source: nitro_printing.native.dart:130
     virtual int64_t getPrintJobsCount() = 0;
-    // source: nitro_printing.native.dart:136
+    // source: nitro_printing.native.dart:135
     virtual NitroCppBuffer getPrintJobAt(int64_t index) = 0;
-    // source: nitro_printing.native.dart:141
+    // source: nitro_printing.native.dart:140
     virtual NitroCppBuffer getPrintJobStatus(const std::string& jobId) = 0;
-    // source: nitro_printing.native.dart:147
+    // source: nitro_printing.native.dart:146
     virtual bool startPrinterDiscovery() = 0;
-    // source: nitro_printing.native.dart:150
+    // source: nitro_printing.native.dart:149
     virtual bool stopPrinterDiscovery() = 0;
-    // source: nitro_printing.native.dart:156
+    // source: nitro_printing.native.dart:155
     virtual bool testPrinterConnection(const std::string& printerId, int64_t timeoutSeconds) = 0;
-    // source: nitro_printing.native.dart:160
+    // source: nitro_printing.native.dart:159
     virtual bool setDefaultPrinter(const std::string& printerId) = 0;
-    // source: nitro_printing.native.dart:166
+    // source: nitro_printing.native.dart:165
     virtual bool openSystemPrintQueue(const std::string& printerId) = 0;
-    // source: nitro_printing.native.dart:170
+    // source: nitro_printing.native.dart:169
     virtual bool openPrinterProperties(const std::string& printerId) = 0;
-    // source: nitro_printing.native.dart:176
+    // source: nitro_printing.native.dart:175
     virtual NitroCppBuffer printRaw(const uint8_t* data, size_t data_length, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:180
+    // source: nitro_printing.native.dart:179
     virtual NitroCppBuffer printEscPos(const uint8_t* escPosData, size_t escPosData_length, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:187
+    // source: nitro_printing.native.dart:186
     virtual NitroCppBuffer printZpl(const std::string& zpl, NitroCppBuffer settings) = 0;
-    // source: nitro_printing.native.dart:191
+    // source: nitro_printing.native.dart:190
     virtual bool cancelRawPrint() = 0;
-    // source: nitro_printing.native.dart:199
+    // source: nitro_printing.native.dart:198
     virtual NitroCppBuffer getPrinterStatusDetail(const std::string& printerId, int64_t timeoutSeconds) = 0;
 
     // ── Streams ──────────────────────────────────────────────────────────

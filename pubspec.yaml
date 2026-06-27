@@ -36,14 +36,6 @@ dev_dependencies:
   build_runner: ^2.4.0
   nitro_generator: ^0.4.5
 
-dependency_overrides:
-  nitro:
-    path: ../../flutter_package/nitro_ecosystem/packages/nitro
-  nitro_annotations:
-    path: ../../flutter_package/nitro_ecosystem/packages/nitro_annotations
-  nitro_generator:
-    path: ../../flutter_package/nitro_ecosystem/packages/nitro_generator
-
 flutter:
   plugin:
     platforms:
