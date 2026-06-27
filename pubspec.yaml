@@ -26,7 +26,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  nitro: ^0.4.4
+  nitro: ^0.4.5
   plugin_platform_interface: ^2.0.2
 
 dev_dependencies:
@@ -34,7 +34,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   build_runner: ^2.4.0
-  nitro_generator: ^0.4.4
+  nitro_generator: ^0.4.5
 
 dependency_overrides:
   nitro:
