@@ -1,3 +1,15 @@
+## 0.0.3
+
+### Added
+
+- **Batch Printing & Print Dialog**: Updated API methods for batch printing and native print dialog support.
+
+### Changed
+
+- **Nitrogen SDK Upgrade**: Upgraded `nitro` and `nitro_generator` dependencies to `0.4.5`.
+- **API Refactor**: Removed `HybridNitroPrinting` implementation and integrated native Dart API headers directly.
+- **Codebase Cleanup**: Removed auto-generated bridge files from VCS and cleaned up native interface definitions.
+
 ## 0.0.2
 
 ### Fixed

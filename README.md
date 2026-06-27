@@ -55,7 +55,9 @@ nitro ecosystem (Flutter port of React Native Nitro Modules)
 
 ```yaml
 dependencies:
-  nitro_printing: ^0.0.1
+  flutter:
+    sdk: flutter
+  nitro_printing: ^0.0.3
 ```
 
 ```bash
@@ -202,16 +204,23 @@ These are direct Dart FFI calls that execute in < 1 µs — safe to call on the 
 ```dart
 bool isPrintingSupported();
 int getPrintersCount();
-PrinterInfo getPrinterAt(int index);
-PrinterInfo getDefaultPrinter();
 String getPrinterDriverVersion(String printerId);
-PrinterCapabilities getPrinterCapabilities(String printerId);
+```
+
+---
+
+### Printer Info & Discovery (`@nitroAsync`)
+
+```dart
+Future<List<PrinterInfo>> getAllPrinters();
+Future<NitroResultValue<PrinterInfo>> getPrinterAt(int index);
+Future<NitroResultValue<PrinterInfo>> getDefaultPrinter();
+Future<NitroResultValue<PrinterCapabilities>> getPrinterCapabilities(String printerId);
 ```
 
 **Example — populate a printer list:**
 ```dart
-final count = printing.getPrintersCount();
-final printers = [for (int i = 0; i < count; i++) printing.getPrinterAt(i)];
+final printers = await printing.getAllPrinters();
 ```
 
 ---
@@ -226,6 +235,25 @@ Future<PrintResult> printImage(Uint8List imageData, {PrintSettings? settings});
 Future<PrintResult> printPdf(Uint8List pdfData, {PrintSettings? settings});
 Future<PrintResult> printDocument(PrintDocument document, {PrintSettings? settings});
 Future<bool>        printFile(String filePath, {PrintSettings? settings});
+Future<List<PrintResult>> printBatch(List<PrintDocument> documents, bool stopOnError, {PrintSettings? settings});
+```
+
+---
+
+### OS Print Dialog (`@nitroAsync`)
+
+Show the native OS print dialog, or use the controller for advanced flows:
+
+```dart
+Future<PrintDialogResult> showPrintDialog(PrintDocument document, {PrintSettings? initialSettings});
+
+// Controller for orchestration:
+final controller = PrintDialogController(initialSettings: PrintSettings(copies: 2));
+final result = await controller.showDialog(document);
+if (result.confirmed) {
+  // result.confirmedSettings reflects user choices
+  await controller.printDirect(document);
+}
 ```
 
 **`PrintResult`** contains `success`, `jobId`, `errorMessage`, `errorCode`.
@@ -277,8 +305,8 @@ Future<bool>      pausePrintJob(String jobId);
 Future<bool>      resumePrintJob(String jobId);
 Future<bool>      clearPrintQueue();
 Future<int>       getPrintJobsCount();
-Future<PrintJob>  getPrintJobAt(int index);
-Future<PrintJob>  getPrintJobStatus(String jobId);
+Future<NitroResultValue<PrintJob>> getPrintJobAt(int index);
+Future<NitroResultValue<PrintJob>> getPrintJobStatus(String jobId);
 ```
 
 ---
@@ -334,7 +362,7 @@ Future<bool> openPrinterProperties(String printerId);
 
 ```dart
 /// Query live printer status via IPP Get-Printer-Attributes.
-Future<PrinterStatusDetail> getPrinterStatusDetail(
+Future<NitroResultValue<PrinterStatusDetail>> getPrinterStatusDetail(
   String printerId, {
   int? timeoutSeconds,
 });
