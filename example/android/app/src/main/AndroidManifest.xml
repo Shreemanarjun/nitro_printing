@@ -1,7 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- IPP printing uses cleartext HTTP (ipp:// maps to http://) — required
+         to reach network printers that do not offer ipps://. -->
     <application
         android:label="nitro_printing_example"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

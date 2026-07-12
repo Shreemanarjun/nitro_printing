@@ -3,6 +3,7 @@
 // Generated from: nitro_printing.native.dart
 import Foundation
 import Combine
+import NitroPrintingCpp
 
 @inline(__always)
 private func _nitroStringFromCString(_ ptr: UnsafePointer<CChar>?) -> String {
@@ -1393,17 +1394,34 @@ public func _nitro_printing_call_getPrinterDriverVersion(_ printerId: UnsafePoin
 
 // source: nitro_printing.native.dart:24
 @_cdecl("_nitro_printing_call_getAllPrinters")
-public func _nitro_printing_call_getAllPrinters() -> UnsafeMutableRawPointer? {
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: [PrinterInfo]? = nil
-    Task.detached {
-        result = try? await impl.getAllPrinters()
-        sema.signal()
+public func _nitro_printing_call_getAllPrinters(_ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    guard let r = result else { return nil }
-    return NitroRecordWriter.encodeIndexedList(r) { w, e in e.writeFields(w) }.map { UnsafeMutableRawPointer($0) }
+    Task.detached {
+        do {
+        let _result = try await impl.getAllPrinters()
+        let _recPtr = NitroRecordWriter.encodeIndexedList(_result) { w, e in e.writeFields(w) }.map { UnsafeMutableRawPointer($0) }
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:29
@@ -1463,226 +1481,502 @@ public func _nitro_printing_call_getPrinterCapabilities(_ printerId: UnsafePoint
 
 // source: nitro_printing.native.dart:46
 @_cdecl("_nitro_printing_call_printText")
-public func _nitro_printing_call_printText(_ text: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printText(_ text: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let textStr = _nitroStringFromCString(text)
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printText(text: textStr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printText(text: textStr, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:49
 @_cdecl("_nitro_printing_call_printImage")
-public func _nitro_printing_call_printImage(_ imageData: UnsafeMutablePointer<UInt8>?, _ imageData_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printImage(_ imageData: UnsafeMutablePointer<UInt8>?, _ imageData_length: Int64, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let imageDataArr = imageData.map { Data(bytes: $0, count: Int(imageData_length)) } ?? Data()
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printImage(imageData: imageDataArr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printImage(imageData: imageDataArr, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:55
 @_cdecl("_nitro_printing_call_printPdf")
-public func _nitro_printing_call_printPdf(_ pdfData: UnsafeMutablePointer<UInt8>?, _ pdfData_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printPdf(_ pdfData: UnsafeMutablePointer<UInt8>?, _ pdfData_length: Int64, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let pdfDataArr = pdfData.map { Data(bytes: $0, count: Int(pdfData_length)) } ?? Data()
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printPdf(pdfData: pdfDataArr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printPdf(pdfData: pdfDataArr, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:58
 @_cdecl("_nitro_printing_call_printDocument")
-public func _nitro_printing_call_printDocument(_ document: UnsafeMutableRawPointer?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printDocument(document: PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self)), settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+public func _nitro_printing_call_printDocument(_ document: UnsafeMutableRawPointer?, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let document_dec = PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self))
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printDocument(document: document_dec, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:64
 @_cdecl("_nitro_printing_call_printFile")
-public func _nitro_printing_call_printFile(_ filePath: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> Int8 {
+public func _nitro_printing_call_printFile(_ filePath: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let filePathStr = _nitroStringFromCString(filePath)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.printFile(filePath: filePathStr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result = try await impl.printFile(filePath: filePathStr, settings: settings_dec)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:72
 @_cdecl("_nitro_printing_call_printBatch")
-public func _nitro_printing_call_printBatch(_ documents: UnsafeMutableRawPointer?, _ stopOnError: Int8, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printBatch(_ documents: UnsafeMutableRawPointer?, _ stopOnError: Int8, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
+    }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
     let documentsPtr = documents?.assumingMemoryBound(to: UInt8.self)
     let documentsDecoded = documentsPtr.map { NitroRecordReader.decodeIndexedList($0) { r in PrintDocument.fromReader(r) } } ?? []
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: [PrintResult]? = nil
     Task.detached {
-        result = try? await impl.printBatch(documents: documentsDecoded, stopOnError: stopOnError != 0, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+        do {
+        let _result = try await impl.printBatch(documents: documentsDecoded, stopOnError: stopOnError != 0, settings: settings_dec)
+        let _recPtr = NitroRecordWriter.encodeIndexedList(_result) { w, e in e.writeFields(w) }.map { UnsafeMutableRawPointer($0) }
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
     }
-    sema.wait()
-    guard let r = result else { return nil }
-    return NitroRecordWriter.encodeIndexedList(r) { w, e in e.writeFields(w) }.map { UnsafeMutableRawPointer($0) }
 }
 
 // source: nitro_printing.native.dart:89
 @_cdecl("_nitro_printing_call_showPrintDialog")
-public func _nitro_printing_call_showPrintDialog(_ document: UnsafeMutableRawPointer?, _ initialSettings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintDialogResult? = nil
-    Task.detached {
-        result = try? await impl.showPrintDialog(document: PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self)), initialSettings: initialSettings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+public func _nitro_printing_call_showPrintDialog(_ document: UnsafeMutableRawPointer?, _ initialSettings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let document_dec = PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self))
+    let initialSettings_dec = initialSettings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintDialogResult? = try await impl.showPrintDialog(document: document_dec, initialSettings: initialSettings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:98
 @_cdecl("_nitro_printing_call_renderPreview")
-public func _nitro_printing_call_renderPreview(_ document: UnsafeMutableRawPointer?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PreviewResult? = nil
-    Task.detached {
-        result = try? await impl.renderPreview(document: PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self)), settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+public func _nitro_printing_call_renderPreview(_ document: UnsafeMutableRawPointer?, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    guard let r = result else { return nil }
-    let ptr = UnsafeMutablePointer<_PreviewResultC>.allocate(capacity: 1)
-    ptr.initialize(to: _PreviewResultC.fromSwift(r))
-    return UnsafeMutableRawPointer(ptr)
+    let document_dec = PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self))
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PreviewResult? = try await impl.renderPreview(document: document_dec, settings: settings_dec)
+        let _recPtr: UnsafeMutableRawPointer? = (_result ?? nil).map { r -> UnsafeMutableRawPointer in
+            let ptr = UnsafeMutablePointer<_PreviewResultC>.allocate(capacity: 1)
+            ptr.initialize(to: _PreviewResultC.fromSwift(r))
+            return UnsafeMutableRawPointer(ptr)
+        }
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:105
 @_cdecl("_nitro_printing_call_getPageCount")
-public func _nitro_printing_call_getPageCount(_ document: UnsafeMutableRawPointer?) -> Int64 {
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Int64? = nil
-    Task.detached {
-        result = try? await impl.getPageCount(document: PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self)))
-        sema.signal()
+public func _nitro_printing_call_getPageCount(_ document: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result ?? 0
+    let document_dec = PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self))
+    Task.detached {
+        do {
+        let _result = try await impl.getPageCount(document: document_dec)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = Int64(_result)
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:109
 @_cdecl("_nitro_printing_call_printToFile")
-public func _nitro_printing_call_printToFile(_ document: UnsafeMutableRawPointer?, _ outputPath: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> Int8 {
+public func _nitro_printing_call_printToFile(_ document: UnsafeMutableRawPointer?, _ outputPath: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let outputPathStr = _nitroStringFromCString(outputPath)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.printToFile(document: PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self)), outputPath: outputPathStr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    let document_dec = PrintDocument.fromNative(document!.assumingMemoryBound(to: UInt8.self))
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result = try await impl.printToFile(document: document_dec, outputPath: outputPathStr, settings: settings_dec)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:118
 @_cdecl("_nitro_printing_call_cancelPrintJob")
-public func _nitro_printing_call_cancelPrintJob(_ jobId: UnsafePointer<CChar>?) -> Int8 {
+public func _nitro_printing_call_cancelPrintJob(_ jobId: UnsafePointer<CChar>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let jobIdStr = _nitroStringFromCString(jobId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.cancelPrintJob(jobId: jobIdStr)
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.cancelPrintJob(jobId: jobIdStr)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:121
 @_cdecl("_nitro_printing_call_pausePrintJob")
-public func _nitro_printing_call_pausePrintJob(_ jobId: UnsafePointer<CChar>?) -> Int8 {
+public func _nitro_printing_call_pausePrintJob(_ jobId: UnsafePointer<CChar>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let jobIdStr = _nitroStringFromCString(jobId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.pausePrintJob(jobId: jobIdStr)
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.pausePrintJob(jobId: jobIdStr)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:124
 @_cdecl("_nitro_printing_call_resumePrintJob")
-public func _nitro_printing_call_resumePrintJob(_ jobId: UnsafePointer<CChar>?) -> Int8 {
+public func _nitro_printing_call_resumePrintJob(_ jobId: UnsafePointer<CChar>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let jobIdStr = _nitroStringFromCString(jobId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.resumePrintJob(jobId: jobIdStr)
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.resumePrintJob(jobId: jobIdStr)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:127
 @_cdecl("_nitro_printing_call_clearPrintQueue")
-public func _nitro_printing_call_clearPrintQueue() -> Int8 {
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.clearPrintQueue()
-        sema.signal()
+public func _nitro_printing_call_clearPrintQueue(_ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.clearPrintQueue()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:130
 @_cdecl("_nitro_printing_call_getPrintJobsCount")
-public func _nitro_printing_call_getPrintJobsCount() -> Int64 {
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Int64? = nil
-    Task.detached {
-        result = try? await impl.getPrintJobsCount()
-        sema.signal()
+public func _nitro_printing_call_getPrintJobsCount(_ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result ?? 0
+    Task.detached {
+        do {
+        let _result = try await impl.getPrintJobsCount()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = Int64(_result)
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:135
@@ -1724,149 +2018,326 @@ public func _nitro_printing_call_getPrintJobStatus(_ jobId: UnsafePointer<CChar>
 
 // source: nitro_printing.native.dart:146
 @_cdecl("_nitro_printing_call_startPrinterDiscovery")
-public func _nitro_printing_call_startPrinterDiscovery() -> Int8 {
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.startPrinterDiscovery()
-        sema.signal()
+public func _nitro_printing_call_startPrinterDiscovery(_ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.startPrinterDiscovery()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:149
 @_cdecl("_nitro_printing_call_stopPrinterDiscovery")
-public func _nitro_printing_call_stopPrinterDiscovery() -> Int8 {
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.stopPrinterDiscovery()
-        sema.signal()
+public func _nitro_printing_call_stopPrinterDiscovery(_ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.stopPrinterDiscovery()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:155
 @_cdecl("_nitro_printing_call_testPrinterConnection")
-public func _nitro_printing_call_testPrinterConnection(_ printerId: UnsafePointer<CChar>?, _ timeoutSeconds: UnsafeMutablePointer<UInt8>?) -> Int8 {
+public func _nitro_printing_call_testPrinterConnection(_ printerId: UnsafePointer<CChar>?, _ timeoutSeconds: UnsafeMutablePointer<UInt8>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let printerIdStr = _nitroStringFromCString(printerId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.testPrinterConnection(printerId: printerIdStr, timeoutSeconds: { guard let _p = timeoutSeconds, _p[0] != 0 else { return nil }; var _rv: Int64 = 0; Swift.withUnsafeMutableBytes(of: &_rv) { $0.baseAddress!.copyMemory(from: UnsafeRawPointer(_p + 1), byteCount: 8) }; return _rv }())
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    let timeoutSeconds_dec: Int64? = { guard let _p = timeoutSeconds, _p[0] != 0 else { return nil }; var _rv: Int64 = 0; Swift.withUnsafeMutableBytes(of: &_rv) { $0.baseAddress!.copyMemory(from: UnsafeRawPointer(_p + 1), byteCount: 8) }; return _rv }()
+    Task.detached {
+        do {
+        let _result = try await impl.testPrinterConnection(printerId: printerIdStr, timeoutSeconds: timeoutSeconds_dec)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:159
 @_cdecl("_nitro_printing_call_setDefaultPrinter")
-public func _nitro_printing_call_setDefaultPrinter(_ printerId: UnsafePointer<CChar>?) -> Int8 {
+public func _nitro_printing_call_setDefaultPrinter(_ printerId: UnsafePointer<CChar>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let printerIdStr = _nitroStringFromCString(printerId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.setDefaultPrinter(printerId: printerIdStr)
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.setDefaultPrinter(printerId: printerIdStr)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:165
 @_cdecl("_nitro_printing_call_openSystemPrintQueue")
-public func _nitro_printing_call_openSystemPrintQueue(_ printerId: UnsafePointer<CChar>?) -> Int8 {
+public func _nitro_printing_call_openSystemPrintQueue(_ printerId: UnsafePointer<CChar>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let printerIdStr = _nitroStringFromCString(printerId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.openSystemPrintQueue(printerId: printerIdStr)
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.openSystemPrintQueue(printerId: printerIdStr)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:169
 @_cdecl("_nitro_printing_call_openPrinterProperties")
-public func _nitro_printing_call_openPrinterProperties(_ printerId: UnsafePointer<CChar>?) -> Int8 {
+public func _nitro_printing_call_openPrinterProperties(_ printerId: UnsafePointer<CChar>?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let printerIdStr = _nitroStringFromCString(printerId)
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.openPrinterProperties(printerId: printerIdStr)
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.openPrinterProperties(printerId: printerIdStr)
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:175
 @_cdecl("_nitro_printing_call_printRaw")
-public func _nitro_printing_call_printRaw(_ data: UnsafeMutablePointer<UInt8>?, _ data_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printRaw(_ data: UnsafeMutablePointer<UInt8>?, _ data_length: Int64, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let dataArr = data.map { Data(bytes: $0, count: Int(data_length)) } ?? Data()
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printRaw(data: dataArr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printRaw(data: dataArr, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:179
 @_cdecl("_nitro_printing_call_printEscPos")
-public func _nitro_printing_call_printEscPos(_ escPosData: UnsafeMutablePointer<UInt8>?, _ escPosData_length: Int64, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printEscPos(_ escPosData: UnsafeMutablePointer<UInt8>?, _ escPosData_length: Int64, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let escPosDataArr = escPosData.map { Data(bytes: $0, count: Int(escPosData_length)) } ?? Data()
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printEscPos(escPosData: escPosDataArr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printEscPos(escPosData: escPosDataArr, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:186
 @_cdecl("_nitro_printing_call_printZpl")
-public func _nitro_printing_call_printZpl(_ zpl: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+public func _nitro_printing_call_printZpl(_ zpl: UnsafePointer<CChar>?, _ settings: UnsafeMutableRawPointer?, _ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
     let zplStr = _nitroStringFromCString(zpl)
-    guard let impl = NitroPrintingRegistry.impl else { return nil }
-    let sema = DispatchSemaphore(value: 0)
-    var result: PrintResult? = nil
-    Task.detached {
-        result = try? await impl.printZpl(zpl: zplStr, settings: settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) })
-        sema.signal()
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return result?.toNative().map { UnsafeMutableRawPointer($0) }
+    let settings_dec = settings.map { PrintSettings.fromNative($0.assumingMemoryBound(to: UInt8.self)) }
+    Task.detached {
+        do {
+        let _result: PrintResult? = try await impl.printZpl(zpl: zplStr, settings: settings_dec)
+        let _recPtr = (_result ?? nil)?.toNative()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kInt64
+        _obj.value.as_int64 = _recPtr != nil ? Int64(bitPattern: UInt64(UInt(bitPattern: _recPtr!))) : 0
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:190
 @_cdecl("_nitro_printing_call_cancelRawPrint")
-public func _nitro_printing_call_cancelRawPrint() -> Int8 {
-    guard let impl = NitroPrintingRegistry.impl else { return 0 }
-    let sema = DispatchSemaphore(value: 0)
-    var result: Bool? = nil
-    Task.detached {
-        result = try? await impl.cancelRawPrint()
-        sema.signal()
+public func _nitro_printing_call_cancelRawPrint(_ errPtr: Int64, _ dartPort: Int64) {
+    let _errPtr = UnsafeMutablePointer<NitroError>(bitPattern: UInt(bitPattern: Int(errPtr)))
+    guard let impl = NitroPrintingRegistry.impl else {
+        var _null = Dart_CObject()
+        _null.type = Dart_CObject_kNull
+        Dart_PostCObject_DL(dartPort, &_null)
+        return
     }
-    sema.wait()
-    return Int8((result ?? false) ? 1 : 0)
+    Task.detached {
+        do {
+        let _result = try await impl.cancelRawPrint()
+        var _obj = Dart_CObject()
+        _obj.type = Dart_CObject_kBool
+        _obj.value.as_bool = _result
+        Dart_PostCObject_DL(dartPort, &_obj)
+        } catch {
+            if let _errPtr = _errPtr {
+                let _nsErr = error as NSError
+                _errPtr.pointee.hasError = 1
+                _errPtr.pointee.name = UnsafePointer(strdup(_nsErr.domain))
+                _errPtr.pointee.message = UnsafePointer(strdup(_nsErr.localizedDescription))
+            }
+            var _null = Dart_CObject()
+            _null.type = Dart_CObject_kNull
+            Dart_PostCObject_DL(dartPort, &_null)
+        }
+    }
 }
 
 // source: nitro_printing.native.dart:198

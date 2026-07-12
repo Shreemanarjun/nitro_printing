@@ -842,7 +842,7 @@ public:
     // source: nitro_printing.native.dart:18
     virtual std::string getPrinterDriverVersion(const std::string& printerId) = 0;
     // source: nitro_printing.native.dart:24
-    virtual NitroCppBuffer getAllPrinters() = 0;
+    virtual void getAllPrinters(NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:29
     virtual NitroCppBuffer getPrinterAt(int64_t index) = 0;
     // source: nitro_printing.native.dart:34
@@ -850,59 +850,59 @@ public:
     // source: nitro_printing.native.dart:39
     virtual NitroCppBuffer getPrinterCapabilities(const std::string& printerId) = 0;
     // source: nitro_printing.native.dart:46
-    virtual NitroCppBuffer printText(const std::string& text, NitroCppBuffer settings) = 0;
+    virtual void printText(const std::string& text, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:49
-    virtual NitroCppBuffer printImage(const uint8_t* imageData, size_t imageData_length, NitroCppBuffer settings) = 0;
+    virtual void printImage(const uint8_t* imageData, size_t imageData_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:55
-    virtual NitroCppBuffer printPdf(const uint8_t* pdfData, size_t pdfData_length, NitroCppBuffer settings) = 0;
+    virtual void printPdf(const uint8_t* pdfData, size_t pdfData_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:58
-    virtual NitroCppBuffer printDocument(NitroCppBuffer document, NitroCppBuffer settings) = 0;
+    virtual void printDocument(NitroCppBuffer document, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:64
-    virtual bool printFile(const std::string& filePath, NitroCppBuffer settings) = 0;
+    virtual void printFile(const std::string& filePath, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:72
-    virtual NitroCppBuffer printBatch(NitroCppBuffer documents, bool stopOnError, NitroCppBuffer settings) = 0;
+    virtual void printBatch(NitroCppBuffer documents, bool stopOnError, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:89
-    virtual NitroCppBuffer showPrintDialog(NitroCppBuffer document, NitroCppBuffer initialSettings) = 0;
+    virtual void showPrintDialog(NitroCppBuffer document, NitroCppBuffer initialSettings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:98
-    virtual PreviewResult renderPreview(NitroCppBuffer document, NitroCppBuffer settings) = 0;
+    virtual void renderPreview(NitroCppBuffer document, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:105
-    virtual int64_t getPageCount(NitroCppBuffer document) = 0;
+    virtual void getPageCount(NitroCppBuffer document, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:109
-    virtual bool printToFile(NitroCppBuffer document, const std::string& outputPath, NitroCppBuffer settings) = 0;
+    virtual void printToFile(NitroCppBuffer document, const std::string& outputPath, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:118
-    virtual bool cancelPrintJob(const std::string& jobId) = 0;
+    virtual void cancelPrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:121
-    virtual bool pausePrintJob(const std::string& jobId) = 0;
+    virtual void pausePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:124
-    virtual bool resumePrintJob(const std::string& jobId) = 0;
+    virtual void resumePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:127
-    virtual bool clearPrintQueue() = 0;
+    virtual void clearPrintQueue(NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:130
-    virtual int64_t getPrintJobsCount() = 0;
+    virtual void getPrintJobsCount(NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:135
     virtual NitroCppBuffer getPrintJobAt(int64_t index) = 0;
     // source: nitro_printing.native.dart:140
     virtual NitroCppBuffer getPrintJobStatus(const std::string& jobId) = 0;
     // source: nitro_printing.native.dart:146
-    virtual bool startPrinterDiscovery() = 0;
+    virtual void startPrinterDiscovery(NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:149
-    virtual bool stopPrinterDiscovery() = 0;
+    virtual void stopPrinterDiscovery(NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:155
-    virtual bool testPrinterConnection(const std::string& printerId, std::optional<int64_t> timeoutSeconds) = 0;
+    virtual void testPrinterConnection(const std::string& printerId, std::optional<int64_t> timeoutSeconds, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:159
-    virtual bool setDefaultPrinter(const std::string& printerId) = 0;
+    virtual void setDefaultPrinter(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:165
-    virtual bool openSystemPrintQueue(const std::string& printerId) = 0;
+    virtual void openSystemPrintQueue(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:169
-    virtual bool openPrinterProperties(const std::string& printerId) = 0;
+    virtual void openPrinterProperties(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:175
-    virtual NitroCppBuffer printRaw(const uint8_t* data, size_t data_length, NitroCppBuffer settings) = 0;
+    virtual void printRaw(const uint8_t* data, size_t data_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:179
-    virtual NitroCppBuffer printEscPos(const uint8_t* escPosData, size_t escPosData_length, NitroCppBuffer settings) = 0;
+    virtual void printEscPos(const uint8_t* escPosData, size_t escPosData_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:186
-    virtual NitroCppBuffer printZpl(const std::string& zpl, NitroCppBuffer settings) = 0;
+    virtual void printZpl(const std::string& zpl, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:190
-    virtual bool cancelRawPrint() = 0;
+    virtual void cancelRawPrint(NitroError* _nitro_err, int64_t dartPort) = 0;
     // source: nitro_printing.native.dart:198
     virtual NitroCppBuffer getPrinterStatusDetail(const std::string& printerId, std::optional<int64_t> timeoutSeconds) = 0;
 

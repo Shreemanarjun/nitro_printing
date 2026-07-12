@@ -19,8 +19,10 @@ abstract class NitroPrinting extends HybridObject {
 
   // ── Async: printer discovery / info ──────────────────────────────────────
 
-  /// Returns all available printers. Runs off the UI thread (@nitroAsync).
-  @nitroAsync
+  /// Returns all available printers. Runs on a native coroutine/Task via the
+  /// zero-hop @nitroNativeAsync path; a natively thrown error completes the
+  /// Future with a catchable exception.
+  @nitroNativeAsync
   Future<List<PrinterInfo>> getAllPrinters();
 
   /// Returns the printer at [index]. Fails with [NitroErr] if out of range.
@@ -42,25 +44,25 @@ abstract class NitroPrinting extends HybridObject {
 
   // ── Async: print operations ───────────────────────────────────────────────
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printText(String text, {PrintSettings? settings});
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printImage(
     Uint8List imageData, {
     PrintSettings? settings,
   });
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printPdf(Uint8List pdfData, {PrintSettings? settings});
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printDocument(
     PrintDocument document, {
     PrintSettings? settings,
   });
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> printFile(String filePath, {PrintSettings? settings});
 
   /// Print a batch of [documents] using the native platform job queue.
@@ -68,7 +70,7 @@ abstract class NitroPrinting extends HybridObject {
   /// More efficient than sequential Dart calls: the native side can
   /// pipeline spooling and avoid repeated bridge round-trips.
   /// Stops at the first failure when [stopOnError] is true.
-  @nitroAsync
+  @nitroNativeAsync
   Future<List<PrintResult>> printBatch(
     List<PrintDocument> documents,
     bool stopOnError, {
@@ -85,7 +87,7 @@ abstract class NitroPrinting extends HybridObject {
   /// - [PrintDialogResult.confirmed] == false → user cancelled.
   ///
   /// Use [PrintDialogController] for a higher-level API.
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintDialogResult> showPrintDialog(
     PrintDocument document, {
     PrintSettings? initialSettings,
@@ -94,18 +96,18 @@ abstract class NitroPrinting extends HybridObject {
   // ── Async: export / virtual print ────────────────────────────────────────
 
   /// Render [document] to PDF bytes without printing (for preview widgets).
-  @nitroAsync
+  @nitroNativeAsync
   Future<PreviewResult> renderPreview(
     PrintDocument document, {
     PrintSettings? settings,
   });
 
   /// Count pages [document] would produce with [settings].
-  @nitroAsync
+  @nitroNativeAsync
   Future<int> getPageCount(PrintDocument document);
 
   /// Write a rendered PDF of [document] to [outputPath] (virtual/file print).
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> printToFile(
     PrintDocument document,
     String outputPath, {
@@ -114,19 +116,19 @@ abstract class NitroPrinting extends HybridObject {
 
   // ── Async: job management ─────────────────────────────────────────────────
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> cancelPrintJob(String jobId);
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> pausePrintJob(String jobId);
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> resumePrintJob(String jobId);
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> clearPrintQueue();
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<int> getPrintJobsCount();
 
   /// Returns the job at [index]. Fails with [NitroErr] if out of range.
@@ -142,51 +144,51 @@ abstract class NitroPrinting extends HybridObject {
   // ── Async: discovery ─────────────────────────────────────────────────────
 
   /// Start Bonjour/mDNS discovery for IPP printers.
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> startPrinterDiscovery();
 
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> stopPrinterDiscovery();
 
   // ── Async: connection / admin ─────────────────────────────────────────────
 
   /// TCP probe to [printerId] host:port. [timeoutSeconds] bounds the wait (default 5 s).
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> testPrinterConnection(String printerId, {int? timeoutSeconds});
 
   /// Set system-default printer by name/ID. No-op on iOS/Android.
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> setDefaultPrinter(String printerId);
 
   // ── Async: platform UX ───────────────────────────────────────────────────
 
   /// Open OS print-queue window. Pass empty string for all printers.
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> openSystemPrintQueue(String printerId);
 
   /// Open OS printer-properties dialog. macOS/Windows only.
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> openPrinterProperties(String printerId);
 
   // ── Async: raw protocol printing ─────────────────────────────────────────
 
   /// Send raw bytes directly to the printer via TCP socket or IPP.
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printRaw(Uint8List data, {PrintSettings? settings});
 
   /// Send ESC/POS-encoded bytes to a thermal receipt printer via TCP socket.
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printEscPos(
     Uint8List escPosData, {
     PrintSettings? settings,
   });
 
   /// Send ZPL label data to a Zebra printer via TCP.
-  @nitroAsync
+  @nitroNativeAsync
   Future<PrintResult> printZpl(String zpl, {PrintSettings? settings});
 
   /// Cancel any in-progress raw/ESC-POS/ZPL network print job.
-  @nitroAsync
+  @nitroNativeAsync
   Future<bool> cancelRawPrint();
 
   // ── Async: detailed printer status ───────────────────────────────────────

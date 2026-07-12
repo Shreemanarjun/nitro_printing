@@ -23,7 +23,7 @@ NITRO_EXPORT uint32_t nitro_printing_nitro_abi_version(void) {
     return 1;
 }
 NITRO_EXPORT const char* nitro_printing_nitro_bridge_checksum(void) {
-    return "e0687ae039aa0e94";
+    return "c6f78d9831de3d94";
 }
 NITRO_EXPORT intptr_t nitro_printing_init_dart_api_dl(void* data) {
     return Dart_InitializeApiDL(data);
@@ -344,30 +344,19 @@ const char* nitro_printing_get_printer_driver_version(int64_t instanceId, const 
     return result;
 }
 
-void* nitro_printing_get_all_printers(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_get_all_printers(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_getAllPrinters_call;
-    if (methodId == nullptr) { LOGE("Method not found: getAllPrinters_call sig=(J)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: getAllPrinters_call sig=(JJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId);
+    if (env->PushLocalFrame(16) != 0) { return; }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
 uint8_t* nitro_printing_get_printer_at(int64_t instanceId, int64_t index) {
@@ -440,15 +429,14 @@ uint8_t* nitro_printing_get_printer_capabilities(int64_t instanceId, const char*
     return res_buf;
 }
 
-void* nitro_printing_print_text(int64_t instanceId, const char* text, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_text(int64_t instanceId, const char* text, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printText_call;
-    if (methodId == nullptr) { LOGE("Method not found: printText_call sig=(JLjava/lang/String;[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printText_call sig=(JLjava/lang/String;[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_text = env->NewStringUTF(text);
     jbyteArray j_settings = nullptr;
     if (settings != nullptr) {
@@ -457,32 +445,21 @@ void* nitro_printing_print_text(int64_t instanceId, const char* text, void* sett
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_text, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_text, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t imageData_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t imageData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printImage_call;
-    if (methodId == nullptr) { LOGE("Method not found: printImage_call sig=(J[B[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printImage_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jbyteArray j_imageData = env->NewByteArray((jsize)imageData_length);
     env->SetByteArrayRegion(j_imageData, 0, (jsize)imageData_length, (const jbyte*)imageData);
     jbyteArray j_settings = nullptr;
@@ -492,32 +469,21 @@ void* nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t 
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_imageData, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_imageData, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfData_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printPdf_call;
-    if (methodId == nullptr) { LOGE("Method not found: printPdf_call sig=(J[B[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printPdf_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jbyteArray j_pdfData = env->NewByteArray((jsize)pdfData_length);
     env->SetByteArrayRegion(j_pdfData, 0, (jsize)pdfData_length, (const jbyte*)pdfData);
     jbyteArray j_settings = nullptr;
@@ -527,32 +493,21 @@ void* nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfD
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_pdfData, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_pdfData, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_print_document(int64_t instanceId, void* document, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_document(int64_t instanceId, void* document, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printDocument_call;
-    if (methodId == nullptr) { LOGE("Method not found: printDocument_call sig=(J[B[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printDocument_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     int32_t document_payload_len = *((const int32_t*)document);
     int32_t document_total = document_payload_len + 4;
     jbyteArray j_document = env->NewByteArray((jsize)document_total);
@@ -564,32 +519,21 @@ void* nitro_printing_print_document(int64_t instanceId, void* document, void* se
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-int8_t nitro_printing_print_file(int64_t instanceId, const char* filePath, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_file(int64_t instanceId, const char* filePath, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printFile_call;
-    if (methodId == nullptr) { LOGE("Method not found: printFile_call sig=(JLjava/lang/String;[B)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: printFile_call sig=(JLjava/lang/String;[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_filePath = env->NewStringUTF(filePath);
     jbyteArray j_settings = nullptr;
     if (settings != nullptr) {
@@ -598,25 +542,21 @@ int8_t nitro_printing_print_file(int64_t instanceId, const char* filePath, void*
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_filePath, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_filePath, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-void* nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t stopOnError, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t stopOnError, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printBatch_call;
-    if (methodId == nullptr) { LOGE("Method not found: printBatch_call sig=(J[BZ[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printBatch_call sig=(J[BZ[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     int32_t documents_payload_len = *((const int32_t*)documents);
     int32_t documents_total = documents_payload_len + 4;
     jbyteArray j_documents = env->NewByteArray((jsize)documents_total);
@@ -628,32 +568,21 @@ void* nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t sto
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_documents, stopOnError, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_documents, stopOnError, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_show_print_dialog(int64_t instanceId, void* document, void* initialSettings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_show_print_dialog(int64_t instanceId, void* document, void* initialSettings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_showPrintDialog_call;
-    if (methodId == nullptr) { LOGE("Method not found: showPrintDialog_call sig=(J[B[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: showPrintDialog_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     int32_t document_payload_len = *((const int32_t*)document);
     int32_t document_total = document_payload_len + 4;
     jbyteArray j_document = env->NewByteArray((jsize)document_total);
@@ -665,32 +594,21 @@ void* nitro_printing_show_print_dialog(int64_t instanceId, void* document, void*
         j_initialSettings = env->NewByteArray((jsize)initialSettings_total);
         env->SetByteArrayRegion(j_initialSettings, 0, (jsize)initialSettings_total, (const jbyte*)initialSettings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_initialSettings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_initialSettings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_render_preview(int64_t instanceId, void* document, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_render_preview(int64_t instanceId, void* document, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_renderPreview_call;
-    if (methodId == nullptr) { LOGE("Method not found: renderPreview_call sig=(J[B[B)Lnitro/nitro_printing_module/PreviewResult;"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: renderPreview_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     int32_t document_payload_len = *((const int32_t*)document);
     int32_t document_total = document_payload_len + 4;
     jbyteArray j_document = env->NewByteArray((jsize)document_total);
@@ -702,54 +620,40 @@ void* nitro_printing_render_preview(int64_t instanceId, void* document, void* se
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jobject jobj = env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jobj == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    PreviewResult* result = (PreviewResult*)malloc(sizeof(PreviewResult));
-    *result = pack_PreviewResult_from_jni(env, jobj);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-int64_t nitro_printing_get_page_count(int64_t instanceId, void* document) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_get_page_count(int64_t instanceId, void* document, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return 0; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_getPageCount_call;
-    if (methodId == nullptr) { LOGE("Method not found: getPageCount_call sig=(J[B)J"); return 0; }
+    if (methodId == nullptr) { LOGE("Method not found: getPageCount_call sig=(J[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return 0; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     int32_t document_payload_len = *((const int32_t*)document);
     int32_t document_total = document_payload_len + 4;
     jbyteArray j_document = env->NewByteArray((jsize)document_total);
     env->SetByteArrayRegion(j_document, 0, (jsize)document_total, (const jbyte*)document);
-    int64_t res = env->CallStaticLongMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return 0;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_print_to_file(int64_t instanceId, void* document, const char* outputPath, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_to_file(int64_t instanceId, void* document, const char* outputPath, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printToFile_call;
-    if (methodId == nullptr) { LOGE("Method not found: printToFile_call sig=(J[BLjava/lang/String;[B)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: printToFile_call sig=(J[BLjava/lang/String;[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     int32_t document_payload_len = *((const int32_t*)document);
     int32_t document_total = document_payload_len + 4;
     jbyteArray j_document = env->NewByteArray((jsize)document_total);
@@ -762,112 +666,89 @@ int8_t nitro_printing_print_to_file(int64_t instanceId, void* document, const ch
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_outputPath, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_document, j_outputPath, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_cancel_print_job(int64_t instanceId, const char* jobId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_cancel_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_cancelPrintJob_call;
-    if (methodId == nullptr) { LOGE("Method not found: cancelPrintJob_call sig=(JLjava/lang/String;)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: cancelPrintJob_call sig=(JLjava/lang/String;JJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_jobId = env->NewStringUTF(jobId);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_jobId);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_jobId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_pause_print_job(int64_t instanceId, const char* jobId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_pause_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_pausePrintJob_call;
-    if (methodId == nullptr) { LOGE("Method not found: pausePrintJob_call sig=(JLjava/lang/String;)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: pausePrintJob_call sig=(JLjava/lang/String;JJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_jobId = env->NewStringUTF(jobId);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_jobId);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_jobId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_resume_print_job(int64_t instanceId, const char* jobId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_resume_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_resumePrintJob_call;
-    if (methodId == nullptr) { LOGE("Method not found: resumePrintJob_call sig=(JLjava/lang/String;)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: resumePrintJob_call sig=(JLjava/lang/String;JJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_jobId = env->NewStringUTF(jobId);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_jobId);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_jobId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_clear_print_queue(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_clear_print_queue(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_clearPrintQueue_call;
-    if (methodId == nullptr) { LOGE("Method not found: clearPrintQueue_call sig=(J)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: clearPrintQueue_call sig=(JJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId);
+    if (env->PushLocalFrame(16) != 0) { return; }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int64_t nitro_printing_get_print_jobs_count(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_get_print_jobs_count(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return 0; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_getPrintJobsCount_call;
-    if (methodId == nullptr) { LOGE("Method not found: getPrintJobsCount_call sig=(J)J"); return 0; }
+    if (methodId == nullptr) { LOGE("Method not found: getPrintJobsCount_call sig=(JJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return 0; }
-    int64_t res = env->CallStaticLongMethod(g_bridgeClass, methodId, (jlong)instanceId);
+    if (env->PushLocalFrame(16) != 0) { return; }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return 0;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
 uint8_t* nitro_printing_get_print_job_at(int64_t instanceId, int64_t index) {
@@ -917,135 +798,110 @@ uint8_t* nitro_printing_get_print_job_status(int64_t instanceId, const char* job
     return res_buf;
 }
 
-int8_t nitro_printing_start_printer_discovery(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_start_printer_discovery(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_startPrinterDiscovery_call;
-    if (methodId == nullptr) { LOGE("Method not found: startPrinterDiscovery_call sig=(J)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: startPrinterDiscovery_call sig=(JJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId);
+    if (env->PushLocalFrame(16) != 0) { return; }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_stop_printer_discovery(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_stop_printer_discovery(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_stopPrinterDiscovery_call;
-    if (methodId == nullptr) { LOGE("Method not found: stopPrinterDiscovery_call sig=(J)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: stopPrinterDiscovery_call sig=(JJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId);
+    if (env->PushLocalFrame(16) != 0) { return; }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_test_printer_connection(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_test_printer_connection(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_testPrinterConnection_call;
-    if (methodId == nullptr) { LOGE("Method not found: testPrinterConnection_call sig=(JLjava/lang/String;[B)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: testPrinterConnection_call sig=(JLjava/lang/String;[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_printerId = env->NewStringUTF(printerId);
-    jbyteArray j_timeoutSeconds = env->NewByteArray((jsize)sizeof(NitroOptInt64));
-    env->SetByteArrayRegion(j_timeoutSeconds, 0, (jsize)sizeof(NitroOptInt64), (const jbyte*)timeoutSeconds);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId, j_timeoutSeconds);
+    jbyteArray j_timeoutSeconds = env->NewByteArray(9);
+    if (timeoutSeconds != nullptr) { env->SetByteArrayRegion(j_timeoutSeconds, 0, 9, (const jbyte*)timeoutSeconds); }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId, j_timeoutSeconds, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_set_default_printer(int64_t instanceId, const char* printerId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_set_default_printer(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_setDefaultPrinter_call;
-    if (methodId == nullptr) { LOGE("Method not found: setDefaultPrinter_call sig=(JLjava/lang/String;)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: setDefaultPrinter_call sig=(JLjava/lang/String;JJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_printerId = env->NewStringUTF(printerId);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_open_system_print_queue(int64_t instanceId, const char* printerId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_open_system_print_queue(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_openSystemPrintQueue_call;
-    if (methodId == nullptr) { LOGE("Method not found: openSystemPrintQueue_call sig=(JLjava/lang/String;)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: openSystemPrintQueue_call sig=(JLjava/lang/String;JJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_printerId = env->NewStringUTF(printerId);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-int8_t nitro_printing_open_printer_properties(int64_t instanceId, const char* printerId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_open_printer_properties(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_openPrinterProperties_call;
-    if (methodId == nullptr) { LOGE("Method not found: openPrinterProperties_call sig=(JLjava/lang/String;)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: openPrinterProperties_call sig=(JLjava/lang/String;JJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_printerId = env->NewStringUTF(printerId);
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_printerId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
-void* nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printRaw_call;
-    if (methodId == nullptr) { LOGE("Method not found: printRaw_call sig=(J[B[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printRaw_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jbyteArray j_data = env->NewByteArray((jsize)data_length);
     env->SetByteArrayRegion(j_data, 0, (jsize)data_length, (const jbyte*)data);
     jbyteArray j_settings = nullptr;
@@ -1055,32 +911,21 @@ void* nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_le
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_data, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_data, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size_t escPosData_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size_t escPosData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printEscPos_call;
-    if (methodId == nullptr) { LOGE("Method not found: printEscPos_call sig=(J[B[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printEscPos_call sig=(J[B[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jbyteArray j_escPosData = env->NewByteArray((jsize)escPosData_length);
     env->SetByteArrayRegion(j_escPosData, 0, (jsize)escPosData_length, (const jbyte*)escPosData);
     jbyteArray j_settings = nullptr;
@@ -1090,32 +935,21 @@ void* nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_escPosData, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_escPosData, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-void* nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settings, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_printZpl_call;
-    if (methodId == nullptr) { LOGE("Method not found: printZpl_call sig=(JLjava/lang/String;[B)[B"); return nullptr; }
+    if (methodId == nullptr) { LOGE("Method not found: printZpl_call sig=(JLjava/lang/String;[BJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return nullptr; }
+    if (env->PushLocalFrame(16) != 0) { return; }
     jstring j_zpl = env->NewStringUTF(zpl);
     jbyteArray j_settings = nullptr;
     if (settings != nullptr) {
@@ -1124,40 +958,26 @@ void* nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settin
         j_settings = env->NewByteArray((jsize)settings_total);
         env->SetByteArrayRegion(j_settings, 0, (jsize)settings_total, (const jbyte*)settings);
     }
-    jbyteArray jarr = (jbyteArray)env->CallStaticObjectMethod(g_bridgeClass, methodId, (jlong)instanceId, j_zpl, j_settings);
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, j_zpl, j_settings, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return nullptr;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
-    if (jarr == nullptr) {
-        env->PopLocalFrame(nullptr);
-        return nullptr;
-    }
-    jsize len = env->GetArrayLength(jarr);
-    uint8_t* result = (uint8_t*)malloc(len);
-    env->GetByteArrayRegion(jarr, 0, len, (jbyte*)result);
     env->PopLocalFrame(nullptr);
-    return result;
 }
 
-int8_t nitro_printing_cancel_raw_print(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
+void nitro_printing_cancel_raw_print(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
     JNIEnv* env = GetEnv();
-    if (env == nullptr) { return false; }
+    if (env == nullptr) { return; }
     jmethodID methodId = g_mid_cancelRawPrint_call;
-    if (methodId == nullptr) { LOGE("Method not found: cancelRawPrint_call sig=(J)Z"); return false; }
+    if (methodId == nullptr) { LOGE("Method not found: cancelRawPrint_call sig=(JJJ)V"); return; }
 
     nitro_printing_clear_error();
-    if (env->PushLocalFrame(16) != 0) { return false; }
-    bool res = env->CallStaticBooleanMethod(g_bridgeClass, methodId, (jlong)instanceId);
+    if (env->PushLocalFrame(16) != 0) { return; }
+    env->CallStaticVoidMethod(g_bridgeClass, methodId, (jlong)instanceId, (jlong)(uintptr_t)_nitro_err, (jlong)dart_port);
     if (env->ExceptionCheck()) {
-        nitro_report_jni_exception(env, env->ExceptionOccurred(), _nitro_err);
-        env->PopLocalFrame(nullptr);
-        return false;
+        nitro_report_jni_exception(env, env->ExceptionOccurred(), nullptr);
     }
     env->PopLocalFrame(nullptr);
-    return res;
 }
 
 uint8_t* nitro_printing_get_printer_status_detail(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds) {
@@ -1301,68 +1121,68 @@ JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge
         if (!g_mid_getPrintersCount_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrintersCount_call sig=(J)J"); }
         g_mid_getPrinterDriverVersion_call = env->GetStaticMethodID(g_bridgeClass, "getPrinterDriverVersion_call", "(JLjava/lang/String;)Ljava/lang/String;");
         if (!g_mid_getPrinterDriverVersion_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrinterDriverVersion_call sig=(JLjava/lang/String;)Ljava/lang/String;"); }
-        g_mid_getAllPrinters_call = env->GetStaticMethodID(g_bridgeClass, "getAllPrinters_call", "(J)[B");
-        if (!g_mid_getAllPrinters_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getAllPrinters_call sig=(J)[B"); }
+        g_mid_getAllPrinters_call = env->GetStaticMethodID(g_bridgeClass, "getAllPrinters_call", "(JJJ)V");
+        if (!g_mid_getAllPrinters_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getAllPrinters_call sig=(JJJ)V"); }
         g_mid_getPrinterAt_call = env->GetStaticMethodID(g_bridgeClass, "getPrinterAt_call", "(JJ)[B");
         if (!g_mid_getPrinterAt_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrinterAt_call sig=(JJ)[B"); }
         g_mid_getDefaultPrinter_call = env->GetStaticMethodID(g_bridgeClass, "getDefaultPrinter_call", "(J)[B");
         if (!g_mid_getDefaultPrinter_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getDefaultPrinter_call sig=(J)[B"); }
         g_mid_getPrinterCapabilities_call = env->GetStaticMethodID(g_bridgeClass, "getPrinterCapabilities_call", "(JLjava/lang/String;)[B");
         if (!g_mid_getPrinterCapabilities_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrinterCapabilities_call sig=(JLjava/lang/String;)[B"); }
-        g_mid_printText_call = env->GetStaticMethodID(g_bridgeClass, "printText_call", "(JLjava/lang/String;[B)[B");
-        if (!g_mid_printText_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printText_call sig=(JLjava/lang/String;[B)[B"); }
-        g_mid_printImage_call = env->GetStaticMethodID(g_bridgeClass, "printImage_call", "(J[B[B)[B");
-        if (!g_mid_printImage_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printImage_call sig=(J[B[B)[B"); }
-        g_mid_printPdf_call = env->GetStaticMethodID(g_bridgeClass, "printPdf_call", "(J[B[B)[B");
-        if (!g_mid_printPdf_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printPdf_call sig=(J[B[B)[B"); }
-        g_mid_printDocument_call = env->GetStaticMethodID(g_bridgeClass, "printDocument_call", "(J[B[B)[B");
-        if (!g_mid_printDocument_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printDocument_call sig=(J[B[B)[B"); }
-        g_mid_printFile_call = env->GetStaticMethodID(g_bridgeClass, "printFile_call", "(JLjava/lang/String;[B)Z");
-        if (!g_mid_printFile_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printFile_call sig=(JLjava/lang/String;[B)Z"); }
-        g_mid_printBatch_call = env->GetStaticMethodID(g_bridgeClass, "printBatch_call", "(J[BZ[B)[B");
-        if (!g_mid_printBatch_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printBatch_call sig=(J[BZ[B)[B"); }
-        g_mid_showPrintDialog_call = env->GetStaticMethodID(g_bridgeClass, "showPrintDialog_call", "(J[B[B)[B");
-        if (!g_mid_showPrintDialog_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: showPrintDialog_call sig=(J[B[B)[B"); }
-        g_mid_renderPreview_call = env->GetStaticMethodID(g_bridgeClass, "renderPreview_call", "(J[B[B)Lnitro/nitro_printing_module/PreviewResult;");
-        if (!g_mid_renderPreview_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: renderPreview_call sig=(J[B[B)Lnitro/nitro_printing_module/PreviewResult;"); }
-        g_mid_getPageCount_call = env->GetStaticMethodID(g_bridgeClass, "getPageCount_call", "(J[B)J");
-        if (!g_mid_getPageCount_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPageCount_call sig=(J[B)J"); }
-        g_mid_printToFile_call = env->GetStaticMethodID(g_bridgeClass, "printToFile_call", "(J[BLjava/lang/String;[B)Z");
-        if (!g_mid_printToFile_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printToFile_call sig=(J[BLjava/lang/String;[B)Z"); }
-        g_mid_cancelPrintJob_call = env->GetStaticMethodID(g_bridgeClass, "cancelPrintJob_call", "(JLjava/lang/String;)Z");
-        if (!g_mid_cancelPrintJob_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: cancelPrintJob_call sig=(JLjava/lang/String;)Z"); }
-        g_mid_pausePrintJob_call = env->GetStaticMethodID(g_bridgeClass, "pausePrintJob_call", "(JLjava/lang/String;)Z");
-        if (!g_mid_pausePrintJob_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: pausePrintJob_call sig=(JLjava/lang/String;)Z"); }
-        g_mid_resumePrintJob_call = env->GetStaticMethodID(g_bridgeClass, "resumePrintJob_call", "(JLjava/lang/String;)Z");
-        if (!g_mid_resumePrintJob_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: resumePrintJob_call sig=(JLjava/lang/String;)Z"); }
-        g_mid_clearPrintQueue_call = env->GetStaticMethodID(g_bridgeClass, "clearPrintQueue_call", "(J)Z");
-        if (!g_mid_clearPrintQueue_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: clearPrintQueue_call sig=(J)Z"); }
-        g_mid_getPrintJobsCount_call = env->GetStaticMethodID(g_bridgeClass, "getPrintJobsCount_call", "(J)J");
-        if (!g_mid_getPrintJobsCount_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrintJobsCount_call sig=(J)J"); }
+        g_mid_printText_call = env->GetStaticMethodID(g_bridgeClass, "printText_call", "(JLjava/lang/String;[BJJ)V");
+        if (!g_mid_printText_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printText_call sig=(JLjava/lang/String;[BJJ)V"); }
+        g_mid_printImage_call = env->GetStaticMethodID(g_bridgeClass, "printImage_call", "(J[B[BJJ)V");
+        if (!g_mid_printImage_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printImage_call sig=(J[B[BJJ)V"); }
+        g_mid_printPdf_call = env->GetStaticMethodID(g_bridgeClass, "printPdf_call", "(J[B[BJJ)V");
+        if (!g_mid_printPdf_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printPdf_call sig=(J[B[BJJ)V"); }
+        g_mid_printDocument_call = env->GetStaticMethodID(g_bridgeClass, "printDocument_call", "(J[B[BJJ)V");
+        if (!g_mid_printDocument_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printDocument_call sig=(J[B[BJJ)V"); }
+        g_mid_printFile_call = env->GetStaticMethodID(g_bridgeClass, "printFile_call", "(JLjava/lang/String;[BJJ)V");
+        if (!g_mid_printFile_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printFile_call sig=(JLjava/lang/String;[BJJ)V"); }
+        g_mid_printBatch_call = env->GetStaticMethodID(g_bridgeClass, "printBatch_call", "(J[BZ[BJJ)V");
+        if (!g_mid_printBatch_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printBatch_call sig=(J[BZ[BJJ)V"); }
+        g_mid_showPrintDialog_call = env->GetStaticMethodID(g_bridgeClass, "showPrintDialog_call", "(J[B[BJJ)V");
+        if (!g_mid_showPrintDialog_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: showPrintDialog_call sig=(J[B[BJJ)V"); }
+        g_mid_renderPreview_call = env->GetStaticMethodID(g_bridgeClass, "renderPreview_call", "(J[B[BJJ)V");
+        if (!g_mid_renderPreview_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: renderPreview_call sig=(J[B[BJJ)V"); }
+        g_mid_getPageCount_call = env->GetStaticMethodID(g_bridgeClass, "getPageCount_call", "(J[BJJ)V");
+        if (!g_mid_getPageCount_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPageCount_call sig=(J[BJJ)V"); }
+        g_mid_printToFile_call = env->GetStaticMethodID(g_bridgeClass, "printToFile_call", "(J[BLjava/lang/String;[BJJ)V");
+        if (!g_mid_printToFile_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printToFile_call sig=(J[BLjava/lang/String;[BJJ)V"); }
+        g_mid_cancelPrintJob_call = env->GetStaticMethodID(g_bridgeClass, "cancelPrintJob_call", "(JLjava/lang/String;JJ)V");
+        if (!g_mid_cancelPrintJob_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: cancelPrintJob_call sig=(JLjava/lang/String;JJ)V"); }
+        g_mid_pausePrintJob_call = env->GetStaticMethodID(g_bridgeClass, "pausePrintJob_call", "(JLjava/lang/String;JJ)V");
+        if (!g_mid_pausePrintJob_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: pausePrintJob_call sig=(JLjava/lang/String;JJ)V"); }
+        g_mid_resumePrintJob_call = env->GetStaticMethodID(g_bridgeClass, "resumePrintJob_call", "(JLjava/lang/String;JJ)V");
+        if (!g_mid_resumePrintJob_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: resumePrintJob_call sig=(JLjava/lang/String;JJ)V"); }
+        g_mid_clearPrintQueue_call = env->GetStaticMethodID(g_bridgeClass, "clearPrintQueue_call", "(JJJ)V");
+        if (!g_mid_clearPrintQueue_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: clearPrintQueue_call sig=(JJJ)V"); }
+        g_mid_getPrintJobsCount_call = env->GetStaticMethodID(g_bridgeClass, "getPrintJobsCount_call", "(JJJ)V");
+        if (!g_mid_getPrintJobsCount_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrintJobsCount_call sig=(JJJ)V"); }
         g_mid_getPrintJobAt_call = env->GetStaticMethodID(g_bridgeClass, "getPrintJobAt_call", "(JJ)[B");
         if (!g_mid_getPrintJobAt_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrintJobAt_call sig=(JJ)[B"); }
         g_mid_getPrintJobStatus_call = env->GetStaticMethodID(g_bridgeClass, "getPrintJobStatus_call", "(JLjava/lang/String;)[B");
         if (!g_mid_getPrintJobStatus_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrintJobStatus_call sig=(JLjava/lang/String;)[B"); }
-        g_mid_startPrinterDiscovery_call = env->GetStaticMethodID(g_bridgeClass, "startPrinterDiscovery_call", "(J)Z");
-        if (!g_mid_startPrinterDiscovery_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: startPrinterDiscovery_call sig=(J)Z"); }
-        g_mid_stopPrinterDiscovery_call = env->GetStaticMethodID(g_bridgeClass, "stopPrinterDiscovery_call", "(J)Z");
-        if (!g_mid_stopPrinterDiscovery_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: stopPrinterDiscovery_call sig=(J)Z"); }
-        g_mid_testPrinterConnection_call = env->GetStaticMethodID(g_bridgeClass, "testPrinterConnection_call", "(JLjava/lang/String;[B)Z");
-        if (!g_mid_testPrinterConnection_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: testPrinterConnection_call sig=(JLjava/lang/String;[B)Z"); }
-        g_mid_setDefaultPrinter_call = env->GetStaticMethodID(g_bridgeClass, "setDefaultPrinter_call", "(JLjava/lang/String;)Z");
-        if (!g_mid_setDefaultPrinter_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: setDefaultPrinter_call sig=(JLjava/lang/String;)Z"); }
-        g_mid_openSystemPrintQueue_call = env->GetStaticMethodID(g_bridgeClass, "openSystemPrintQueue_call", "(JLjava/lang/String;)Z");
-        if (!g_mid_openSystemPrintQueue_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: openSystemPrintQueue_call sig=(JLjava/lang/String;)Z"); }
-        g_mid_openPrinterProperties_call = env->GetStaticMethodID(g_bridgeClass, "openPrinterProperties_call", "(JLjava/lang/String;)Z");
-        if (!g_mid_openPrinterProperties_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: openPrinterProperties_call sig=(JLjava/lang/String;)Z"); }
-        g_mid_printRaw_call = env->GetStaticMethodID(g_bridgeClass, "printRaw_call", "(J[B[B)[B");
-        if (!g_mid_printRaw_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printRaw_call sig=(J[B[B)[B"); }
-        g_mid_printEscPos_call = env->GetStaticMethodID(g_bridgeClass, "printEscPos_call", "(J[B[B)[B");
-        if (!g_mid_printEscPos_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printEscPos_call sig=(J[B[B)[B"); }
-        g_mid_printZpl_call = env->GetStaticMethodID(g_bridgeClass, "printZpl_call", "(JLjava/lang/String;[B)[B");
-        if (!g_mid_printZpl_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printZpl_call sig=(JLjava/lang/String;[B)[B"); }
-        g_mid_cancelRawPrint_call = env->GetStaticMethodID(g_bridgeClass, "cancelRawPrint_call", "(J)Z");
-        if (!g_mid_cancelRawPrint_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: cancelRawPrint_call sig=(J)Z"); }
+        g_mid_startPrinterDiscovery_call = env->GetStaticMethodID(g_bridgeClass, "startPrinterDiscovery_call", "(JJJ)V");
+        if (!g_mid_startPrinterDiscovery_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: startPrinterDiscovery_call sig=(JJJ)V"); }
+        g_mid_stopPrinterDiscovery_call = env->GetStaticMethodID(g_bridgeClass, "stopPrinterDiscovery_call", "(JJJ)V");
+        if (!g_mid_stopPrinterDiscovery_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: stopPrinterDiscovery_call sig=(JJJ)V"); }
+        g_mid_testPrinterConnection_call = env->GetStaticMethodID(g_bridgeClass, "testPrinterConnection_call", "(JLjava/lang/String;[BJJ)V");
+        if (!g_mid_testPrinterConnection_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: testPrinterConnection_call sig=(JLjava/lang/String;[BJJ)V"); }
+        g_mid_setDefaultPrinter_call = env->GetStaticMethodID(g_bridgeClass, "setDefaultPrinter_call", "(JLjava/lang/String;JJ)V");
+        if (!g_mid_setDefaultPrinter_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: setDefaultPrinter_call sig=(JLjava/lang/String;JJ)V"); }
+        g_mid_openSystemPrintQueue_call = env->GetStaticMethodID(g_bridgeClass, "openSystemPrintQueue_call", "(JLjava/lang/String;JJ)V");
+        if (!g_mid_openSystemPrintQueue_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: openSystemPrintQueue_call sig=(JLjava/lang/String;JJ)V"); }
+        g_mid_openPrinterProperties_call = env->GetStaticMethodID(g_bridgeClass, "openPrinterProperties_call", "(JLjava/lang/String;JJ)V");
+        if (!g_mid_openPrinterProperties_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: openPrinterProperties_call sig=(JLjava/lang/String;JJ)V"); }
+        g_mid_printRaw_call = env->GetStaticMethodID(g_bridgeClass, "printRaw_call", "(J[B[BJJ)V");
+        if (!g_mid_printRaw_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printRaw_call sig=(J[B[BJJ)V"); }
+        g_mid_printEscPos_call = env->GetStaticMethodID(g_bridgeClass, "printEscPos_call", "(J[B[BJJ)V");
+        if (!g_mid_printEscPos_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printEscPos_call sig=(J[B[BJJ)V"); }
+        g_mid_printZpl_call = env->GetStaticMethodID(g_bridgeClass, "printZpl_call", "(JLjava/lang/String;[BJJ)V");
+        if (!g_mid_printZpl_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: printZpl_call sig=(JLjava/lang/String;[BJJ)V"); }
+        g_mid_cancelRawPrint_call = env->GetStaticMethodID(g_bridgeClass, "cancelRawPrint_call", "(JJJ)V");
+        if (!g_mid_cancelRawPrint_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: cancelRawPrint_call sig=(JJJ)V"); }
         g_mid_getPrinterStatusDetail_call = env->GetStaticMethodID(g_bridgeClass, "getPrinterStatusDetail_call", "(JLjava/lang/String;[B)[B");
         if (!g_mid_getPrinterStatusDetail_call && env->ExceptionCheck()) { env->ExceptionClear(); LOGE("Method not found: getPrinterStatusDetail_call sig=(JLjava/lang/String;[B)[B"); }
         g_mid_nitro_printing_register_on_print_job_changed_stream_call = env->GetStaticMethodID(g_bridgeClass, "nitro_printing_register_on_print_job_changed_stream_call", "(JJ)V");
@@ -1423,6 +1243,132 @@ JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge
             g_fid_PreviewResult_length = env->GetFieldID(g_cls_PreviewResult, "length", "J");
         }
     }
+}
+
+// ── postXxxToPort helpers for @nitroNativeAsync ──
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postNullToPort(JNIEnv*, jclass, jlong dartPort) {
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kNull;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postInt64ToPort(JNIEnv*, jclass, jlong dartPort, jlong value) {
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kInt64;
+    obj.value.as_int64 = (int64_t)value;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postDoubleToPort(JNIEnv*, jclass, jlong dartPort, jdouble value) {
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kDouble;
+    obj.value.as_double = (double)value;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postBoolToPort(JNIEnv*, jclass, jlong dartPort, jboolean value) {
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kBool;
+    obj.value.as_bool = (bool)value;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postStringToPort(JNIEnv* env, jclass, jlong dartPort, jstring value) {
+    Dart_CObject obj;
+    if (value == nullptr) {
+        obj.type = Dart_CObject_kNull;
+        Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+        return;
+    }
+    const char* cStr = env->GetStringUTFChars(value, nullptr);
+    if (cStr == nullptr) {
+        obj.type = Dart_CObject_kNull;
+        Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+        return;
+    }
+    obj.type = Dart_CObject_kString;
+    obj.value.as_string = const_cast<char*>(cStr);
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+    env->ReleaseStringUTFChars(value, cStr);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postOptInt64ToPort(JNIEnv*, jclass, jlong dartPort, jlong value, jboolean hasValue) {
+    uint8_t* buf = (uint8_t*)malloc(9);
+    buf[0] = hasValue ? 1 : 0;
+    if (hasValue) { memcpy(buf + 1, &value, 8); }
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kInt64;
+    obj.value.as_int64 = (int64_t)(uintptr_t)buf;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postOptFloat64ToPort(JNIEnv*, jclass, jlong dartPort, jdouble value, jboolean hasValue) {
+    uint8_t* buf = (uint8_t*)malloc(9);
+    buf[0] = hasValue ? 1 : 0;
+    if (hasValue) { memcpy(buf + 1, &value, 8); }
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kInt64;
+    obj.value.as_int64 = (int64_t)(uintptr_t)buf;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postOptBoolToPort(JNIEnv*, jclass, jlong dartPort, jboolean value, jboolean hasValue) {
+    uint8_t* buf = (uint8_t*)malloc(2);
+    buf[0] = hasValue ? 1 : 0;
+    buf[1] = value ? 1 : 0;
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kInt64;
+    obj.value.as_int64 = (int64_t)(uintptr_t)buf;
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postBytesToPort(JNIEnv* env, jclass, jlong dartPort, jbyteArray value) {
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kInt64;
+    if (value == nullptr) {
+        obj.value.as_int64 = 0;
+    } else {
+        jsize len = env->GetArrayLength(value);
+        uint8_t* buf = (uint8_t*)malloc(len);
+        env->GetByteArrayRegion(value, 0, len, (jbyte*)buf);
+        obj.value.as_int64 = (int64_t)(uintptr_t)buf;
+    }
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_postPreviewResultToPort(JNIEnv* env, jclass, jlong dartPort, jobject value) {
+    Dart_CObject obj;
+    obj.type = Dart_CObject_kInt64;
+    if (value == nullptr) {
+        obj.value.as_int64 = 0;
+    } else {
+        PreviewResult* result = (PreviewResult*)malloc(sizeof(PreviewResult));
+        *result = pack_PreviewResult_from_jni(env, value);
+        obj.value.as_int64 = (int64_t)(uintptr_t)result;
+    }
+    Dart_PostCObject_DL((Dart_Port)dartPort, &obj);
+}
+
+JNIEXPORT void JNICALL Java_nitro_nitro_1printing_1module_NitroPrintingJniBridge_reportNativeAsyncError(JNIEnv* env, jclass, jlong errPtr, jstring name, jstring message) {
+    NitroError* err = (NitroError*)(uintptr_t)errPtr;
+    if (err == nullptr) { return; }
+    err->hasError = 1;
+    if (name != nullptr) {
+        const char* cName = env->GetStringUTFChars(name, nullptr);
+        err->name = strdup(cName);
+        env->ReleaseStringUTFChars(name, cName);
+    } else {
+        err->name = strdup("NativeException");
+    }
+    if (message != nullptr) {
+        const char* cMsg = env->GetStringUTFChars(message, nullptr);
+        err->message = strdup(cMsg);
+        env->ReleaseStringUTFChars(message, cMsg);
+    } else {
+        err->message = strdup("An unknown native exception occurred.");
+    }
+    err->code = nullptr;
+    err->stackTrace = nullptr;
 }
 
 } // extern "C"
@@ -1503,29 +1449,10 @@ const char* nitro_printing_get_printer_driver_version(int64_t instanceId, const 
 #endif
 }
 
-extern void* _nitro_printing_call_getAllPrinters(void);
-void* nitro_printing_get_all_printers(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_getAllPrinters();
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_getAllPrinters();
-#endif
+extern void _nitro_printing_call_getAllPrinters(int64_t err_ptr, int64_t dart_port);
+void nitro_printing_get_all_printers(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_getAllPrinters((int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
 extern uint8_t* _nitro_printing_call_getPrinterAt(int64_t index);
@@ -1603,379 +1530,94 @@ uint8_t* nitro_printing_get_printer_capabilities(int64_t instanceId, const char*
 #endif
 }
 
-extern void* _nitro_printing_call_printText(const char* text, void* settings);
-void* nitro_printing_print_text(int64_t instanceId, const char* text, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printText(text, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printText(text, settings);
-#endif
+extern void _nitro_printing_call_printText(const char* text, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_text(int64_t instanceId, const char* text, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printText(text, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printImage(uint8_t* imageData, size_t imageData_length, void* settings);
-void* nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t imageData_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printImage(imageData, imageData_length, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printImage(imageData, imageData_length, settings);
-#endif
+extern void _nitro_printing_call_printImage(uint8_t* imageData, size_t imageData_length, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t imageData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printImage(imageData, imageData_length, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printPdf(uint8_t* pdfData, size_t pdfData_length, void* settings);
-void* nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfData_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printPdf(pdfData, pdfData_length, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printPdf(pdfData, pdfData_length, settings);
-#endif
+extern void _nitro_printing_call_printPdf(uint8_t* pdfData, size_t pdfData_length, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printPdf(pdfData, pdfData_length, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printDocument(void* document, void* settings);
-void* nitro_printing_print_document(int64_t instanceId, void* document, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printDocument(document, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printDocument(document, settings);
-#endif
+extern void _nitro_printing_call_printDocument(void* document, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_document(int64_t instanceId, void* document, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printDocument(document, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_printFile(const char* filePath, void* settings);
-int8_t nitro_printing_print_file(int64_t instanceId, const char* filePath, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printFile(filePath, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_printFile(filePath, settings);
-#endif
+extern void _nitro_printing_call_printFile(const char* filePath, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_file(int64_t instanceId, const char* filePath, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printFile(filePath, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printBatch(void* documents, int8_t stopOnError, void* settings);
-void* nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t stopOnError, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printBatch(documents, stopOnError, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printBatch(documents, stopOnError, settings);
-#endif
+extern void _nitro_printing_call_printBatch(void* documents, int8_t stopOnError, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t stopOnError, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printBatch(documents, stopOnError, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_showPrintDialog(void* document, void* initialSettings);
-void* nitro_printing_show_print_dialog(int64_t instanceId, void* document, void* initialSettings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_showPrintDialog(document, initialSettings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_showPrintDialog(document, initialSettings);
-#endif
+extern void _nitro_printing_call_showPrintDialog(void* document, void* initialSettings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_show_print_dialog(int64_t instanceId, void* document, void* initialSettings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_showPrintDialog(document, initialSettings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_renderPreview(void* document, void* settings);
-void* nitro_printing_render_preview(int64_t instanceId, void* document, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_renderPreview(document, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_renderPreview(document, settings);
-#endif
+extern void _nitro_printing_call_renderPreview(void* document, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_render_preview(int64_t instanceId, void* document, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_renderPreview(document, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int64_t _nitro_printing_call_getPageCount(void* document);
-int64_t nitro_printing_get_page_count(int64_t instanceId, void* document) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_getPageCount(document);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return 0;
-    }
-#else
-    return _nitro_printing_call_getPageCount(document);
-#endif
+extern void _nitro_printing_call_getPageCount(void* document, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_get_page_count(int64_t instanceId, void* document, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_getPageCount(document, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_printToFile(void* document, const char* outputPath, void* settings);
-int8_t nitro_printing_print_to_file(int64_t instanceId, void* document, const char* outputPath, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printToFile(document, outputPath, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_printToFile(document, outputPath, settings);
-#endif
+extern void _nitro_printing_call_printToFile(void* document, const char* outputPath, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_to_file(int64_t instanceId, void* document, const char* outputPath, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printToFile(document, outputPath, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_cancelPrintJob(const char* jobId);
-int8_t nitro_printing_cancel_print_job(int64_t instanceId, const char* jobId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_cancelPrintJob(jobId);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_cancelPrintJob(jobId);
-#endif
+extern void _nitro_printing_call_cancelPrintJob(const char* jobId, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_cancel_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_cancelPrintJob(jobId, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_pausePrintJob(const char* jobId);
-int8_t nitro_printing_pause_print_job(int64_t instanceId, const char* jobId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_pausePrintJob(jobId);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_pausePrintJob(jobId);
-#endif
+extern void _nitro_printing_call_pausePrintJob(const char* jobId, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_pause_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_pausePrintJob(jobId, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_resumePrintJob(const char* jobId);
-int8_t nitro_printing_resume_print_job(int64_t instanceId, const char* jobId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_resumePrintJob(jobId);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_resumePrintJob(jobId);
-#endif
+extern void _nitro_printing_call_resumePrintJob(const char* jobId, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_resume_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_resumePrintJob(jobId, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_clearPrintQueue(void);
-int8_t nitro_printing_clear_print_queue(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_clearPrintQueue();
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_clearPrintQueue();
-#endif
+extern void _nitro_printing_call_clearPrintQueue(int64_t err_ptr, int64_t dart_port);
+void nitro_printing_clear_print_queue(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_clearPrintQueue((int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int64_t _nitro_printing_call_getPrintJobsCount(void);
-int64_t nitro_printing_get_print_jobs_count(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_getPrintJobsCount();
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return 0;
-    }
-#else
-    return _nitro_printing_call_getPrintJobsCount();
-#endif
+extern void _nitro_printing_call_getPrintJobsCount(int64_t err_ptr, int64_t dart_port);
+void nitro_printing_get_print_jobs_count(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_getPrintJobsCount((int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
 extern uint8_t* _nitro_printing_call_getPrintJobAt(int64_t index);
@@ -2028,254 +1670,64 @@ uint8_t* nitro_printing_get_print_job_status(int64_t instanceId, const char* job
 #endif
 }
 
-extern int8_t _nitro_printing_call_startPrinterDiscovery(void);
-int8_t nitro_printing_start_printer_discovery(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_startPrinterDiscovery();
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_startPrinterDiscovery();
-#endif
+extern void _nitro_printing_call_startPrinterDiscovery(int64_t err_ptr, int64_t dart_port);
+void nitro_printing_start_printer_discovery(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_startPrinterDiscovery((int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_stopPrinterDiscovery(void);
-int8_t nitro_printing_stop_printer_discovery(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_stopPrinterDiscovery();
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_stopPrinterDiscovery();
-#endif
+extern void _nitro_printing_call_stopPrinterDiscovery(int64_t err_ptr, int64_t dart_port);
+void nitro_printing_stop_printer_discovery(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_stopPrinterDiscovery((int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_testPrinterConnection(const char* printerId, const uint8_t* timeoutSeconds);
-int8_t nitro_printing_test_printer_connection(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_testPrinterConnection(printerId, timeoutSeconds);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_testPrinterConnection(printerId, timeoutSeconds);
-#endif
+extern void _nitro_printing_call_testPrinterConnection(const char* printerId, const uint8_t* timeoutSeconds, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_test_printer_connection(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_testPrinterConnection(printerId, timeoutSeconds, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_setDefaultPrinter(const char* printerId);
-int8_t nitro_printing_set_default_printer(int64_t instanceId, const char* printerId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_setDefaultPrinter(printerId);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_setDefaultPrinter(printerId);
-#endif
+extern void _nitro_printing_call_setDefaultPrinter(const char* printerId, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_set_default_printer(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_setDefaultPrinter(printerId, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_openSystemPrintQueue(const char* printerId);
-int8_t nitro_printing_open_system_print_queue(int64_t instanceId, const char* printerId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_openSystemPrintQueue(printerId);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_openSystemPrintQueue(printerId);
-#endif
+extern void _nitro_printing_call_openSystemPrintQueue(const char* printerId, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_open_system_print_queue(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_openSystemPrintQueue(printerId, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_openPrinterProperties(const char* printerId);
-int8_t nitro_printing_open_printer_properties(int64_t instanceId, const char* printerId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_openPrinterProperties(printerId);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_openPrinterProperties(printerId);
-#endif
+extern void _nitro_printing_call_openPrinterProperties(const char* printerId, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_open_printer_properties(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_openPrinterProperties(printerId, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printRaw(uint8_t* data, size_t data_length, void* settings);
-void* nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printRaw(data, data_length, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printRaw(data, data_length, settings);
-#endif
+extern void _nitro_printing_call_printRaw(uint8_t* data, size_t data_length, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printRaw(data, data_length, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printEscPos(uint8_t* escPosData, size_t escPosData_length, void* settings);
-void* nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size_t escPosData_length, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printEscPos(escPosData, escPosData_length, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printEscPos(escPosData, escPosData_length, settings);
-#endif
+extern void _nitro_printing_call_printEscPos(uint8_t* escPosData, size_t escPosData_length, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size_t escPosData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printEscPos(escPosData, escPosData_length, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern void* _nitro_printing_call_printZpl(const char* zpl, void* settings);
-void* nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settings) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_printZpl(zpl, settings);
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return nullptr;
-    }
-#else
-    return _nitro_printing_call_printZpl(zpl, settings);
-#endif
+extern void _nitro_printing_call_printZpl(const char* zpl, void* settings, int64_t err_ptr, int64_t dart_port);
+void nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_printZpl(zpl, settings, (int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
-extern int8_t _nitro_printing_call_cancelRawPrint(void);
-int8_t nitro_printing_cancel_raw_print(int64_t instanceId) {
-    NitroError* _nitro_err = nullptr; // async: errors use TLS not out-param
-#ifdef __OBJC__
-    @try {
-        return _nitro_printing_call_cancelRawPrint();
-    } @catch (NSException* e) {
-        if (_nitro_err) {
-            // sync: write exception to out-param error slot.
-            _nitro_err->hasError = 1;
-            _nitro_err->name    = strdup([e.name UTF8String]);
-            _nitro_err->message = strdup([e.reason UTF8String]);
-            _nitro_err->code = nullptr;
-            _nitro_err->stackTrace = nullptr;
-        } else {
-            // async: _nitro_err is null — route exception to TLS slot.
-            nitro_report_error([e.name UTF8String], [e.reason UTF8String], nullptr, nullptr);
-        }
-        return false;
-    }
-#else
-    return _nitro_printing_call_cancelRawPrint();
-#endif
+extern void _nitro_printing_call_cancelRawPrint(int64_t err_ptr, int64_t dart_port);
+void nitro_printing_cancel_raw_print(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    nitro_printing_clear_error();
+    _nitro_printing_call_cancelRawPrint((int64_t)(uintptr_t)_nitro_err, dart_port);
 }
 
 extern uint8_t* _nitro_printing_call_getPrinterStatusDetail(const char* printerId, const uint8_t* timeoutSeconds);
@@ -2498,18 +1950,24 @@ const char* nitro_printing_get_printer_driver_version(int64_t instanceId, const 
     }
 }
 
-void* nitro_printing_get_all_printers(int64_t instanceId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_get_all_printers(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _res = g_impl->getAllPrinters();
-        return (void*)_res.data;
+        g_impl->getAllPrinters(_nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
@@ -2558,273 +2016,318 @@ uint8_t* nitro_printing_get_printer_capabilities(int64_t instanceId, const char*
     }
 }
 
-void* nitro_printing_print_text(int64_t instanceId, const char* text, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_text(int64_t instanceId, const char* text, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printText(std::string(text), _buf_settings);
-        return (void*)_res.data;
+        g_impl->printText(std::string(text), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t imageData_length, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_image(int64_t instanceId, uint8_t* imageData, size_t imageData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printImage(imageData, static_cast<size_t>(imageData_length), _buf_settings);
-        return (void*)_res.data;
+        g_impl->printImage(imageData, static_cast<size_t>(imageData_length), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfData_length, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_pdf(int64_t instanceId, uint8_t* pdfData, size_t pdfData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printPdf(pdfData, static_cast<size_t>(pdfData_length), _buf_settings);
-        return (void*)_res.data;
+        g_impl->printPdf(pdfData, static_cast<size_t>(pdfData_length), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_document(int64_t instanceId, void* document, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_document(int64_t instanceId, void* document, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_document = { (const uint8_t*)document + 4, (size_t)*(int32_t*)document };
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printDocument(_buf_document, _buf_settings);
-        return (void*)_res.data;
+        g_impl->printDocument(NitroCppBuffer{ (const uint8_t*)document + 4, (size_t)*(int32_t*)document }, NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_print_file(int64_t instanceId, const char* filePath, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_print_file(int64_t instanceId, const char* filePath, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        return g_impl->printFile(std::string(filePath), _buf_settings);
+        g_impl->printFile(std::string(filePath), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t stopOnError, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_batch(int64_t instanceId, void* documents, int8_t stopOnError, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_documents = { (const uint8_t*)documents + 4, (size_t)*(int32_t*)documents };
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printBatch(_buf_documents, stopOnError, _buf_settings);
-        return (void*)_res.data;
+        g_impl->printBatch(documents, stopOnError, NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_show_print_dialog(int64_t instanceId, void* document, void* initialSettings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_show_print_dialog(int64_t instanceId, void* document, void* initialSettings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_document = { (const uint8_t*)document + 4, (size_t)*(int32_t*)document };
-        NitroCppBuffer _buf_initialSettings = { nullptr, 0 };
-        if (initialSettings != nullptr) {
-            _buf_initialSettings.data = (const uint8_t*)initialSettings + 4;
-            _buf_initialSettings.size = (size_t)*(int32_t*)initialSettings;
-        }
-        NitroCppBuffer _res = g_impl->showPrintDialog(_buf_document, _buf_initialSettings);
-        return (void*)_res.data;
+        g_impl->showPrintDialog(NitroCppBuffer{ (const uint8_t*)document + 4, (size_t)*(int32_t*)document }, NitroCppBuffer{ (const uint8_t*)initialSettings + 4, (size_t)*(int32_t*)initialSettings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_render_preview(int64_t instanceId, void* document, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_render_preview(int64_t instanceId, void* document, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_document = { (const uint8_t*)document + 4, (size_t)*(int32_t*)document };
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        PreviewResult _res = g_impl->renderPreview(_buf_document, _buf_settings);
-        PreviewResult* _ptr = (PreviewResult*)malloc(sizeof(PreviewResult));
-        *_ptr = _res;
-        return _ptr;
+        g_impl->renderPreview(NitroCppBuffer{ (const uint8_t*)document + 4, (size_t)*(int32_t*)document }, NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int64_t nitro_printing_get_page_count(int64_t instanceId, void* document) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return 0; }
+void nitro_printing_get_page_count(int64_t instanceId, void* document, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_document = { (const uint8_t*)document + 4, (size_t)*(int32_t*)document };
-        return g_impl->getPageCount(_buf_document);
+        g_impl->getPageCount(NitroCppBuffer{ (const uint8_t*)document + 4, (size_t)*(int32_t*)document }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return 0;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return 0;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_print_to_file(int64_t instanceId, void* document, const char* outputPath, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_print_to_file(int64_t instanceId, void* document, const char* outputPath, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_document = { (const uint8_t*)document + 4, (size_t)*(int32_t*)document };
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        return g_impl->printToFile(_buf_document, std::string(outputPath), _buf_settings);
+        g_impl->printToFile(NitroCppBuffer{ (const uint8_t*)document + 4, (size_t)*(int32_t*)document }, std::string(outputPath), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_cancel_print_job(int64_t instanceId, const char* jobId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_cancel_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->cancelPrintJob(std::string(jobId));
+        g_impl->cancelPrintJob(std::string(jobId), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_pause_print_job(int64_t instanceId, const char* jobId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_pause_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->pausePrintJob(std::string(jobId));
+        g_impl->pausePrintJob(std::string(jobId), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_resume_print_job(int64_t instanceId, const char* jobId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_resume_print_job(int64_t instanceId, const char* jobId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->resumePrintJob(std::string(jobId));
+        g_impl->resumePrintJob(std::string(jobId), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_clear_print_queue(int64_t instanceId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_clear_print_queue(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->clearPrintQueue();
+        g_impl->clearPrintQueue(_nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int64_t nitro_printing_get_print_jobs_count(int64_t instanceId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return 0; }
+void nitro_printing_get_print_jobs_count(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->getPrintJobsCount();
+        g_impl->getPrintJobsCount(_nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return 0;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return 0;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
@@ -2858,162 +2361,213 @@ uint8_t* nitro_printing_get_print_job_status(int64_t instanceId, const char* job
     }
 }
 
-int8_t nitro_printing_start_printer_discovery(int64_t instanceId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_start_printer_discovery(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->startPrinterDiscovery();
+        g_impl->startPrinterDiscovery(_nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_stop_printer_discovery(int64_t instanceId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_stop_printer_discovery(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->stopPrinterDiscovery();
+        g_impl->stopPrinterDiscovery(_nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_test_printer_connection(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_test_printer_connection(int64_t instanceId, const char* printerId, const uint8_t* timeoutSeconds, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        std::optional<int64_t> _opt_timeoutSeconds = (timeoutSeconds == nullptr || timeoutSeconds[0] == 0) ? std::nullopt : std::make_optional(*reinterpret_cast<const int64_t*>(timeoutSeconds + 1));
-        return g_impl->testPrinterConnection(std::string(printerId), _opt_timeoutSeconds);
+        g_impl->testPrinterConnection(std::string(printerId), (timeoutSeconds == nullptr || timeoutSeconds[0] == 0) ? std::optional<int64_t>(std::nullopt) : std::make_optional(*reinterpret_cast<const int64_t*>(timeoutSeconds + 1)), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_set_default_printer(int64_t instanceId, const char* printerId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_set_default_printer(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->setDefaultPrinter(std::string(printerId));
+        g_impl->setDefaultPrinter(std::string(printerId), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_open_system_print_queue(int64_t instanceId, const char* printerId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_open_system_print_queue(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->openSystemPrintQueue(std::string(printerId));
+        g_impl->openSystemPrintQueue(std::string(printerId), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_open_printer_properties(int64_t instanceId, const char* printerId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_open_printer_properties(int64_t instanceId, const char* printerId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->openPrinterProperties(std::string(printerId));
+        g_impl->openPrinterProperties(std::string(printerId), _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_length, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_raw(int64_t instanceId, uint8_t* data, size_t data_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printRaw(data, static_cast<size_t>(data_length), _buf_settings);
-        return (void*)_res.data;
+        g_impl->printRaw(data, static_cast<size_t>(data_length), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size_t escPosData_length, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_esc_pos(int64_t instanceId, uint8_t* escPosData, size_t escPosData_length, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printEscPos(escPosData, static_cast<size_t>(escPosData_length), _buf_settings);
-        return (void*)_res.data;
+        g_impl->printEscPos(escPosData, static_cast<size_t>(escPosData_length), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-void* nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settings) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return nullptr; }
+void nitro_printing_print_zpl(int64_t instanceId, const char* zpl, void* settings, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        NitroCppBuffer _buf_settings = { nullptr, 0 };
-        if (settings != nullptr) {
-            _buf_settings.data = (const uint8_t*)settings + 4;
-            _buf_settings.size = (size_t)*(int32_t*)settings;
-        }
-        NitroCppBuffer _res = g_impl->printZpl(std::string(zpl), _buf_settings);
-        return (void*)_res.data;
+        g_impl->printZpl(std::string(zpl), NitroCppBuffer{ (const uint8_t*)settings + 4, (size_t)*(int32_t*)settings }, _nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return nullptr;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 
-int8_t nitro_printing_cancel_raw_print(int64_t instanceId) {
-    nitro_printing_clear_error();
-    if (!g_impl) { nitro_report_error("NotInitialized", "No C++ implementation registered. Call nitro_printing_register_impl() first.", nullptr, nullptr); return false; }
+void nitro_printing_cancel_raw_print(int64_t instanceId, NitroError* _nitro_err, int64_t dart_port) {
+    if (_nitro_err) { _nitro_err->hasError = 0; }
+    if (!g_impl) {
+        _nitro_desktop_err(_nitro_err, "NotInitialized", "No C++ implementation registered.");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
+        return;
+    }
     try {
-        return g_impl->cancelRawPrint();
+        g_impl->cancelRawPrint(_nitro_err, dart_port);
     } catch (const std::exception& e) {
-        nitro_report_error("CppException", e.what(), nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", e.what());
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     } catch (...) {
-        nitro_report_error("CppException", "Unknown C++ exception", nullptr, nullptr);
-        return false;
+        _nitro_desktop_err(_nitro_err, "CppException", "Unknown C++ exception");
+        Dart_CObject _err = { Dart_CObject_kNull };
+        Dart_PostCObject_DL(dart_port, &_err);
     }
 }
 

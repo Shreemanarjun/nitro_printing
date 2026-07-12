@@ -614,7 +614,7 @@ class _NitroPrintingImpl extends NitroPrinting {
     }
     NitroRuntime.checkLinkChecksum(
       'nitro_printing',
-      'e0687ae039aa0e94',
+      'c6f78d9831de3d94',
       () => _dylib
           .lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
             'nitro_printing_nitro_bridge_checksum',
@@ -668,10 +668,11 @@ class _NitroPrintingImpl extends NitroPrinting {
         Pointer<Utf8> Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>),
         Pointer<Utf8> Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>)
       >('nitro_printing_get_printer_driver_version');
-  late final Pointer<Uint8> Function(int) _getAllPrintersPtr = _dylib
+  late final void Function(int, Pointer<NitroErrorFfi>, int)
+  _getAllPrintersPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64),
-        Pointer<Uint8> Function(int)
+        Void Function(Int64, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_get_all_printers');
   late final Pointer<Uint8> Function(int, int) _getPrinterAtPtr = _dylib
       .lookupFunction<
@@ -689,87 +690,270 @@ class _NitroPrintingImpl extends NitroPrinting {
         Pointer<Uint8> Function(Int64, Pointer<Utf8>),
         Pointer<Uint8> Function(int, Pointer<Utf8>)
       >('nitro_printing_get_printer_capabilities');
-  late final Pointer<Uint8> Function(int, Pointer<Utf8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Utf8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printTextPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Utf8>, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Utf8>, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_text');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    int,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printImagePtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Size, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Size,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          int,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_image');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    int,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printPdfPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Size, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Size,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          int,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_pdf');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printDocumentPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_document');
-  late final bool Function(int, Pointer<Utf8>, Pointer<Uint8>) _printFilePtr =
-      _dylib.lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>, Pointer<Uint8>),
-        bool Function(int, Pointer<Utf8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Utf8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
+  _printFilePtr = _dylib
+      .lookupFunction<
+        Void Function(
+          Int64,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_file');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, bool, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    bool,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printBatchPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Bool, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, bool, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Bool,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          bool,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_batch');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _showPrintDialogPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_show_print_dialog');
-  late final Pointer<Void> Function(int, Pointer<Uint8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _renderPreviewPtr = _dylib
       .lookupFunction<
-        Pointer<Void> Function(Int64, Pointer<Uint8>, Pointer<Uint8>),
-        Pointer<Void> Function(int, Pointer<Uint8>, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_render_preview');
-  late final int Function(int, Pointer<Uint8>) _getPageCountPtr = _dylib
+  late final void Function(int, Pointer<Uint8>, Pointer<NitroErrorFfi>, int)
+  _getPageCountPtr = _dylib
       .lookupFunction<
-        Int64 Function(Int64, Pointer<Uint8>),
-        int Function(int, Pointer<Uint8>)
+        Void Function(Int64, Pointer<Uint8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Uint8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_get_page_count');
-  late final bool Function(int, Pointer<Uint8>, Pointer<Utf8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    Pointer<Utf8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printToFilePtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Uint8>, Pointer<Utf8>, Pointer<Uint8>),
-        bool Function(int, Pointer<Uint8>, Pointer<Utf8>, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_to_file');
-  late final bool Function(int, Pointer<Utf8>) _cancelPrintJobPtr = _dylib
+  late final void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
+  _cancelPrintJobPtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>),
-        bool Function(int, Pointer<Utf8>)
+        Void Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_cancel_print_job');
-  late final bool Function(int, Pointer<Utf8>) _pausePrintJobPtr = _dylib
+  late final void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
+  _pausePrintJobPtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>),
-        bool Function(int, Pointer<Utf8>)
+        Void Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_pause_print_job');
-  late final bool Function(int, Pointer<Utf8>) _resumePrintJobPtr = _dylib
+  late final void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
+  _resumePrintJobPtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>),
-        bool Function(int, Pointer<Utf8>)
+        Void Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_resume_print_job');
-  late final bool Function(int) _clearPrintQueuePtr = _dylib
-      .lookupFunction<Bool Function(Int64), bool Function(int)>(
-        'nitro_printing_clear_print_queue',
-      );
-  late final int Function(int) _getPrintJobsCountPtr = _dylib
-      .lookupFunction<Int64 Function(Int64), int Function(int)>(
-        'nitro_printing_get_print_jobs_count',
-      );
+  late final void Function(int, Pointer<NitroErrorFfi>, int)
+  _clearPrintQueuePtr = _dylib
+      .lookupFunction<
+        Void Function(Int64, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<NitroErrorFfi>, int)
+      >('nitro_printing_clear_print_queue');
+  late final void Function(int, Pointer<NitroErrorFfi>, int)
+  _getPrintJobsCountPtr = _dylib
+      .lookupFunction<
+        Void Function(Int64, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<NitroErrorFfi>, int)
+      >('nitro_printing_get_print_jobs_count');
   late final Pointer<Uint8> Function(int, int) _getPrintJobAtPtr = _dylib
       .lookupFunction<
         Pointer<Uint8> Function(Int64, Int64),
@@ -780,57 +964,144 @@ class _NitroPrintingImpl extends NitroPrinting {
         Pointer<Uint8> Function(Int64, Pointer<Utf8>),
         Pointer<Uint8> Function(int, Pointer<Utf8>)
       >('nitro_printing_get_print_job_status');
-  late final bool Function(int) _startPrinterDiscoveryPtr = _dylib
-      .lookupFunction<Bool Function(Int64), bool Function(int)>(
-        'nitro_printing_start_printer_discovery',
-      );
-  late final bool Function(int) _stopPrinterDiscoveryPtr = _dylib
-      .lookupFunction<Bool Function(Int64), bool Function(int)>(
-        'nitro_printing_stop_printer_discovery',
-      );
-  late final bool Function(int, Pointer<Utf8>, Pointer<NitroOptInt64>)
+  late final void Function(int, Pointer<NitroErrorFfi>, int)
+  _startPrinterDiscoveryPtr = _dylib
+      .lookupFunction<
+        Void Function(Int64, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<NitroErrorFfi>, int)
+      >('nitro_printing_start_printer_discovery');
+  late final void Function(int, Pointer<NitroErrorFfi>, int)
+  _stopPrinterDiscoveryPtr = _dylib
+      .lookupFunction<
+        Void Function(Int64, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<NitroErrorFfi>, int)
+      >('nitro_printing_stop_printer_discovery');
+  late final void Function(
+    int,
+    Pointer<Utf8>,
+    Pointer<NitroOptInt64>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _testPrinterConnectionPtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>, Pointer<NitroOptInt64>),
-        bool Function(int, Pointer<Utf8>, Pointer<NitroOptInt64>)
+        Void Function(
+          Int64,
+          Pointer<Utf8>,
+          Pointer<NitroOptInt64>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Utf8>,
+          Pointer<NitroOptInt64>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_test_printer_connection');
-  late final bool Function(int, Pointer<Utf8>) _setDefaultPrinterPtr = _dylib
+  late final void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
+  _setDefaultPrinterPtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>),
-        bool Function(int, Pointer<Utf8>)
+        Void Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_set_default_printer');
-  late final bool Function(int, Pointer<Utf8>) _openSystemPrintQueuePtr = _dylib
+  late final void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
+  _openSystemPrintQueuePtr = _dylib
       .lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>),
-        bool Function(int, Pointer<Utf8>)
+        Void Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_open_system_print_queue');
-  late final bool Function(int, Pointer<Utf8>) _openPrinterPropertiesPtr =
-      _dylib.lookupFunction<
-        Bool Function(Int64, Pointer<Utf8>),
-        bool Function(int, Pointer<Utf8>)
+  late final void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
+  _openPrinterPropertiesPtr = _dylib
+      .lookupFunction<
+        Void Function(Int64, Pointer<Utf8>, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<Utf8>, Pointer<NitroErrorFfi>, int)
       >('nitro_printing_open_printer_properties');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    int,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printRawPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Size, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Size,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          int,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_raw');
-  late final Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Uint8>,
+    int,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printEscPosPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Uint8>, Size, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Uint8>, int, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Uint8>,
+          Size,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Uint8>,
+          int,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_esc_pos');
-  late final Pointer<Uint8> Function(int, Pointer<Utf8>, Pointer<Uint8>)
+  late final void Function(
+    int,
+    Pointer<Utf8>,
+    Pointer<Uint8>,
+    Pointer<NitroErrorFfi>,
+    int,
+  )
   _printZplPtr = _dylib
       .lookupFunction<
-        Pointer<Uint8> Function(Int64, Pointer<Utf8>, Pointer<Uint8>),
-        Pointer<Uint8> Function(int, Pointer<Utf8>, Pointer<Uint8>)
+        Void Function(
+          Int64,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          Int64,
+        ),
+        void Function(
+          int,
+          Pointer<Utf8>,
+          Pointer<Uint8>,
+          Pointer<NitroErrorFfi>,
+          int,
+        )
       >('nitro_printing_print_zpl');
-  late final bool Function(int) _cancelRawPrintPtr = _dylib
-      .lookupFunction<Bool Function(Int64), bool Function(int)>(
-        'nitro_printing_cancel_raw_print',
-      );
+  late final void Function(int, Pointer<NitroErrorFfi>, int)
+  _cancelRawPrintPtr = _dylib
+      .lookupFunction<
+        Void Function(Int64, Pointer<NitroErrorFfi>, Int64),
+        void Function(int, Pointer<NitroErrorFfi>, int)
+      >('nitro_printing_cancel_raw_print');
   late final Pointer<Uint8> Function(int, Pointer<Utf8>, Pointer<NitroOptInt64>)
   _getPrinterStatusDetailPtr = _dylib
       .lookupFunction<
@@ -936,18 +1207,22 @@ class _NitroPrintingImpl extends NitroPrinting {
   }
 
   @override
-  Future<List<PrinterInfo>> getAllPrinters() async {
+  Future<List<PrinterInfo>> getAllPrinters() {
     checkDisposed();
-    final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-      _getAllPrintersPtr,
-      [_instanceId],
-      getError: _getErrorNativePtr,
-      clearError: _clearErrorNativePtr,
+    final _nitroErr = calloc<NitroErrorFfi>();
+    return NitroRuntime.openNativeAsync<List<PrinterInfo>>(
+      call: (port) => _getAllPrintersPtr(_instanceId, _nitroErr, port),
+      unpack: (raw) {
+        NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+        return ((raw) {
+          final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+          return LazyRecordList.decode(
+            rawPtr,
+            (r) => PrinterInfoRecordExt.fromReader(r),
+          );
+        })(raw);
+      },
       methodName: 'getAllPrinters',
-    );
-    return LazyRecordList.decode(
-      rawPtr,
-      (r) => PrinterInfoRecordExt.fromReader(r),
     );
   }
 
@@ -1025,28 +1300,32 @@ class _NitroPrintingImpl extends NitroPrinting {
   }
 
   @override
-  Future<PrintResult> printText(String text, {PrintSettings? settings}) async {
+  Future<PrintResult> printText(String text, {PrintSettings? settings}) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printTextPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printTextPtr(
           _instanceId,
           text.toNativeUtf8(allocator: arena),
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printText',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
@@ -1056,61 +1335,66 @@ class _NitroPrintingImpl extends NitroPrinting {
   Future<PrintResult> printImage(
     Uint8List imageData, {
     PrintSettings? settings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printImagePtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printImagePtr(
           _instanceId,
           imageData.toPointer(arena),
           imageData.length,
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printImage',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<PrintResult> printPdf(
-    Uint8List pdfData, {
-    PrintSettings? settings,
-  }) async {
+  Future<PrintResult> printPdf(Uint8List pdfData, {PrintSettings? settings}) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printPdfPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printPdfPtr(
           _instanceId,
           pdfData.toPointer(arena),
           pdfData.length,
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printPdf',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
@@ -1120,50 +1404,57 @@ class _NitroPrintingImpl extends NitroPrinting {
   Future<PrintResult> printDocument(
     PrintDocument document, {
     PrintSettings? settings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printDocumentPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printDocumentPtr(
           _instanceId,
           document.toNative(arena),
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printDocument',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> printFile(String filePath, {PrintSettings? settings}) async {
+  Future<bool> printFile(String filePath, {PrintSettings? settings}) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _printFilePtr,
-        [
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _printFilePtr(
           _instanceId,
           filePath.toNativeUtf8(allocator: arena),
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'printFile',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
@@ -1174,13 +1465,13 @@ class _NitroPrintingImpl extends NitroPrinting {
     List<PrintDocument> documents,
     bool stopOnError, {
     PrintSettings? settings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printBatchPtr,
-        [
+      return NitroRuntime.openNativeAsync<List<PrintResult>>(
+        call: (port) => _printBatchPtr(
           _instanceId,
           RecordWriter.encodeIndexedList(
             documents,
@@ -1189,14 +1480,20 @@ class _NitroPrintingImpl extends NitroPrinting {
           ),
           stopOnError,
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            return LazyRecordList.decode(
+              rawPtr,
+              (r) => PrintResultRecordExt.fromReader(r),
+            );
+          })(raw);
+        },
         methodName: 'printBatch',
-      );
-      return LazyRecordList.decode(
-        rawPtr,
-        (r) => PrintResultRecordExt.fromReader(r),
       );
     } finally {
       arena.releaseAll();
@@ -1207,28 +1504,32 @@ class _NitroPrintingImpl extends NitroPrinting {
   Future<PrintDialogResult> showPrintDialog(
     PrintDocument document, {
     PrintSettings? initialSettings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _showPrintDialogPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintDialogResult>(
+        call: (port) => _showPrintDialogPtr(
           _instanceId,
           document.toNative(arena),
           initialSettings != null ? initialSettings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintDialogResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'showPrintDialog',
       );
-      final PrintDialogResult decoded;
-      try {
-        decoded = PrintDialogResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
@@ -1238,51 +1539,57 @@ class _NitroPrintingImpl extends NitroPrinting {
   Future<PreviewResult> renderPreview(
     PrintDocument document, {
     PrintSettings? settings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Void>>(
-        _renderPreviewPtr,
-        [
+      return NitroRuntime.openNativeAsync<PreviewResult>(
+        call: (port) => _renderPreviewPtr(
           _instanceId,
           document.toNative(arena),
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final ptr = Pointer<PreviewResultFfi>.fromAddress(raw as int);
+            try {
+              return ptr.ref.toDart();
+            } finally {
+              ptr.ref.freeFields();
+              malloc.free(ptr);
+            }
+          })(raw);
+        },
         methodName: 'renderPreview',
       );
-      if (rawPtr == nullptr) {
-        throw StateError('renderPreview returned null');
-      }
-      final structPtr = Pointer<PreviewResultFfi>.fromAddress(rawPtr.address);
-      final PreviewResult decoded;
-      try {
-        decoded = structPtr.ref.toDart();
-      } finally {
-        structPtr.ref.freeFields();
-        malloc.free(structPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<int> getPageCount(PrintDocument document) async {
+  Future<int> getPageCount(PrintDocument document) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<int>(
-        _getPageCountPtr,
-        [_instanceId, document.toNative(arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<int>(
+        call: (port) => _getPageCountPtr(
+          _instanceId,
+          document.toNative(arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as int)(raw);
+        },
         methodName: 'getPageCount',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
@@ -1293,106 +1600,129 @@ class _NitroPrintingImpl extends NitroPrinting {
     PrintDocument document,
     String outputPath, {
     PrintSettings? settings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _printToFilePtr,
-        [
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _printToFilePtr(
           _instanceId,
           document.toNative(arena),
           outputPath.toNativeUtf8(allocator: arena),
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'printToFile',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> cancelPrintJob(String jobId) async {
+  Future<bool> cancelPrintJob(String jobId) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _cancelPrintJobPtr,
-        [_instanceId, jobId.toNativeUtf8(allocator: arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _cancelPrintJobPtr(
+          _instanceId,
+          jobId.toNativeUtf8(allocator: arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'cancelPrintJob',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> pausePrintJob(String jobId) async {
+  Future<bool> pausePrintJob(String jobId) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _pausePrintJobPtr,
-        [_instanceId, jobId.toNativeUtf8(allocator: arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _pausePrintJobPtr(
+          _instanceId,
+          jobId.toNativeUtf8(allocator: arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'pausePrintJob',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> resumePrintJob(String jobId) async {
+  Future<bool> resumePrintJob(String jobId) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _resumePrintJobPtr,
-        [_instanceId, jobId.toNativeUtf8(allocator: arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _resumePrintJobPtr(
+          _instanceId,
+          jobId.toNativeUtf8(allocator: arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'resumePrintJob',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> clearPrintQueue() async {
+  Future<bool> clearPrintQueue() {
     checkDisposed();
-    final res = await NitroRuntime.callAsync<bool>(
-      _clearPrintQueuePtr,
-      [_instanceId],
-      getError: _getErrorNativePtr,
-      clearError: _clearErrorNativePtr,
+    final _nitroErr = calloc<NitroErrorFfi>();
+    return NitroRuntime.openNativeAsync<bool>(
+      call: (port) => _clearPrintQueuePtr(_instanceId, _nitroErr, port),
+      unpack: (raw) {
+        NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+        return ((raw) => raw as bool)(raw);
+      },
       methodName: 'clearPrintQueue',
     );
-    return res;
   }
 
   @override
-  Future<int> getPrintJobsCount() async {
+  Future<int> getPrintJobsCount() {
     checkDisposed();
-    final res = await NitroRuntime.callAsync<int>(
-      _getPrintJobsCountPtr,
-      [_instanceId],
-      getError: _getErrorNativePtr,
-      clearError: _clearErrorNativePtr,
+    final _nitroErr = calloc<NitroErrorFfi>();
+    return NitroRuntime.openNativeAsync<int>(
+      call: (port) => _getPrintJobsCountPtr(_instanceId, _nitroErr, port),
+      unpack: (raw) {
+        NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+        return ((raw) => raw as int)(raw);
+      },
       methodName: 'getPrintJobsCount',
     );
-    return res;
   }
 
   @override
@@ -1445,137 +1775,158 @@ class _NitroPrintingImpl extends NitroPrinting {
   }
 
   @override
-  Future<bool> startPrinterDiscovery() async {
+  Future<bool> startPrinterDiscovery() {
     checkDisposed();
-    final res = await NitroRuntime.callAsync<bool>(
-      _startPrinterDiscoveryPtr,
-      [_instanceId],
-      getError: _getErrorNativePtr,
-      clearError: _clearErrorNativePtr,
+    final _nitroErr = calloc<NitroErrorFfi>();
+    return NitroRuntime.openNativeAsync<bool>(
+      call: (port) => _startPrinterDiscoveryPtr(_instanceId, _nitroErr, port),
+      unpack: (raw) {
+        NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+        return ((raw) => raw as bool)(raw);
+      },
       methodName: 'startPrinterDiscovery',
     );
-    return res;
   }
 
   @override
-  Future<bool> stopPrinterDiscovery() async {
+  Future<bool> stopPrinterDiscovery() {
     checkDisposed();
-    final res = await NitroRuntime.callAsync<bool>(
-      _stopPrinterDiscoveryPtr,
-      [_instanceId],
-      getError: _getErrorNativePtr,
-      clearError: _clearErrorNativePtr,
+    final _nitroErr = calloc<NitroErrorFfi>();
+    return NitroRuntime.openNativeAsync<bool>(
+      call: (port) => _stopPrinterDiscoveryPtr(_instanceId, _nitroErr, port),
+      unpack: (raw) {
+        NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+        return ((raw) => raw as bool)(raw);
+      },
       methodName: 'stopPrinterDiscovery',
     );
-    return res;
   }
 
   @override
-  Future<bool> testPrinterConnection(
-    String printerId, {
-    int? timeoutSeconds,
-  }) async {
+  Future<bool> testPrinterConnection(String printerId, {int? timeoutSeconds}) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _testPrinterConnectionPtr,
-        [
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _testPrinterConnectionPtr(
           _instanceId,
           printerId.toNativeUtf8(allocator: arena),
           arena.packInt(timeoutSeconds),
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'testPrinterConnection',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> setDefaultPrinter(String printerId) async {
+  Future<bool> setDefaultPrinter(String printerId) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _setDefaultPrinterPtr,
-        [_instanceId, printerId.toNativeUtf8(allocator: arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _setDefaultPrinterPtr(
+          _instanceId,
+          printerId.toNativeUtf8(allocator: arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'setDefaultPrinter',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> openSystemPrintQueue(String printerId) async {
+  Future<bool> openSystemPrintQueue(String printerId) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _openSystemPrintQueuePtr,
-        [_instanceId, printerId.toNativeUtf8(allocator: arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _openSystemPrintQueuePtr(
+          _instanceId,
+          printerId.toNativeUtf8(allocator: arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'openSystemPrintQueue',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> openPrinterProperties(String printerId) async {
+  Future<bool> openPrinterProperties(String printerId) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final res = await NitroRuntime.callAsync<bool>(
-        _openPrinterPropertiesPtr,
-        [_instanceId, printerId.toNativeUtf8(allocator: arena)],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+      return NitroRuntime.openNativeAsync<bool>(
+        call: (port) => _openPrinterPropertiesPtr(
+          _instanceId,
+          printerId.toNativeUtf8(allocator: arena),
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) => raw as bool)(raw);
+        },
         methodName: 'openPrinterProperties',
       );
-      return res;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<PrintResult> printRaw(
-    Uint8List data, {
-    PrintSettings? settings,
-  }) async {
+  Future<PrintResult> printRaw(Uint8List data, {PrintSettings? settings}) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printRawPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printRawPtr(
           _instanceId,
           data.toPointer(arena),
           data.length,
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printRaw',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
@@ -1585,73 +1936,82 @@ class _NitroPrintingImpl extends NitroPrinting {
   Future<PrintResult> printEscPos(
     Uint8List escPosData, {
     PrintSettings? settings,
-  }) async {
+  }) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printEscPosPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printEscPosPtr(
           _instanceId,
           escPosData.toPointer(arena),
           escPosData.length,
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printEscPos',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<PrintResult> printZpl(String zpl, {PrintSettings? settings}) async {
+  Future<PrintResult> printZpl(String zpl, {PrintSettings? settings}) {
     checkDisposed();
     final arena = Arena();
+    final _nitroErr = calloc<NitroErrorFfi>();
     try {
-      final rawPtr = await NitroRuntime.callAsync<Pointer<Uint8>>(
-        _printZplPtr,
-        [
+      return NitroRuntime.openNativeAsync<PrintResult>(
+        call: (port) => _printZplPtr(
           _instanceId,
           zpl.toNativeUtf8(allocator: arena),
           settings != null ? settings.toNative(arena) : nullptr,
-        ],
-        getError: _getErrorNativePtr,
-        clearError: _clearErrorNativePtr,
+          _nitroErr,
+          port,
+        ),
+        unpack: (raw) {
+          NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+          return ((raw) {
+            final rawPtr = Pointer<Uint8>.fromAddress(raw as int);
+            try {
+              return PrintResultRecordExt.fromNative(rawPtr);
+            } finally {
+              malloc.free(rawPtr);
+            }
+          })(raw);
+        },
         methodName: 'printZpl',
       );
-      final PrintResult decoded;
-      try {
-        decoded = PrintResultRecordExt.fromNative(rawPtr);
-      } finally {
-        malloc.free(rawPtr);
-      }
-      return decoded;
     } finally {
       arena.releaseAll();
     }
   }
 
   @override
-  Future<bool> cancelRawPrint() async {
+  Future<bool> cancelRawPrint() {
     checkDisposed();
-    final res = await NitroRuntime.callAsync<bool>(
-      _cancelRawPrintPtr,
-      [_instanceId],
-      getError: _getErrorNativePtr,
-      clearError: _clearErrorNativePtr,
+    final _nitroErr = calloc<NitroErrorFfi>();
+    return NitroRuntime.openNativeAsync<bool>(
+      call: (port) => _cancelRawPrintPtr(_instanceId, _nitroErr, port),
+      unpack: (raw) {
+        NitroRuntime.throwIfOutParamErrorAndFree(_nitroErr);
+        return ((raw) => raw as bool)(raw);
+      },
       methodName: 'cancelRawPrint',
     );
-    return res;
   }
 
   @override

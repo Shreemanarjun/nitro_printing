@@ -780,7 +780,13 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
     }
 
     private func renderTextToPdfData(text: String, settings: PrintSettings?) -> Data {
-        let pageSize = paperSizeToCGSize(settings?.paperSize ?? .a4, settings: settings)
+        let paperPts = paperSizeToCGSize(settings?.paperSize ?? .a4, settings: settings)
+        // Apply orientationDegrees the same way makeImageRenderer does —
+        // landscape swaps the page dimensions (parity with Android's
+        // pageDimensions()).
+        let deg = (settings?.orientationDegrees ?? 0.0).truncatingRemainder(dividingBy: 360)
+        let isLandscape = deg == 90 || deg == 270 || deg == -90 || deg == -270
+        let pageSize = isLandscape ? CGSize(width: paperPts.height, height: paperPts.width) : paperPts
         let pageRect = CGRect(origin: .zero, size: pageSize)
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
         let margin: CGFloat = 50

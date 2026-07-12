@@ -379,7 +379,22 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
                     : TabBarView(
                         controller: _tabs,
                         children: tabContents
-                            .map((p) => SingleChildScrollView(child: p))
+                            .map(
+                              (p) => SingleChildScrollView(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      configCard,
+                                      const SizedBox(height: 16),
+                                      p,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
                             .toList(),
                       ),
               ),

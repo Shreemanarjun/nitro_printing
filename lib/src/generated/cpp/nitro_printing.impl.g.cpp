@@ -48,10 +48,10 @@ public:
         // return "";
     }
 
-    NitroCppBuffer getAllPrinters() override {
-        // TODO: implement getAllPrinters
+    void getAllPrinters(NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: getAllPrinters");
-        // return { nullptr, 0 };
     }
 
     NitroCppBuffer getPrinterAt(int64_t index) override {
@@ -72,93 +72,94 @@ public:
         // return { nullptr, 0 };
     }
 
-    NitroCppBuffer printText(const std::string& text, NitroCppBuffer settings) override {
-        // TODO: implement printText
+    void printText(const std::string& text, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printText");
-        // return { nullptr, 0 };
     }
 
-    NitroCppBuffer printImage(const uint8_t* imageData, size_t imageData_length, NitroCppBuffer settings) override {
-        // TODO: implement printImage
+    void printImage(const uint8_t* imageData, size_t imageData_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printImage");
-        // return { nullptr, 0 };
     }
 
-    NitroCppBuffer printPdf(const uint8_t* pdfData, size_t pdfData_length, NitroCppBuffer settings) override {
-        // TODO: implement printPdf
+    void printPdf(const uint8_t* pdfData, size_t pdfData_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printPdf");
-        // return { nullptr, 0 };
     }
 
-    NitroCppBuffer printDocument(NitroCppBuffer document, NitroCppBuffer settings) override {
-        // TODO: implement printDocument
+    void printDocument(NitroCppBuffer document, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printDocument");
-        // return { nullptr, 0 };
     }
 
-    bool printFile(const std::string& filePath, NitroCppBuffer settings) override {
-        // TODO: implement printFile
+    void printFile(const std::string& filePath, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printFile");
-        // return false;
     }
 
-    NitroCppBuffer printBatch(NitroCppBuffer documents, bool stopOnError, NitroCppBuffer settings) override {
-        // TODO: implement printBatch
+    void printBatch(NitroCppBuffer documents, bool stopOnError, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printBatch");
-        // return { nullptr, 0 };
     }
 
-    NitroCppBuffer showPrintDialog(NitroCppBuffer document, NitroCppBuffer initialSettings) override {
-        // TODO: implement showPrintDialog
+    void showPrintDialog(NitroCppBuffer document, NitroCppBuffer initialSettings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: showPrintDialog");
-        // return { nullptr, 0 };
     }
 
-    PreviewResult renderPreview(NitroCppBuffer document, NitroCppBuffer settings) override {
-        // TODO: implement renderPreview
+    void renderPreview(NitroCppBuffer document, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: renderPreview");
     }
 
-    int64_t getPageCount(NitroCppBuffer document) override {
-        // TODO: implement getPageCount
+    void getPageCount(NitroCppBuffer document, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: getPageCount");
-        // return 0;
     }
 
-    bool printToFile(NitroCppBuffer document, const std::string& outputPath, NitroCppBuffer settings) override {
-        // TODO: implement printToFile
+    void printToFile(NitroCppBuffer document, const std::string& outputPath, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printToFile");
-        // return false;
     }
 
-    bool cancelPrintJob(const std::string& jobId) override {
-        // TODO: implement cancelPrintJob
+    void cancelPrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: cancelPrintJob");
-        // return false;
     }
 
-    bool pausePrintJob(const std::string& jobId) override {
-        // TODO: implement pausePrintJob
+    void pausePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: pausePrintJob");
-        // return false;
     }
 
-    bool resumePrintJob(const std::string& jobId) override {
-        // TODO: implement resumePrintJob
+    void resumePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: resumePrintJob");
-        // return false;
     }
 
-    bool clearPrintQueue() override {
-        // TODO: implement clearPrintQueue
+    void clearPrintQueue(NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: clearPrintQueue");
-        // return false;
     }
 
-    int64_t getPrintJobsCount() override {
-        // TODO: implement getPrintJobsCount
+    void getPrintJobsCount(NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: getPrintJobsCount");
-        // return 0;
     }
 
     NitroCppBuffer getPrintJobAt(int64_t index) override {
@@ -173,64 +174,64 @@ public:
         // return { nullptr, 0 };
     }
 
-    bool startPrinterDiscovery() override {
-        // TODO: implement startPrinterDiscovery
+    void startPrinterDiscovery(NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: startPrinterDiscovery");
-        // return false;
     }
 
-    bool stopPrinterDiscovery() override {
-        // TODO: implement stopPrinterDiscovery
+    void stopPrinterDiscovery(NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: stopPrinterDiscovery");
-        // return false;
     }
 
-    bool testPrinterConnection(const std::string& printerId, std::optional<int64_t> timeoutSeconds) override {
-        // TODO: implement testPrinterConnection
+    void testPrinterConnection(const std::string& printerId, std::optional<int64_t> timeoutSeconds, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: testPrinterConnection");
-        // return false;
     }
 
-    bool setDefaultPrinter(const std::string& printerId) override {
-        // TODO: implement setDefaultPrinter
+    void setDefaultPrinter(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: setDefaultPrinter");
-        // return false;
     }
 
-    bool openSystemPrintQueue(const std::string& printerId) override {
-        // TODO: implement openSystemPrintQueue
+    void openSystemPrintQueue(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: openSystemPrintQueue");
-        // return false;
     }
 
-    bool openPrinterProperties(const std::string& printerId) override {
-        // TODO: implement openPrinterProperties
+    void openPrinterProperties(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: openPrinterProperties");
-        // return false;
     }
 
-    NitroCppBuffer printRaw(const uint8_t* data, size_t data_length, NitroCppBuffer settings) override {
-        // TODO: implement printRaw
+    void printRaw(const uint8_t* data, size_t data_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printRaw");
-        // return { nullptr, 0 };
     }
 
-    NitroCppBuffer printEscPos(const uint8_t* escPosData, size_t escPosData_length, NitroCppBuffer settings) override {
-        // TODO: implement printEscPos
+    void printEscPos(const uint8_t* escPosData, size_t escPosData_length, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printEscPos");
-        // return { nullptr, 0 };
     }
 
-    NitroCppBuffer printZpl(const std::string& zpl, NitroCppBuffer settings) override {
-        // TODO: implement printZpl
+    void printZpl(const std::string& zpl, NitroCppBuffer settings, NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: printZpl");
-        // return { nullptr, 0 };
     }
 
-    bool cancelRawPrint() override {
-        // TODO: implement cancelRawPrint
+    void cancelRawPrint(NitroError* _nitro_err, int64_t dartPort) override {
+        // TODO: on error, populate _nitro_err (hasError/name/message via strdup) before posting.
+        // TODO: post result via Dart_PostCObject_DL(dartPort, ...)
         throw std::runtime_error("Not implemented: cancelRawPrint");
-        // return false;
     }
 
     NitroCppBuffer getPrinterStatusDetail(const std::string& printerId, std::optional<int64_t> timeoutSeconds) override {

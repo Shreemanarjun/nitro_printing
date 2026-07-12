@@ -1399,6 +1399,32 @@ object NitroPrintingJniBridge {
         _implementations.values.forEach { it.onActivityDetached() }
     }
 
+    // @NitroNativeAsync helpers — post primitive results via Dart_PostCObject_DL.
+    @JvmStatic external fun postNullToPort(dartPort: Long)
+    @JvmStatic external fun postInt64ToPort(dartPort: Long, value: Long)
+    @JvmStatic external fun postDoubleToPort(dartPort: Long, value: Double)
+    @JvmStatic external fun postBoolToPort(dartPort: Long, value: Boolean)
+    @JvmStatic external fun postStringToPort(dartPort: Long, value: String)
+    // Nullable prim helpers: malloc NitroOptXxx on native heap, post address as kInt64.
+    // Dart decodes via Pointer<NitroOptXxx>.fromAddress and frees with malloc.free.
+    @JvmStatic external fun postOptInt64ToPort(dartPort: Long, value: Long, hasValue: Boolean)
+    @JvmStatic external fun postOptFloat64ToPort(dartPort: Long, value: Double, hasValue: Boolean)
+    @JvmStatic external fun postOptBoolToPort(dartPort: Long, value: Boolean, hasValue: Boolean)
+    // Record/list-record helper: malloc a [4B len][payload] native buffer, copy
+    // value into it, post the address as kInt64. Dart decodes via Pointer<Uint8>.
+    // null posts address 0 (nullptr) — NOT Dart_CObject_kNull — matching how
+    // nullable record returns are decoded elsewhere (a pointer-typed kInt64,
+    // never a bare kNull CObject).
+    @JvmStatic external fun postBytesToPort(dartPort: Long, value: ByteArray?)
+    // PreviewResult NativeAsync return: malloc a native copy via pack_PreviewResult_from_jni, post
+    // address as kInt64. null posts address 0 — NOT Dart_CObject_kNull — same
+    // convention as postBytesToPort above.
+    @JvmStatic external fun postPreviewResultToPort(dartPort: Long, value: PreviewResult?)
+    // Writes a thrown exception's name/message into the fresh-per-call
+    // NitroError* whose address Dart passed as errPtr, before the trampoline
+    // still posts exactly one message so the port fires either way.
+    @JvmStatic external fun reportNativeAsyncError(errPtr: Long, name: String, message: String)
+
     // source: nitro_printing.native.dart:16
     @JvmStatic fun isPrintingSupported_call(instanceId: Long): Boolean {
         val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
@@ -1415,28 +1441,40 @@ object NitroPrintingJniBridge {
         return impl.getPrinterDriverVersion(printerId)
     }
     // source: nitro_printing.native.dart:24
-    @JvmStatic fun getAllPrinters_call(instanceId: Long): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.getAllPrinters() } }).get()
-        val itemBufs = ArrayList<ByteArray>(result.size)
-        val tmpBuf = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        for (item in result) {
-            val tmpOut = java.io.ByteArrayOutputStream(110)
-            item.writeFieldsTo(tmpOut, tmpBuf)
-            itemBufs.add(tmpOut.toByteArray())
+    @JvmStatic fun getAllPrinters_call(instanceId: Long, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
         }
-        // payload = [4B count][8B × n offsets][item bytes...]
-        var offsetPos = 4 + 8L * result.size  // start of item data in payload
-        val offsets = LongArray(result.size)
-        for (i in result.indices) { offsets[i] = offsetPos; offsetPos += itemBufs[i].size }
-        val payloadBuf = java.nio.ByteBuffer.allocate(offsetPos.toInt()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        payloadBuf.putInt(result.size)
-        offsets.forEach { payloadBuf.putLong(it) }
-        itemBufs.forEach { payloadBuf.put(it) }
-        val payload = payloadBuf.array()
-        val lenBuf = java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        lenBuf.putInt(payload.size)
-        return lenBuf.array() + payload
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.getAllPrinters() }
+            val itemBufs = ArrayList<ByteArray>(result.size)
+            val tmpBuf = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (item in result) {
+                val tmpOut = java.io.ByteArrayOutputStream(110)
+                item.writeFieldsTo(tmpOut, tmpBuf)
+                itemBufs.add(tmpOut.toByteArray())
+            }
+            // payload = [4B count][8B × n offsets][item bytes...]
+            var offsetPos = 4 + 8L * result.size  // start of item data in payload
+            val offsets = LongArray(result.size)
+            for (i in result.indices) { offsets[i] = offsetPos; offsetPos += itemBufs[i].size }
+            val payloadBuf = java.nio.ByteBuffer.allocate(offsetPos.toInt()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            payloadBuf.putInt(result.size)
+            offsets.forEach { payloadBuf.putLong(it) }
+            itemBufs.forEach { payloadBuf.put(it) }
+            val payload = payloadBuf.array()
+            val lenBuf = java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            lenBuf.putInt(payload.size)
+            val _bytes = lenBuf.array() + payload
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:29
     @JvmStatic fun getPrinterAt_call(instanceId: Long, index: Long): ByteArray {
@@ -1469,41 +1507,81 @@ object NitroPrintingJniBridge {
         }
     }
     // source: nitro_printing.native.dart:46
-    @JvmStatic fun printText_call(instanceId: Long, text: String, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printText_call(instanceId: Long, text: String, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printText(text, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printText(text, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:49
-    @JvmStatic fun printImage_call(instanceId: Long, imageData: ByteArray, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printImage_call(instanceId: Long, imageData: ByteArray, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printImage(imageData, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printImage(imageData, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:55
-    @JvmStatic fun printPdf_call(instanceId: Long, pdfData: ByteArray, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printPdf_call(instanceId: Long, pdfData: ByteArray, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printPdf(pdfData, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printPdf(pdfData, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:58
-    @JvmStatic fun printDocument_call(instanceId: Long, document: ByteArray, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printDocument_call(instanceId: Long, document: ByteArray, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         documentBuf.getInt() // skip Dart 4-byte outer length prefix
         val documentDecoded = PrintDocument.decodeFrom(documentBuf)
@@ -1512,24 +1590,46 @@ object NitroPrintingJniBridge {
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printDocument(documentDecoded, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printDocument(documentDecoded, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:64
-    @JvmStatic fun printFile_call(instanceId: Long, filePath: String, settings: ByteArray?): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printFile_call(instanceId: Long, filePath: String, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.printFile(filePath, settingsDecoded) }
-        }).get()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printFile(filePath, settingsDecoded) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:72
-    @JvmStatic fun printBatch_call(instanceId: Long, documents: ByteArray, stopOnError: Boolean, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printBatch_call(instanceId: Long, documents: ByteArray, stopOnError: Boolean, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val documentsBuf = java.nio.ByteBuffer.wrap(documents).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         documentsBuf.getInt() // skip outer length
         val documentsCount = documentsBuf.getInt()
@@ -1544,30 +1644,42 @@ object NitroPrintingJniBridge {
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printBatch(documentsDecoded, stopOnError, settingsDecoded) } }).get()
-        val itemBufs = ArrayList<ByteArray>(result.size)
-        val tmpBuf = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        for (item in result) {
-            val tmpOut = java.io.ByteArrayOutputStream(109)
-            item.writeFieldsTo(tmpOut, tmpBuf)
-            itemBufs.add(tmpOut.toByteArray())
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printBatch(documentsDecoded, stopOnError, settingsDecoded) }
+            val itemBufs = ArrayList<ByteArray>(result.size)
+            val tmpBuf = java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (item in result) {
+                val tmpOut = java.io.ByteArrayOutputStream(109)
+                item.writeFieldsTo(tmpOut, tmpBuf)
+                itemBufs.add(tmpOut.toByteArray())
+            }
+            // payload = [4B count][8B × n offsets][item bytes...]
+            var offsetPos = 4 + 8L * result.size  // start of item data in payload
+            val offsets = LongArray(result.size)
+            for (i in result.indices) { offsets[i] = offsetPos; offsetPos += itemBufs[i].size }
+            val payloadBuf = java.nio.ByteBuffer.allocate(offsetPos.toInt()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            payloadBuf.putInt(result.size)
+            offsets.forEach { payloadBuf.putLong(it) }
+            itemBufs.forEach { payloadBuf.put(it) }
+            val payload = payloadBuf.array()
+            val lenBuf = java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            lenBuf.putInt(payload.size)
+            val _bytes = lenBuf.array() + payload
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
         }
-        // payload = [4B count][8B × n offsets][item bytes...]
-        var offsetPos = 4 + 8L * result.size  // start of item data in payload
-        val offsets = LongArray(result.size)
-        for (i in result.indices) { offsets[i] = offsetPos; offsetPos += itemBufs[i].size }
-        val payloadBuf = java.nio.ByteBuffer.allocate(offsetPos.toInt()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        payloadBuf.putInt(result.size)
-        offsets.forEach { payloadBuf.putLong(it) }
-        itemBufs.forEach { payloadBuf.put(it) }
-        val payload = payloadBuf.array()
-        val lenBuf = java.nio.ByteBuffer.allocate(4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        lenBuf.putInt(payload.size)
-        return lenBuf.array() + payload
     }
     // source: nitro_printing.native.dart:89
-    @JvmStatic fun showPrintDialog_call(instanceId: Long, document: ByteArray, initialSettings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun showPrintDialog_call(instanceId: Long, document: ByteArray, initialSettings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         documentBuf.getInt() // skip Dart 4-byte outer length prefix
         val documentDecoded = PrintDocument.decodeFrom(documentBuf)
@@ -1576,12 +1688,24 @@ object NitroPrintingJniBridge {
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.showPrintDialog(documentDecoded, initialSettingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.showPrintDialog(documentDecoded, initialSettingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:98
-    @JvmStatic fun renderPreview_call(instanceId: Long, document: ByteArray, settings: ByteArray?): PreviewResult {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun renderPreview_call(instanceId: Long, document: ByteArray, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         documentBuf.getInt() // skip Dart 4-byte outer length prefix
         val documentDecoded = PrintDocument.decodeFrom(documentBuf)
@@ -1590,23 +1714,43 @@ object NitroPrintingJniBridge {
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.renderPreview(documentDecoded, settingsDecoded) }
-        }).get()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.renderPreview(documentDecoded, settingsDecoded) }
+            postPreviewResultToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:105
-    @JvmStatic fun getPageCount_call(instanceId: Long, document: ByteArray): Long {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun getPageCount_call(instanceId: Long, document: ByteArray, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         documentBuf.getInt() // skip Dart 4-byte outer length prefix
         val documentDecoded = PrintDocument.decodeFrom(documentBuf)
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.getPageCount(documentDecoded) }
-        }).get()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.getPageCount(documentDecoded) }
+            postInt64ToPort(dartPort, result.toLong())
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:109
-    @JvmStatic fun printToFile_call(instanceId: Long, document: ByteArray, outputPath: String, settings: ByteArray?): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printToFile_call(instanceId: Long, document: ByteArray, outputPath: String, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val documentBuf = java.nio.ByteBuffer.wrap(document).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         documentBuf.getInt() // skip Dart 4-byte outer length prefix
         val documentDecoded = PrintDocument.decodeFrom(documentBuf)
@@ -1615,44 +1759,100 @@ object NitroPrintingJniBridge {
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.printToFile(documentDecoded, outputPath, settingsDecoded) }
-        }).get()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printToFile(documentDecoded, outputPath, settingsDecoded) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:118
-    @JvmStatic fun cancelPrintJob_call(instanceId: Long, jobId: String): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.cancelPrintJob(jobId) }
-        }).get()
+    @JvmStatic fun cancelPrintJob_call(instanceId: Long, jobId: String, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.cancelPrintJob(jobId) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:121
-    @JvmStatic fun pausePrintJob_call(instanceId: Long, jobId: String): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.pausePrintJob(jobId) }
-        }).get()
+    @JvmStatic fun pausePrintJob_call(instanceId: Long, jobId: String, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.pausePrintJob(jobId) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:124
-    @JvmStatic fun resumePrintJob_call(instanceId: Long, jobId: String): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.resumePrintJob(jobId) }
-        }).get()
+    @JvmStatic fun resumePrintJob_call(instanceId: Long, jobId: String, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.resumePrintJob(jobId) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:127
-    @JvmStatic fun clearPrintQueue_call(instanceId: Long): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.clearPrintQueue() }
-        }).get()
+    @JvmStatic fun clearPrintQueue_call(instanceId: Long, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.clearPrintQueue() }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:130
-    @JvmStatic fun getPrintJobsCount_call(instanceId: Long): Long {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.getPrintJobsCount() }
-        }).get()
+    @JvmStatic fun getPrintJobsCount_call(instanceId: Long, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.getPrintJobsCount() }
+            postInt64ToPort(dartPort, result.toLong())
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:135
     @JvmStatic fun getPrintJobAt_call(instanceId: Long, index: Long): ByteArray {
@@ -1675,87 +1875,193 @@ object NitroPrintingJniBridge {
         }
     }
     // source: nitro_printing.native.dart:146
-    @JvmStatic fun startPrinterDiscovery_call(instanceId: Long): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.startPrinterDiscovery() }
-        }).get()
+    @JvmStatic fun startPrinterDiscovery_call(instanceId: Long, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.startPrinterDiscovery() }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:149
-    @JvmStatic fun stopPrinterDiscovery_call(instanceId: Long): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.stopPrinterDiscovery() }
-        }).get()
+    @JvmStatic fun stopPrinterDiscovery_call(instanceId: Long, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.stopPrinterDiscovery() }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:155
-    @JvmStatic fun testPrinterConnection_call(instanceId: Long, printerId: String, timeoutSeconds: ByteArray): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun testPrinterConnection_call(instanceId: Long, printerId: String, timeoutSeconds: ByteArray, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val timeoutSecondsArg: Long? = NitroOptInt64.decode(timeoutSeconds).nullable
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.testPrinterConnection(printerId, timeoutSecondsArg) }
-        }).get()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.testPrinterConnection(printerId, timeoutSecondsArg) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:159
-    @JvmStatic fun setDefaultPrinter_call(instanceId: Long, printerId: String): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.setDefaultPrinter(printerId) }
-        }).get()
+    @JvmStatic fun setDefaultPrinter_call(instanceId: Long, printerId: String, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.setDefaultPrinter(printerId) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:165
-    @JvmStatic fun openSystemPrintQueue_call(instanceId: Long, printerId: String): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.openSystemPrintQueue(printerId) }
-        }).get()
+    @JvmStatic fun openSystemPrintQueue_call(instanceId: Long, printerId: String, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.openSystemPrintQueue(printerId) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:169
-    @JvmStatic fun openPrinterProperties_call(instanceId: Long, printerId: String): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.openPrinterProperties(printerId) }
-        }).get()
+    @JvmStatic fun openPrinterProperties_call(instanceId: Long, printerId: String, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.openPrinterProperties(printerId) }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:175
-    @JvmStatic fun printRaw_call(instanceId: Long, data: ByteArray, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printRaw_call(instanceId: Long, data: ByteArray, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printRaw(data, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printRaw(data, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:179
-    @JvmStatic fun printEscPos_call(instanceId: Long, escPosData: ByteArray, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printEscPos_call(instanceId: Long, escPosData: ByteArray, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printEscPos(escPosData, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printEscPos(escPosData, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:186
-    @JvmStatic fun printZpl_call(instanceId: Long, zpl: String, settings: ByteArray?): ByteArray {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
+    @JvmStatic fun printZpl_call(instanceId: Long, zpl: String, settings: ByteArray?, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
         val settingsDecoded: PrintSettings? = if (settings == null) null else {
             val _buf = java.nio.ByteBuffer.wrap(settings).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             _buf.getInt() // skip 4-byte prefix
             PrintSettings.decodeFrom(_buf)
         }
-        val result = _asyncExecutor.submit(java.util.concurrent.Callable { runBlocking { impl.printZpl(zpl, settingsDecoded) } }).get()
-        return result.encode()
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.printZpl(zpl, settingsDecoded) }
+            val _bytes = result.encode()
+            postBytesToPort(dartPort, _bytes)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:190
-    @JvmStatic fun cancelRawPrint_call(instanceId: Long): Boolean {
-        val impl = _implementations[instanceId] ?: throw IllegalStateException("NitroPrinting instance $instanceId not registered")
-        return _asyncExecutor.submit(java.util.concurrent.Callable {
-            runBlocking { impl.cancelRawPrint() }
-        }).get()
+    @JvmStatic fun cancelRawPrint_call(instanceId: Long, errPtr: Long, dartPort: Long) {
+        val impl = _implementations[instanceId] ?: run {
+            reportNativeAsyncError(errPtr, "IllegalStateException", "No implementation registered for instance")
+            postNullToPort(dartPort)
+            return
+        }
+        _asyncExecutor.execute {
+            try {
+            val result = runBlocking { impl.cancelRawPrint() }
+            postBoolToPort(dartPort, result)
+            } catch (e: Throwable) {
+                reportNativeAsyncError(errPtr, e.javaClass.simpleName, e.message ?: "An unknown native exception occurred.")
+                postNullToPort(dartPort)
+            }
+        }
     }
     // source: nitro_printing.native.dart:198
     @JvmStatic fun getPrinterStatusDetail_call(instanceId: Long, printerId: String, timeoutSeconds: ByteArray): ByteArray {
