@@ -23,11 +23,6 @@ target_sources(${PLUGIN_NAME} PRIVATE
 )
 
 # Link CUPS into the plugin target.
-target_include_directories(${PLUGIN_NAME} PRIVATE
-  "${NITRO_NATIVE}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../lib/src/generated/cpp"
-  ${CUPS_INCLUDE_DIRS}
-)
 target_compile_options(${PLUGIN_NAME} PRIVATE ${CUPS_CFLAGS_OTHER})
 target_link_libraries(${PLUGIN_NAME} PRIVATE ${CUPS_LIBRARIES})
 

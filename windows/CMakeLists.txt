@@ -24,7 +24,3 @@ set(nitro_printing_bundled_libraries
   PARENT_SCOPE
 )
 
-target_include_directories(${PLUGIN_NAME} PRIVATE
-  "${NITRO_NATIVE}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../lib/src/generated/cpp"
-)
