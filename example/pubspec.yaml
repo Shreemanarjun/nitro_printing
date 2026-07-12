@@ -56,6 +56,15 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  patrol: ^4.6.1
+
+patrol:
+  app_name: nitro_printing_example
+  android:
+    package_name: dev.shreeman.nitro_printing_example
+  ios:
+    bundle_id: dev.shreeman.nitroPrintingExample
+    app_name: nitro_printing_example
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -12,11 +12,12 @@ class NitroPrintingPlugin : FlutterPlugin, ActivityAware {
     }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        NitroPrintingJniBridge.register(NitroPrintingImpl(), binding.applicationContext)
+        NitroPrintingJniBridge.registerFactory({ NitroPrintingImpl() }, binding.applicationContext)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        NitroPrintingJniBridge.onDetached()
+        // Instances are detached individually via destroy_instance_call from the
+        // native side; the bridge holds no engine-scoped state to tear down here.
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {

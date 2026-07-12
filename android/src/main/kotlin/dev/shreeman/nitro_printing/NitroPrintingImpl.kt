@@ -284,13 +284,12 @@ class NitroPrintingImpl : HybridNitroPrintingSpec {
 
     @Suppress("UNCHECKED_CAST")
     override suspend fun printBatch(
-        documents: Any?,
+        documents: List<PrintDocument>,
         stopOnError: Boolean,
         settings: PrintSettings?
     ): List<PrintResult> {
-        val docs = documents as? List<PrintDocument> ?: emptyList()
         val results = mutableListOf<PrintResult>()
-        for (doc in docs) {
+        for (doc in documents) {
             val result = printDocument(doc, settings)
             results.add(result)
             if (stopOnError && !result.success) break
