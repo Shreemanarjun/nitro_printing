@@ -16,7 +16,6 @@ permissions:
 jobs:
   analyze:
     name: Analyze
-    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +32,6 @@ jobs:
 
   android:
     name: Android (API 34 emulator)
-    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -141,7 +139,6 @@ jobs:
 
   macos:
     name: macOS (desktop)
-    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -166,7 +163,6 @@ jobs:
 
   linux:
     name: Linux (desktop)
-    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -196,7 +192,6 @@ jobs:
 
   windows:
     name: Windows (desktop)
-    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
