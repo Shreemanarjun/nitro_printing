@@ -206,10 +206,10 @@ packages:
     dependency: "direct main"
     description:
       name: nitro
-      sha256: "7ce777eaa37e1083529a298e805f58891cac8525dc28164425ce819ce39520a5"
+      sha256: "584163d78f8002017bed771c559ef32a92cdf3ae2be9fad6b7be7aaab6093916"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.9"
+    version: "0.5.10"
   nitro_annotations:
     dependency: transitive
     description:

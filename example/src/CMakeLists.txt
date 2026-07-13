@@ -4,7 +4,7 @@ project(nitro_printing_example_library VERSION 0.0.1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(NITRO_NATIVE "/Users/shreemanarjunsahu/personal/flutter_package/nitro_ecosystem/packages/nitro/src/native")
+set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../../src/native")
 
 add_library(nitro_printing_example SHARED
   "nitro_printing_example.cpp"

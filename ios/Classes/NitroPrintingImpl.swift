@@ -457,6 +457,12 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
     // MARK: - Private helpers
 
     private func printHtml(html: String, settings: PrintSettings?) async throws -> PrintResult {
+        // Direct dispatch: render the markup to PDF and send it over the
+        // network transport — parity with printText/printPdf/printImage.
+        if settings?.showPrintDialog == false {
+            return try await directPrint(data: renderHtmlToPdfData(html: html, settings: settings),
+                                          mimeType: "application/pdf", settings: settings)
+        }
         guard UIPrintInteractionController.isPrintingAvailable else { return unavailableResult() }
         return try await withCheckedThrowingContinuation { cont in
             DispatchQueue.main.async {
@@ -807,6 +813,34 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
                 }
             }
         }
+    }
+
+    private func renderHtmlToPdfData(html: String, settings: PrintSettings?) -> Data {
+        let paperPts = paperSizeToCGSize(settings?.paperSize ?? .a4, settings: settings)
+        let deg = (settings?.orientationDegrees ?? 0.0).truncatingRemainder(dividingBy: 360)
+        let isLandscape = deg == 90 || deg == 270 || deg == -90 || deg == -270
+        let pageSize = isLandscape ? CGSize(width: paperPts.height, height: paperPts.width) : paperPts
+        let pageRect = CGRect(origin: .zero, size: pageSize)
+        let margin: CGFloat = 50
+        let printable = pageRect.insetBy(dx: margin, dy: margin)
+
+        // UIMarkupTextPrintFormatter paginates the HTML; a UIPrintPageRenderer
+        // draws each page into a PDF graphics context.
+        let formatter = UIMarkupTextPrintFormatter(markupText: html)
+        let renderer = UIPrintPageRenderer()
+        renderer.addPrintFormatter(formatter, startingAtPageAt: 0)
+        renderer.setValue(NSValue(cgRect: pageRect), forKey: "paperRect")
+        renderer.setValue(NSValue(cgRect: printable), forKey: "printableRect")
+
+        let data = NSMutableData()
+        UIGraphicsBeginPDFContextToData(data, pageRect, nil)
+        let pageCount = max(1, renderer.numberOfPages)
+        for i in 0..<pageCount {
+            UIGraphicsBeginPDFPage()
+            renderer.drawPage(at: i, in: pageRect)
+        }
+        UIGraphicsEndPDFContext()
+        return data as Data
     }
 
     private func renderImageToPdfData(image: UIImage, settings: PrintSettings?) -> Data? {

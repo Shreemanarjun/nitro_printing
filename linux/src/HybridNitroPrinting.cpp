@@ -1,4 +1,4 @@
-// HybridNitroPrinting — Windows C++ implementation (WindowsNativeImpl.cpp)
+// HybridNitroPrinting — Linux C++ implementation (LinuxNativeImpl.cpp)
 // Compiled via src/CMakeLists.txt (if(NOT ANDROID)) and
 // pulled into both platform builds through add_subdirectory(../src).
 //

@@ -5,7 +5,6 @@ import 'dart:typed_data' show BytesBuilder;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
@@ -62,7 +61,10 @@ void main() {
     await $(TextField)
         .containing('Printer TCP Address / URI')
         .enterText('127.0.0.1:$port');
-    await $.tester.testTextInput.receiveAction(TextInputAction.done);
+    // Remove focus so the soft keyboard hides — iOS keeps it up after
+    // enterText, covering the send button in the (short, non-scrolling)
+    // ESC/POS panel so scrollTo can't bring it into a hit-testable position.
+    FocusManager.instance.primaryFocus?.unfocus();
     await $.pumpAndSettle();
   }
 
@@ -76,6 +78,24 @@ void main() {
           maxScrolls: 40,
         )
         .tap();
+  }
+
+  /// Scrolls the Raw tab's per-tab vertical scrollable (keyed
+  /// `rawPanelScroll_<tabIndex>`) to [label] and taps it. Targeting the keyed
+  /// scrollable avoids grabbing the TabBarView's horizontal PageView, which
+  /// `find.byType(Scrollable).hitTestable()` may pick first on iOS.
+  Future<void> scrollRawPanelTo(
+    PatrolIntegrationTester $,
+    int tabIndex,
+    String label,
+  ) async {
+    final scrollable = find
+        .descendant(
+          of: find.byKey(ValueKey('rawPanelScroll_$tabIndex')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await $(label).scrollTo(view: scrollable, step: 300, maxScrolls: 40).tap();
   }
 
   /// Changes a settings-panel dropdown from its [current] label to [option].
@@ -214,7 +234,7 @@ void main() {
       await $('Low-Level Network Printing').waitUntilVisible();
 
       await enterRawEndpoint($, printer.port);
-      await scrollToAndTap($, 'Dispatch ESC/POS Payload');
+      await scrollRawPanelTo($, 0, 'Dispatch ESC/POS Payload');
 
       // The raw result banner is pinned above the scrollable content.
       await $(RegExp('OK — jobId:')).waitUntilVisible();
@@ -249,7 +269,7 @@ void main() {
       await $('ZPL II Programming Language').waitUntilVisible();
 
       await enterRawEndpoint($, printer.port);
-      await scrollToAndTap($, 'Transmit ZPL Label');
+      await scrollRawPanelTo($, 1, 'Transmit ZPL Label');
 
       await $(RegExp('OK — jobId:')).waitUntilVisible();
 

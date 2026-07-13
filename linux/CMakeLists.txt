@@ -9,22 +9,14 @@ cmake_minimum_required(VERSION 3.10)
 set(PROJECT_NAME "nitro_printing")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
-# CUPS is required for Linux printing.
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(CUPS REQUIRED cups)
-
 # Invoke the build for native code shared with the other target platforms.
 # This can be changed to accommodate different builds.
+# The Linux implementation of HybridNitroPrinting (TCP socket transport +
+# registration) is the SHARED desktop source ../src/HybridNitroPrinting.cpp,
+# compiled into the `nitro_printing` target by ../src/CMakeLists.txt —
+# there is intentionally no Linux-local impl source here.
+set(NITRO_IMPL_SRC_nitro_printing "${CMAKE_CURRENT_SOURCE_DIR}/src/HybridNitroPrinting.cpp")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../src" "${CMAKE_CURRENT_BINARY_DIR}/shared")
-
-# Linux plugin implementation source.
-target_sources(${PLUGIN_NAME} PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/HybridNitroPrinting.cpp"
-)
-
-# Link CUPS into the plugin target.
-target_compile_options(${PLUGIN_NAME} PRIVATE ${CUPS_CFLAGS_OTHER})
-target_link_libraries(${PLUGIN_NAME} PRIVATE ${CUPS_LIBRARIES})
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an

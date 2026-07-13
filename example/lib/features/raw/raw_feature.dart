@@ -378,24 +378,27 @@ class _RawTabState extends State<RawTab> with SingleTickerProviderStateMixin {
                       )
                     : TabBarView(
                         controller: _tabs,
-                        children: tabContents
-                            .map(
-                              (p) => SingleChildScrollView(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      configCard,
-                                      const SizedBox(height: 16),
-                                      p,
-                                    ],
-                                  ),
+                        children: [
+                          for (var i = 0; i < tabContents.length; i++)
+                            SingleChildScrollView(
+                              // Indexed key so UI tests can target this
+                              // vertical scrollable unambiguously (the
+                              // TabBarView's own horizontal PageView is also a
+                              // Scrollable).
+                              key: ValueKey('rawPanelScroll_$i'),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    configCard,
+                                    const SizedBox(height: 16),
+                                    tabContents[i],
+                                  ],
                                 ),
                               ),
-                            )
-                            .toList(),
+                            ),
+                        ],
                       ),
               ),
             ],

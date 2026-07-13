@@ -1,4 +1,4 @@
-set(NITRO_NATIVE "/Users/shreemanarjunsahu/personal/flutter_package/nitro_ecosystem/packages/nitro/src/native")
+set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../../src/native")
 
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
@@ -108,9 +108,3 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
-
-target_include_directories(${PLUGIN_NAME} PRIVATE
-  "${NITRO_NATIVE}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../lib/src/generated/cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../src"
-)
