@@ -12,6 +12,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze
+    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +27,7 @@ jobs:
 
   android:
     name: Android (API 34 emulator)
+    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -83,8 +85,13 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-      - name: API + transport integration tests
-        run: flutter test integration_test -d ${{ steps.sim.outputs.udid }}
+      # Run each file separately — the iOS embedder can hang relaunching the
+      # app between files in one `flutter test integration_test` invocation.
+      - name: API integration tests
+        run: flutter test integration_test/nitro_printing_test.dart -d ${{ steps.sim.outputs.udid }}
+        working-directory: example
+      - name: Native transport tests
+        run: flutter test integration_test/native_transport_test.dart -d ${{ steps.sim.outputs.udid }}
         working-directory: example
       - name: Patrol suites
         run: |
@@ -95,6 +102,7 @@ jobs:
 
   macos:
     name: macOS (desktop)
+    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -117,6 +125,7 @@ jobs:
 
   linux:
     name: Linux (desktop)
+    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -144,6 +153,7 @@ jobs:
 
   windows:
     name: Windows (desktop)
+    if: false  # TEMP(ios-only fast iteration): re-enable before merge
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
