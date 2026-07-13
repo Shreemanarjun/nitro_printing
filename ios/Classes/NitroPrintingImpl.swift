@@ -460,7 +460,9 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         // Direct dispatch: render the markup to PDF and send it over the
         // network transport — parity with printText/printPdf/printImage.
         if settings?.showPrintDialog == false {
-            return try await directPrint(data: renderHtmlToPdfData(html: html, settings: settings),
+            // UIKit formatters/renderers must run on the main thread.
+            let pdfData = await renderHtmlToPdfData(html: html, settings: settings)
+            return try await directPrint(data: pdfData,
                                           mimeType: "application/pdf", settings: settings)
         }
         guard UIPrintInteractionController.isPrintingAvailable else { return unavailableResult() }
@@ -815,6 +817,7 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
         }
     }
 
+    @MainActor
     private func renderHtmlToPdfData(html: String, settings: PrintSettings?) -> Data {
         let paperPts = paperSizeToCGSize(settings?.paperSize ?? .a4, settings: settings)
         let deg = (settings?.orientationDegrees ?? 0.0).truncatingRemainder(dividingBy: 360)

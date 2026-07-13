@@ -196,6 +196,16 @@ nitro_socket_t tcpConnect(const std::string& host, int port, int connectTimeoutM
     for (addrinfo* ai = res; ai != nullptr; ai = ai->ai_next) {
         nitro_socket_t s = ::socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (s == kInvalidSocket) continue;
+#ifndef _WIN32
+        // POSIX fd_set is a fixed FD_SETSIZE bitmask; FD_SET on a descriptor
+        // >= FD_SETSIZE writes out of bounds. (Windows fd_set is array-based
+        // and unaffected.)
+        if (s >= FD_SETSIZE) {
+            error = "Socket descriptor exceeds FD_SETSIZE";
+            closeSocket(s);
+            continue;
+        }
+#endif
 #ifdef SO_NOSIGPIPE // BSD/macOS: suppress SIGPIPE at socket level
         {
             int one = 1;
@@ -312,6 +322,13 @@ std::string makeJobId() {
 /// abort it from another thread.
 PrintResult socketPrint(const std::string& uri, const std::vector<uint8_t>& data, int64_t copies,
                         const Timeouts& t, bool trackForCancel, const char* failCode) {
+    // Clear cancellation state BEFORE connecting, so a cancelRawPrint() that
+    // arrives during tcpConnect() isn't overwritten (and is observed below).
+    if (trackForCancel) {
+        std::lock_guard<std::mutex> lock(g_rawMutex);
+        g_rawCancelled = false;
+        g_rawSocket = kInvalidSocket;
+    }
     SocketAddr addr = parseSocketAddr(uri);
     std::string error;
     nitro_socket_t s = tcpConnect(addr.host, addr.port, t.connectMs, error);
@@ -320,7 +337,10 @@ PrintResult socketPrint(const std::string& uri, const std::vector<uint8_t>& data
     }
     if (trackForCancel) {
         std::lock_guard<std::mutex> lock(g_rawMutex);
-        g_rawCancelled = false;
+        if (g_rawCancelled) { // cancelled while we were connecting
+            closeSocket(s);
+            return PrintResult{false, "", "Cancelled", "CANCELLED"};
+        }
         g_rawSocket = s;
     }
     setIoTimeout(s, t.ioMs);

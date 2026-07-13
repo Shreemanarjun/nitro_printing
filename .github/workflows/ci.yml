@@ -9,6 +9,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege: these jobs only read the repo and run tests/builds.
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze
@@ -16,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -32,6 +38,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -72,6 +80,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -88,16 +98,19 @@ jobs:
       # Run each file separately — the iOS embedder can hang relaunching the
       # app between files in one `flutter test integration_test` invocation.
       - name: API integration tests
-        run: flutter test integration_test/nitro_printing_test.dart -d ${{ steps.sim.outputs.udid }}
+        env: { UDID: '${{ steps.sim.outputs.udid }}' }
+        run: flutter test integration_test/nitro_printing_test.dart -d "$UDID"
         working-directory: example
       - name: Native transport tests
-        run: flutter test integration_test/native_transport_test.dart -d ${{ steps.sim.outputs.udid }}
+        env: { UDID: '${{ steps.sim.outputs.udid }}' }
+        run: flutter test integration_test/native_transport_test.dart -d "$UDID"
         working-directory: example
       - name: Patrol suites
+        env: { UDID: '${{ steps.sim.outputs.udid }}' }
         run: |
           dart pub global activate patrol_cli
           (cd ios && pod install)
-          patrol test -d ${{ steps.sim.outputs.udid }} --verbose
+          patrol test -d "$UDID" --verbose
         working-directory: example
 
   macos:
@@ -107,6 +120,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -130,6 +145,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install desktop dependencies
         run: |
           sudo apt-get update
@@ -158,6 +175,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
