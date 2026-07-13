@@ -50,6 +50,10 @@
   #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
   #endif
+  #ifndef NOMINMAX
+    #define NOMINMAX  // keep <windows.h> from defining min()/max() macros,
+                      // which otherwise break std::min/std::max (MSVC C2589).
+  #endif
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #ifdef _MSC_VER
@@ -295,7 +299,7 @@ Timeouts timeoutsFrom(const std::optional<PrintSettings>& s) {
     int64_t t = (s && s->networkTimeoutSeconds > 0) ? s->networkTimeoutSeconds : 30;
     t = std::min<int64_t>(std::max<int64_t>(t, 1), 3600);
     int ioMs = (int)(t * 1000);
-    return {std::min(ioMs, 15000), ioMs};
+    return {std::min<int>(ioMs, 15000), ioMs};
 }
 
 std::string makeJobId() {
