@@ -278,6 +278,10 @@ public class NitroPrintingImpl: NSObject, HybridNitroPrintingProtocol,
     }
 
     public func printToFile(document: PrintDocument, outputPath: String, settings: PrintSettings?) async throws -> Bool {
+        // An empty/invalid path can't be a save destination — bail out fast
+        // instead of letting NSPrintOperation.run() block on it (which hangs
+        // headless CI runners).
+        guard !outputPath.isEmpty else { return false }
         if document.type == .pdf {
             do { try document.data.write(to: URL(fileURLWithPath: outputPath)); return true }
             catch { return false }

@@ -66,6 +66,11 @@ final bool _canRunPrintOps = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 /// Only Android's print dialog resolves without user interaction.
 final bool _autoDialog = !kIsWeb && Platform.isAndroid;
 
+/// macOS's openSystemPrintQueue/openPrinterProperties launch System Settings
+/// via NSWorkspace, which blocks on a headless CI runner (no window server).
+/// Android/iOS are no-ops and Linux/Windows return false, so only skip macOS.
+final bool _opensOsUi = !kIsWeb && Platform.isMacOS;
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -1384,6 +1389,7 @@ void main() {
     test(
       'openSystemPrintQueue() with empty id returns bool without throwing',
       () async {
+        if (_opensOsUi) return;
         final result = await printing.openSystemPrintQueue('');
         expect(result, isA<bool>());
       },
@@ -1392,6 +1398,7 @@ void main() {
     test(
       'openPrinterProperties() with empty id returns bool without throwing',
       () async {
+        if (_opensOsUi) return;
         final result = await printing.openPrinterProperties('');
         expect(result, isA<bool>());
       },
@@ -1400,6 +1407,7 @@ void main() {
     test(
       'openSystemPrintQueue() with default printer id does not throw',
       () async {
+        if (_opensOsUi) return;
         final printerResult = await printing.getDefaultPrinter();
         final printerId = _unwrapPrinter(printerResult)?.id ?? '';
         final result = await printing.openSystemPrintQueue(printerId);
@@ -1410,6 +1418,7 @@ void main() {
     test(
       'openPrinterProperties() with default printer id does not throw',
       () async {
+        if (_opensOsUi) return;
         final printerResult = await printing.getDefaultPrinter();
         final printerId = _unwrapPrinter(printerResult)?.id ?? '';
         final result = await printing.openPrinterProperties(printerId);

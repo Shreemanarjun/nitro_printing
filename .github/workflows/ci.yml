@@ -89,7 +89,7 @@ jobs:
       - name: Patrol suites
         run: |
           dart pub global activate patrol_cli
-          cd example/ios && pod install && cd ..
+          (cd ios && pod install)
           patrol test -d ${{ steps.sim.outputs.udid }}
         working-directory: example
 
