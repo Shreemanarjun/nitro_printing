@@ -121,10 +121,19 @@ void main() {
 
       // ESC/POS is the first protocol tab. Dispatching with no printer
       // endpoint set must show the validation snackbar instead of printing.
-      // Scroll the visible scrollable — the IndexedStack keeps offstage tabs
-      // (and their scrollables) in the tree.
+      // Target the keyed vertical scrollable of tab 0 so we don't grab the
+      // TabBarView's horizontal PageView (which iOS may pick first).
       await $('Dispatch ESC/POS Payload')
-          .scrollTo(view: find.byType(Scrollable).hitTestable())
+          .scrollTo(
+            view: find
+                .descendant(
+                  of: find.byKey(const ValueKey('rawPanelScroll_0')),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+            step: 300,
+            maxScrolls: 40,
+          )
           .tap();
       await $(RegExp('Enter a printer IP or URI first')).waitUntilVisible();
 

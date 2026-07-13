@@ -50,6 +50,11 @@ void main() {
   final documentDirectUsesSocket =
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
+  // Platforms with a full native print stack (IPP client, PDF rendering for
+  // printToFile). Windows/Linux currently ship only the socket transport.
+  final hasNativePrintStack =
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
+
   // ── Raw protocol transport (Android, iOS, macOS) ──────────────────────────
 
   group('raw protocol transport', () {
@@ -152,6 +157,111 @@ void main() {
         await printer.stop();
       }
     });
+  });
+
+  // ── Connection probe (all platforms) ──────────────────────────────────────
+
+  group('connection probe', () {
+    test('testPrinterConnection returns true for a listening printer', () async {
+      final printer = FakeNetworkPrinter();
+      await printer.start();
+      try {
+        final reachable = await printing.testPrinterConnection(
+          '127.0.0.1:${printer.port}',
+          timeoutSeconds: 5,
+        );
+        expect(reachable, isTrue);
+      } finally {
+        await printer.stop();
+      }
+    });
+
+    test('testPrinterConnection returns false for a closed port', () async {
+      // Bind and immediately release a port so it is guaranteed closed.
+      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final closedPort = probe.port;
+      await probe.close();
+
+      final reachable = await printing.testPrinterConnection(
+        '127.0.0.1:$closedPort',
+        timeoutSeconds: 3,
+      );
+      expect(reachable, isFalse);
+    });
+  });
+
+  // ── IPP transport (Android, iOS, macOS) ───────────────────────────────────
+
+  group('IPP transport', () {
+    test(
+      'printRaw over ipp:// posts an IPP job carrying the exact payload',
+      () async {
+        if (!hasNativePrintStack) return;
+        final printer = FakeIppPrinter();
+        await printer.start();
+        try {
+          final payload = Uint8List.fromList(ascii.encode('IPP RAW PAYLOAD'));
+          final result = await printing.printRaw(
+            payload,
+            settings: PrintSettings(
+              printerId: 'ipp://127.0.0.1:${printer.port}/ipp/print',
+              showPrintDialog: false,
+              networkTimeoutSeconds: 10,
+              jobName: 'ipp-transport-test',
+            ),
+          );
+          expect(result.success, isTrue, reason: result.errorMessage);
+
+          final request = await printer.waitForRequest();
+          expect(request.contentType, 'application/ipp');
+          // IPP binary header + attributes precede the document data.
+          expect(_containsBytes(request.body, payload), isTrue);
+          expect(
+            _containsBytes(request.body, ascii.encode('ipp-transport-test')),
+            isTrue,
+            reason: 'job-name attribute must be transmitted',
+          );
+        } finally {
+          await printer.stop();
+        }
+      },
+    );
+  });
+
+  // ── Print to file (Android, iOS, macOS) ───────────────────────────────────
+
+  group('print to file', () {
+    test(
+      'printToFile renders a PDF honouring the configured paper size',
+      () async {
+        if (!hasNativePrintStack) return;
+        final dir = await Directory.systemTemp.createTemp('nitro_print_test');
+        final outputPath = '${dir.path}/out.pdf';
+        try {
+          final ok = await printing.printToFile(
+            PrintDocument(
+              id: 'to-file',
+              title: 'To File',
+              type: DocumentType.plainText,
+              data: Uint8List.fromList(ascii.encode('printToFile check')),
+            ),
+            outputPath,
+            settings: PrintSettings(
+              paperSize: PaperSize.letter,
+              showPrintDialog: false,
+            ),
+          );
+          expect(ok, isTrue);
+
+          final bytes = await File(outputPath).readAsBytes();
+          expect(_startsWithBytes(bytes, ascii.encode('%PDF')), isTrue);
+          // Letter portrait is integral (612×792 pt) on every platform.
+          expect(_mediaBoxes(bytes), contains((width: 612, height: 792)));
+        } finally {
+          await dir.delete(recursive: true);
+        }
+      },
+    );
   });
 
   // ── Document direct dispatch (Android, iOS) ───────────────────────────────
@@ -284,6 +394,47 @@ class FakeNetworkPrinter {
   Future<void> stop() async => _server?.close();
 }
 
+/// A minimal IPP endpoint: records every request and answers HTTP 200 with an
+/// IPP `successful-ok` body so the native client treats the job as accepted.
+class FakeIppPrinter {
+  HttpServer? _server;
+  final List<({Uint8List body, String? contentType})> _requests = [];
+
+  int get port => _server!.port;
+
+  Future<void> start() async {
+    _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    _server!.listen((request) async {
+      final builder = BytesBuilder(copy: false);
+      await request.forEach(builder.add);
+      _requests.add((
+        body: builder.toBytes(),
+        contentType: request.headers.contentType?.mimeType,
+      ));
+      request.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = ContentType('application', 'ipp')
+        // IPP 1.1, status-code successful-ok, request-id 1, end-of-attributes.
+        ..add(const [0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03]);
+      await request.response.close();
+    });
+  }
+
+  Future<({Uint8List body, String? contentType})> waitForRequest({
+    int index = 0,
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_requests.length > index) return _requests[index];
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw TimeoutException('fake IPP printer received no request', timeout);
+  }
+
+  Future<void> stop() async => _server?.close(force: true);
+}
+
 // ─────────────────────── byte helpers ───────────────────────
 
 bool _startsWithBytes(Uint8List data, List<int> prefix) {
@@ -304,6 +455,9 @@ int _indexOfBytes(Uint8List data, List<int> pattern, [int start = 0]) {
   }
   return -1;
 }
+
+bool _containsBytes(Uint8List data, List<int> pattern) =>
+    _indexOfBytes(data, pattern) != -1;
 
 int _countOccurrences(Uint8List data, List<int> pattern) {
   var count = 0;

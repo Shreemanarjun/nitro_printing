@@ -5,10 +5,32 @@
 - **Zero-hop native async (`@nitroNativeAsync`)**: Migrated 26 async API methods from `@nitroAsync` to nitro 0.5.9's zero-hop native-async path. Native work now runs directly on a Kotlin coroutine / Swift Task and posts the result back through a Dart port — no background isolate dispatch. Natively thrown errors complete the returned `Future` with a catchable exception. The 6 `@NitroResult` methods (`getPrinterAt`, `getDefaultPrinter`, `getPrinterCapabilities`, `getPrintJobAt`, `getPrintJobStatus`, `getPrinterStatusDetail`) remain on `@nitroAsync`, which the result encoding requires. Note: `@nitroNativeAsync` methods throw `UnsupportedError` on web.
 - **Nitrogen SDK upgrade**: Upgraded `nitro` / `nitro_generator` to `0.5.9` and regenerated all platform bridges (`nitrogen generate` + `nitrogen link`).
 
+### Added
+
+- **Windows/Linux C++ backend**: Implemented a real cross-platform TCP socket transport (POSIX + winsock, non-blocking connect with select-based timeout) for `printRaw` / `printEscPos` / `printZpl` / `testPrinterConnection` and dialog-less document dispatch, plus honest failure results for OS-print-stack features not available in a headless native backend. Windows and Linux use per-platform-separated sources (`windows/src/` / `linux/src/HybridNitroPrinting.cpp`, spec `WindowsNativeImpl.cpp` / `LinuxNativeImpl.cpp`) so they can diverge independently. Verified to compile against the regenerated bridge.
+- **Nitro 0.5.10**: Upgraded `nitro` / `nitro_generator` to 0.5.10, which fixes the two C-bridge generator bugs that previously blocked all desktop builds (the `@NitroResult` record shims assigning `NitroCppBuffer` to `std::string`, and optional record params dereferencing a null pointer — reported as nitro_ecosystem#9).
+- **iOS HTML direct dispatch**: `printDocument`/`printHtml` with `showPrintDialog: false` now render the markup to PDF and send it over the network transport, matching the text/PDF/image direct paths (previously HTML always forced the modal print dialog).
+
 ### Fixed
 
 - **iOS text orientation**: `printText` now honours `orientationDegrees` on iOS by swapping page dimensions for landscape (90°/270°), matching the image path and the Android/macOS behaviour. Previously iOS text prints were always portrait.
 - **Android registration API**: Migrated `NitroPrintingPlugin` to the new `registerFactory` bridge API and updated `printBatch` to the properly typed `List<PrintDocument>` signature introduced by the 0.5.9 generator.
+
+### Testing & CI
+
+- **API suite runs on every platform**: print-invoking tests now pick the safe
+  mode per platform — Android keeps the (fire-and-forget) dialog, iOS runs
+  dialog-less (fails fast with NO_PRINTER instead of blocking on the modal
+  panel), and desktop skips OS-print calls entirely because dialog-less
+  printing there would reach the physical default printer. 161/161 green on
+  macOS and Android.
+- **Extended transport suite**: `testPrinterConnection` positive/negative
+  probes against a live fake printer, IPP `printRaw` end-to-end against a fake
+  IPP endpoint (job-name + payload verified in the request), and `printToFile`
+  PDF output verified against the configured paper size.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`): analyze + Android
+  emulator (integration + Patrol) + iOS simulator (integration + Patrol) +
+  macOS, Linux, and Windows desktop integration runs.
 
 ### Example app
 

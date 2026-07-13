@@ -4,7 +4,7 @@ project(nitro_printing_library VERSION 0.0.1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(NITRO_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/native")
-# NITRO_LINK_SPEC_CHECKSUM c77b73c7ffa45608
+# NITRO_LINK_SPEC_CHECKSUM ea7a09db91efb2f7
 set(GENERATED_CPP "${CMAKE_CURRENT_SOURCE_DIR}/../lib/src/generated/cpp")
 
 add_library(nitro_printing SHARED
@@ -14,7 +14,15 @@ add_library(nitro_printing SHARED
 )
 
 if(NOT ANDROID)
-  target_sources(nitro_printing PRIVATE "HybridNitroPrinting.cpp")
+  # The desktop impl source is chosen by the including platform CMakeLists
+  # (windows/ or linux/) via NITRO_IMPL_SRC_<lib>, so Windows and Linux can
+  # diverge into their own windows/src/ / linux/src/ files. Falls back to a
+  # shared src/HybridNitroPrinting.cpp when a platform doesn't set it.
+  if(DEFINED NITRO_IMPL_SRC_nitro_printing)
+    target_sources(nitro_printing PRIVATE "${NITRO_IMPL_SRC_nitro_printing}")
+  else()
+    target_sources(nitro_printing PRIVATE "HybridNitroPrinting.cpp")
+  endif()
 endif()
 target_include_directories(nitro_printing PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"

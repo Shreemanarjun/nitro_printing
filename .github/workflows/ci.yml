@@ -1,0 +1,216 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: these jobs only read the repo and run tests/builds.
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter pub get
+        working-directory: example
+      - run: flutter analyze lib example/lib example/integration_test example/patrol_test
+
+  android:
+    name: Android (API 34 emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: example
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: API + transport integration tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: cd example && flutter test integration_test -d emulator-5554
+      - name: Patrol suites
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            dart pub global activate patrol_cli
+            cd example && patrol test -d emulator-5554
+
+  ios:
+    name: iOS (simulator)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: example
+      - name: Boot simulator
+        id: sim
+        run: |
+          # Pick an iPhone from the NEWEST iOS runtime — patrol targets xcodebuild
+          # with `OS=latest,name=<device>`, which only matches if the device is on
+          # the latest runtime (flattening across runtimes can pick an older one).
+          UDID=$(xcrun simctl list devices available --json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)['devices']
+          rts = sorted(k for k in data if 'iOS' in k)
+          for rt in reversed(rts):
+              iphones = [d for d in data[rt] if d['name'].startswith('iPhone')]
+              if iphones:
+                  print(iphones[-1]['udid']); break
+          ")
+          echo "Using simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      # Run each file separately — the iOS embedder can hang relaunching the
+      # app between files in one `flutter test integration_test` invocation.
+      - name: API integration tests
+        env: { UDID: '${{ steps.sim.outputs.udid }}' }
+        run: flutter test integration_test/nitro_printing_test.dart -d "$UDID"
+        working-directory: example
+      - name: Native transport tests
+        env: { UDID: '${{ steps.sim.outputs.udid }}' }
+        run: flutter test integration_test/native_transport_test.dart -d "$UDID"
+        working-directory: example
+      - name: Patrol suites
+        env: { UDID: '${{ steps.sim.outputs.udid }}' }
+        run: |
+          dart pub global activate patrol_cli
+          (cd ios && pod install)
+          set +e
+          patrol test -d "$UDID" --verbose 2>&1 | tee patrol.log
+          code=${PIPESTATUS[0]}
+          set -e
+          # XCUITest can exit non-zero on a post-test "Failed to terminate <app>"
+          # simulator cleanup artifact even when every test passed. Trust patrol's
+          # own result summary (which is the authoritative test outcome).
+          summary=$(sed 's/\x1b\[[0-9;]*m//g' patrol.log)
+          if echo "$summary" | grep -qE "Total: [1-9]" \
+             && echo "$summary" | grep -qE "Failed: 0" \
+             && ! echo "$summary" | grep -qE "Failed: [1-9]"; then
+            echo "::notice::All Patrol tests passed; ignoring xcodebuild exit $code (Failed-to-terminate artifact)."
+            exit 0
+          fi
+          exit $code
+        working-directory: example
+
+  macos:
+    name: macOS (desktop)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter config --enable-macos-desktop
+      - run: flutter pub get
+        working-directory: example
+      # Desktop embedding can fail to relaunch the app between test files in a
+      # single `flutter test integration_test` invocation — run files separately.
+      - name: API integration tests
+        run: flutter test integration_test/nitro_printing_test.dart -d macos
+        working-directory: example
+      - name: Native transport tests
+        run: flutter test integration_test/native_transport_test.dart -d macos
+        working-directory: example
+
+  linux:
+    name: Linux (desktop)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev xvfb
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+        working-directory: example
+      - name: Build
+        run: flutter build linux --debug
+        working-directory: example
+      - name: API integration tests (headless X)
+        run: xvfb-run -a flutter test integration_test/nitro_printing_test.dart -d linux
+        working-directory: example
+      - name: Native transport tests (headless X)
+        run: xvfb-run -a flutter test integration_test/native_transport_test.dart -d linux
+        working-directory: example
+
+  windows:
+    name: Windows (desktop)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+        working-directory: example
+      - name: Build
+        run: flutter build windows --debug
+        working-directory: example
+      - name: API integration tests
+        run: flutter test integration_test/nitro_printing_test.dart -d windows
+        working-directory: example
+      - name: Native transport tests
+        run: flutter test integration_test/native_transport_test.dart -d windows
+        working-directory: example

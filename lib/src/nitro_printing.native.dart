@@ -6,8 +6,8 @@ part 'nitro_printing.g.dart';
   ios: NativeImpl.swift,
   android: NativeImpl.kotlin,
   macos: NativeImpl.swift,
-  windows: NativeImpl.cpp,
-  linux: NativeImpl.cpp,
+  windows: WindowsNativeImpl.cpp,
+  linux: LinuxNativeImpl.cpp,
 )
 abstract class NitroPrinting extends HybridObject {
   static final NitroPrinting instance = _NitroPrintingImpl();
@@ -630,9 +630,9 @@ class PrintDialogController {
   PrintDialogController({
     PrintSettings? initialSettings,
     NitroPrinting? printing,
-  })  : _printing = printing ?? NitroPrinting.instance,
-        _settings = initialSettings ?? PrintSettings(),
-        _state = PrintDialogState.idle;
+  }) : _printing = printing ?? NitroPrinting.instance,
+       _settings = initialSettings ?? PrintSettings(),
+       _state = PrintDialogState.idle;
 
   /// Current dialog lifecycle state.
   PrintDialogState get state => _state;
@@ -701,6 +701,9 @@ class PrintDialogController {
         errorCode: 'CANCELLED',
       );
     }
-    return _printing.printDocument(document, settings: dialogResult.confirmedSettings);
+    return _printing.printDocument(
+      document,
+      settings: dialogResult.confirmedSettings,
+    );
   }
 }
