@@ -49,9 +49,10 @@ flutter:
       macos:
         pluginClass: SwiftNitroPrintingPlugin
         ffiPlugin: true
+      # Desktop is a pure FFI plugin (the C++ impl auto-registers via a
+      # constructor) — declaring a pluginClass here makes Flutter expect a
+      # method-channel `nitro_printing_plugin` target that does not exist.
       windows:
-        pluginClass: NitroPrintingPlugin
         ffiPlugin: true
       linux:
-        pluginClass: NitroPrintingPlugin
         ffiPlugin: true
