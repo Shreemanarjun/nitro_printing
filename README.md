@@ -39,7 +39,8 @@ nitro ecosystem (Flutter port of React Native Nitro Modules)
 | Feature | `printing` (pub.dev) | `nitro_printing` |
 |---|---|---|
 | **Bridge** | Method channels (async serialize/deserialize) | Nitrogen JSI/FFI — **zero serialization overhead** |
-| **Sync printer queries** | ❌ always async | ✅ `getPrintersCount()`, `getPrinterAt()`, `getDefaultPrinter()` are **synchronous** |
+| **Sync printer queries** | ❌ always async | ✅ `isPrintingSupported()`, `getPrintersCount()`, `getPrinterDriverVersion()` are **synchronous** |
+| **Zero-hop async** | ❌ | ✅ `@nitroNativeAsync` — native coroutine/Task posts straight back to Dart, no isolate hop |
 | **Raw TCP / ESC-POS / ZPL** | ❌ not supported | ✅ `printRaw`, `printEscPos`, `printZpl` |
 | **mDNS/Bonjour discovery** | ❌ | ✅ `startPrinterDiscovery` + `onPrinterDiscovered` stream |
 | **IPP detailed status** | ❌ | ✅ `getPrinterStatusDetail` (ink, paper jam, toner, …) |
@@ -47,7 +48,7 @@ nitro ecosystem (Flutter port of React Native Nitro Modules)
 | **Print-to-file (virtual)** | Limited | ✅ `printToFile`, `renderPreview` |
 | **Built-in settings UI** | ❌ | ✅ `NitroPrintSettingsPage` — Material 3 full-screen editor |
 | **Batch printing** | ❌ | ✅ `printBatch` extension |
-| **Platforms** | Android, iOS, macOS, Web | Android, iOS, macOS, Windows, Linux |
+| **Platforms** | Android, iOS, macOS, Web | Android, iOS, macOS, Windows, Linux (all but Web) |
 
 ---
 
@@ -57,7 +58,7 @@ nitro ecosystem (Flutter port of React Native Nitro Modules)
 dependencies:
   flutter:
     sdk: flutter
-  nitro_printing: ^0.0.3
+  nitro_printing: ^0.0.4
 ```
 
 ```bash
@@ -132,30 +133,31 @@ If sandbox is enabled and you are performing printer discovery, declare the Bonj
 
 ### 🐧 Linux
 
-#### 1. Compilation Dependencies
-The Linux native implementation links against **CUPS** (Common UNIX Printing System). You must install the CUPS development headers and `pkg-config` on your build machine to compile the application:
+No external dependencies are required by the plugin itself — the Linux backend
+is a pure C++ FFI implementation using TCP sockets (no CUPS linkage). You only
+need the standard Flutter Linux desktop toolchain:
 
-* **Ubuntu/Debian**:
-  ```bash
-  sudo apt-get install -y libcups2-dev pkg-config
-  ```
-* **Fedora/RHEL**:
-  ```bash
-  sudo dnf install cups-devel pkgconfig
-  ```
-* **Arch Linux**:
-  ```bash
-  sudo pacman -S cups pkgconf
-  ```
+```bash
+sudo apt-get install -y ninja-build libgtk-3-dev
+```
 
-#### 2. Runtime Requirements
-A running CUPS daemon (`cupsd`) is required on the target machine for local printer queries and job spooling. This is pre-installed and running on standard desktop Linux distributions, but may need to be installed manually on minimal or headless systems.
+> **Current scope on Linux:** network/raw printing (`printRaw`, `printEscPos`,
+> `printZpl`, dialog-less `printText`/`printPdf`/`printDocument` routed to a
+> printer URI) and `testPrinterConnection`. OS print-stack features (system
+> print dialog, printer enumeration, job queue, previews) are not implemented
+> yet and return graceful failure results instead of crashing or hanging.
 
 ---
 
 ### 🪟 Windows
 
-No special permissions, configuration, or external dependencies are required. The plugin uses standard Win32 print spooler APIs (like WinSpool) which are built into all Windows environments.
+No special permissions, configuration, or external dependencies are required —
+the Windows backend is a pure C++ FFI implementation using Winsock TCP sockets.
+
+> **Current scope on Windows:** same as Linux — network/raw printing and
+> connection probing; OS print-stack features (dialog, spooler queue,
+> enumeration, previews) return graceful failure results until a WinSpool
+> backend lands.
 
 ---
 
@@ -209,13 +211,24 @@ String getPrinterDriverVersion(String printerId);
 
 ---
 
-### Printer Info & Discovery (`@nitroAsync`)
+### Printer Info & Lookups
+
+`getAllPrinters` runs on the zero-hop `@nitroNativeAsync` path; the
+`NitroResultValue` lookups are `@nitroAsync` + `@NitroResult` — failures come
+back as a typed `NitroErr` instead of a thrown exception.
 
 ```dart
-Future<List<PrinterInfo>> getAllPrinters();
-Future<NitroResultValue<PrinterInfo>> getPrinterAt(int index);
+Future<List<PrinterInfo>> getAllPrinters();                                    // @nitroNativeAsync
+Future<NitroResultValue<PrinterInfo>> getPrinterAt(int index);                 // NitroOk | NitroErr
 Future<NitroResultValue<PrinterInfo>> getDefaultPrinter();
 Future<NitroResultValue<PrinterCapabilities>> getPrinterCapabilities(String printerId);
+```
+
+```dart
+switch (await printing.getDefaultPrinter()) {
+  case NitroOk(:final value): print('Default: ${value.name}');
+  case NitroErr(:final message): print('No default printer: $message');
+}
 ```
 
 **Example — populate a printer list:**
@@ -225,9 +238,13 @@ final printers = await printing.getAllPrinters();
 
 ---
 
-### Print Operations (`@nitroAsync`)
+### Print Operations (`@nitroNativeAsync`)
 
-Marked `@nitroAsync` — dispatched on a background isolate, returns to the main isolate.
+Marked `@nitroNativeAsync` — the zero-hop native-async path. The native side
+runs the work on its own Kotlin coroutine / Swift Task / C++ worker thread and
+posts the result straight back to Dart (`Dart_PostCObject`) — no background
+isolate is spawned. Errors thrown natively complete the `Future` with a
+catchable exception.
 
 ```dart
 Future<PrintResult> printText(String text, {PrintSettings? settings});
@@ -240,7 +257,7 @@ Future<List<PrintResult>> printBatch(List<PrintDocument> documents, bool stopOnE
 
 ---
 
-### OS Print Dialog (`@nitroAsync`)
+### OS Print Dialog (`@nitroNativeAsync`)
 
 Show the native OS print dialog, or use the controller for advanced flows:
 
@@ -257,6 +274,13 @@ if (result.confirmed) {
 ```
 
 **`PrintResult`** contains `success`, `jobId`, `errorMessage`, `errorCode`.
+
+> **Platform behaviour of `showPrintDialog: true`:** on **Android** the call
+> resolves as soon as the job is handed to the print spooler (fire-and-forget);
+> on **iOS/macOS** the native panel is modal — the `Future` resolves when the
+> user confirms or cancels. On **Windows/Linux** the dialog is not implemented
+> yet and a failure `PrintResult` (`UNSUPPORTED_PLATFORM`) is returned. For
+> headless/automated flows use `showPrintDialog: false` with a `printerId`.
 
 ---
 
@@ -340,7 +364,8 @@ await sub.cancel();
 /// TCP probe — check if a printer is reachable.
 Future<bool> testPrinterConnection(String printerId, {int? timeoutSeconds});
 
-/// Set the system-default printer (macOS / Windows only).
+/// Set the system-default printer (currently effective on macOS via lpadmin;
+/// returns false elsewhere).
 Future<bool> setDefaultPrinter(String printerId);
 ```
 
@@ -352,7 +377,7 @@ Future<bool> setDefaultPrinter(String printerId);
 /// Open the OS print queue window for a printer (empty string = all printers).
 Future<bool> openSystemPrintQueue(String printerId);
 
-/// Open OS printer-properties dialog (macOS / Windows only).
+/// Open OS printer-properties dialog (currently macOS; returns false elsewhere).
 Future<bool> openPrinterProperties(String printerId);
 ```
 
@@ -393,7 +418,7 @@ Stream<DiscoveredPrinter> onPrinterDiscovered();    // mDNS discovery events
 ```dart
 final results = await printing.printBatch(
   [doc1, doc2, doc3],
-  stopOnError: true,
+  true, // stopOnError
   settings: PrintSettings(copies: 2),
 );
 ```
@@ -458,14 +483,28 @@ quality, media type, color/duplex/collate toggles, header/footer text, and input
 
 ## Platform Support
 
-| Platform | Print | Discovery | Raw/ESC-POS/ZPL | System Dialog |
-|---|---|---|---|---|
-| Android | ✅ | ✅ | ✅ | ✅ (Print Services) |
-| iOS | ✅ | ✅ | ✅ | ✅ (AirPrint) |
-| macOS | ✅ | ✅ | ✅ | ✅ |
-| Windows | ✅ | ✅ | ✅ | ✅ |
-| Linux | ✅ | ✅ | ✅ | ✅ (CUPS) |
-| Web | ❌ | ❌ | ❌ | ❌ |
+All platforms are supported **except Web**. Every platform ships the raw
+network-printing transport (TCP 9100 / ESC-POS / ZPL / IPP) and connection
+probing; the OS print stack (dialog, spooler, enumeration, previews) is
+implemented on Android, iOS, and macOS, and is planned for Windows/Linux
+(those methods currently return graceful failure results, never crash/hang).
+
+| Capability | Android | iOS | macOS | Windows | Linux | Web |
+|---|---|---|---|---|---|---|
+| Raw / ESC-POS / ZPL over TCP | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Direct dispatch to printer URI (`showPrintDialog: false`) | ✅ | ✅ | ✅¹ | ✅² | ✅² | ❌ |
+| IPP direct print + detailed status | ✅ | ✅ | ✅ | ⏳ | ⏳ | ❌ |
+| `testPrinterConnection` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| System print dialog | ✅ (Print Services) | ✅ (AirPrint) | ✅ | ⏳ | ⏳ | ❌ |
+| Printer enumeration / capabilities | ✅ | ✅ | ✅ | ⏳ | ⏳ | ❌ |
+| Job queue (list/pause/resume/cancel) | ✅ | ✅ | ✅ | ⏳ | ⏳ | ❌ |
+| mDNS/Bonjour discovery | ✅ | ✅ | ✅ | ⏳ | ⏳ | ❌ |
+| Preview / page count / print-to-file | ✅ | ✅ | ✅ | ⏳ | ⏳ | ❌ |
+| Real-time job/status streams | ✅ | ✅ | ✅ | ⏳ | ⏳ | ❌ |
+
+¹ macOS document printing goes through `NSPrintOperation` (OS print system) rather than a raw socket.
+² Windows/Linux direct dispatch sends the payload bytes over the socket (PDF bytes as-is; text as UTF-8) — rendering to PDF happens on the mobile/macOS backends.
+⏳ = planned; the API exists on every platform and returns an honest failure result today.
 
 ---
 
@@ -478,15 +517,15 @@ quality, media type, color/duplex/collate toggles, header/footer text, and input
 
 ```
 nitro_printing (this plugin)
-└── depends on: nitro ^0.4.3
-                └── nitro_annotations ^0.4.3
-    dev:        nitro_generator ^0.4.3  (build_runner builder)
+└── depends on: nitro ^0.5.11
+                └── nitro_annotations
+    dev:        nitro_generator ^0.5.11  (build_runner builder)
 
-nitro_ecosystem/packages/     ← local source of the SDK
+nitro_ecosystem/packages/     ← source of the SDK
 ├── nitro/                    ← runtime: HybridObject, NitroRuntime, NitroConfig
-├── nitro_annotations/        ← @NitroModule, @HybridStruct, @HybridEnum, @nitroAsync, @NitroStream, @ZeroCopy
+├── nitro_annotations/        ← @NitroModule, @HybridStruct, @HybridEnum, @nitroAsync, @nitroNativeAsync, @NitroResult, @NitroStream, @ZeroCopy
 ├── nitro_generator/          ← build_runner builder → *.g.dart + native stubs
-└── nitrogen_cli/             ← CLI (nitrogen generate / init / doctor)
+└── nitrogen_cli/             ← CLI (nitrogen generate / link / doctor)
 ```
 
 ### Key differences vs. method channels
@@ -494,7 +533,9 @@ nitro_ecosystem/packages/     ← local source of the SDK
 | Concern | Method channel | Nitrogen |
 |---|---|---|
 | Per-call overhead | ~0.3 ms (serialize → platform thread → deserialize) | **~0 µs** (direct C ABI via `dart:ffi`) |
-| Sync calls | ❌ impossible | ✅ any non-`@nitroAsync` method |
+| Sync calls | ❌ impossible | ✅ any non-async method |
+| Async calls | Always channel round-trip | `@nitroNativeAsync` — native coroutine/Task posts straight back (no isolate hop) |
+| Typed errors | Exceptions in strings | `@NitroResult` → `NitroOk` / `NitroErr` sealed results |
 | Streams | EventChannel + serialized JSON | `@NitroStream` → `Dart_PostCObject` direct push |
 | Large buffers | Copied twice (platform → Dart) | `@ZeroCopy` → pointer handoff, zero copies |
 | Code to write | Dart + platform channel + boilerplate | **1 `.native.dart` file** + generated everything |
@@ -511,10 +552,13 @@ nitro_ecosystem/packages/     ← local source of the SDK
 
 ## Development
 
-Regenerate the Nitrogen glue code after modifying the Dart API spec:
+Regenerate + re-link the Nitrogen glue code after modifying the Dart API spec
+(`lib/src/nitro_printing.native.dart`):
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs
+nitrogen generate   # runs the code generator (build_runner) with live output
+nitrogen link       # wires the generated native bridges into every build system
+nitrogen doctor     # verifies the plugin is production-ready
 ```
 
 Run the example app:
@@ -522,6 +566,26 @@ Run the example app:
 ```bash
 cd example
 flutter run
+```
+
+### Testing
+
+The example ships three test layers (all green in CI on Android, iOS, macOS,
+Linux, and Windows — see `.github/workflows/ci.yml`):
+
+```bash
+cd example
+
+# API-level integration tests (all platforms):
+flutter test integration_test/nitro_printing_test.dart -d <device>
+
+# Native transport verification against an in-process fake network printer
+# (byte-exact ESC-POS/ZPL, PDF page-size/copies sweeps, IPP attributes):
+flutter test integration_test/native_transport_test.dart -d <device>
+
+# Patrol UI + native-automation suites (Android & iOS):
+dart pub global activate patrol_cli
+patrol test -d <device>
 ```
 
 ---
