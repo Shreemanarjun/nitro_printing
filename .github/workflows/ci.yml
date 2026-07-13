@@ -91,7 +91,19 @@ jobs:
       - name: Boot simulator
         id: sim
         run: |
-          UDID=$(xcrun simctl list devices available --json | python3 -c "import json,sys; devs=[d for r in json.load(sys.stdin)['devices'].values() for d in r if 'iPhone' in d['name']]; print(devs[-1]['udid'])")
+          # Pick an iPhone from the NEWEST iOS runtime — patrol targets xcodebuild
+          # with `OS=latest,name=<device>`, which only matches if the device is on
+          # the latest runtime (flattening across runtimes can pick an older one).
+          UDID=$(xcrun simctl list devices available --json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)['devices']
+          rts = sorted(k for k in data if 'iOS' in k)
+          for rt in reversed(rts):
+              iphones = [d for d in data[rt] if d['name'].startswith('iPhone')]
+              if iphones:
+                  print(iphones[-1]['udid']); break
+          ")
+          echo "Using simulator $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
