@@ -60,13 +60,20 @@ class WebPrintDecor {
 class WebPrintAgent {
   WebPrintAgent._();
 
-  /// Overrides the agent WebSocket endpoint (e.g. `ws://localhost:8182`).
-  /// Null restores the default probe list.
-  static void configure({String? endpoint}) {
+  /// [endpoint] overrides the QZ Tray WebSocket endpoint (e.g.
+  /// `ws://localhost:8182`); [agentEndpoint] overrides the first-party Nitro
+  /// Print Agent endpoint (default `ws://127.0.0.1:9629`). Null restores the
+  /// default probe list for that agent.
+  static void configure({String? endpoint, String? agentEndpoint}) {
     if (endpoint == null) {
       globalContext.delete('__nitroQzEndpoint'.toJS);
     } else {
       globalContext.setProperty('__nitroQzEndpoint'.toJS, endpoint.toJS);
+    }
+    if (agentEndpoint == null) {
+      globalContext.delete('__nitroAgentEndpoint'.toJS);
+    } else {
+      globalContext.setProperty('__nitroAgentEndpoint'.toJS, agentEndpoint.toJS);
     }
   }
 }

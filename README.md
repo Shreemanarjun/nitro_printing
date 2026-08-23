@@ -509,6 +509,7 @@ Raw printing and PDF job submission pick their transport from the
 | *(empty)* or `usb:VID:PID[:serial]` | WebUSB bulk transfer to the (matching) granted USB printer |
 | `ws://host:port` / `wss://host:port` | WebSocket→TCP relay (e.g. [websockify](https://github.com/novnc/websockify) forwarding to the printer's port 9100) |
 | `socket://host:port` or a bare IP | Direct Sockets `TCPSocket` (Isolated Web Apps only); elsewhere fails with guidance |
+| `agent:` or `agent:<printer id>` | First-party [Nitro Print Agent](#nitro-print-agent-the-agent-transport--any-os-printer): silent text/image/PDF/raw to any OS printer through this plugin's own native backends, native job ids and status |
 | `qz:` or `qz:Printer Name` | [QZ Tray](https://github.com/qzind/tray) local agent: silent raw and PDF printing to any OS printer, spool-confirmed results, and OS printer status on `onPrinterStatusChanged`. QZ shows its own Allow prompt; `WebPrintAgent.configure(endpoint:)` overrides the default ports |
 | A system printer name from `getAllPrinters()` | Web Printing API PDF job (Isolated Web Apps only) |
 
@@ -542,6 +543,27 @@ Web Printing printer for attribute control over PDFs.
 `showPrintDialog()`'s `confirmedSettings` echoes the `initialSettings` you
 passed (or defaults) — the browser cannot report what the user actually chose
 in its dialog.
+
+### Nitro Print Agent (the `agent:` transport — any OS printer)
+
+`agent/` in this repo is a small first-party desktop app that wraps this
+plugin's own native backends behind `ws://127.0.0.1:9629`. A web app using an
+`agent:` printerId gets silent printing to any OS printer with real native
+`PrintResult`s (spool-confirmed `PrintOutcome.printed`, native job ids) and
+live printer/job status — no third-party agent.
+
+1. Build and run it: `cd agent && flutter run -d macos` (or `windows`/`linux`;
+   distribute the built app to workstations).
+2. Print with `PrintSettings(printerId: 'agent:')` (default printer) or
+   `'agent:<printer id>'`. Text, image, and PDF go through the native driver;
+   raw/ESC-POS/ZPL pass through unchanged.
+3. `startPrinterDiscovery()` probes the agent and emits its printers;
+   `getPrinterStatusDetail('agent:…')` returns live native status.
+4. Non-standard port: `WebPrintAgent.configure(agentEndpoint: 'ws://host:port')`
+   (agent side: `--port` or `NITRO_PRINT_AGENT_PORT`).
+
+The agent binds to loopback only and has no auth token yet — keep it on
+trusted workstations.
 
 ### QZ Tray setup (the `qz:` transport)
 

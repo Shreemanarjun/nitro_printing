@@ -847,7 +847,7 @@ bool isRawPrinterId(const std::string& id) {
     return id.rfind("usb:", 0) == 0 || id.rfind("ws://", 0) == 0 ||
            id.rfind("wss://", 0) == 0 || id.rfind("socket://", 0) == 0 ||
            id.rfind("serial:", 0) == 0 || id.rfind("ble:", 0) == 0 ||
-           id.rfind("qz:", 0) == 0;
+           id.rfind("qz:", 0) == 0 || id.rfind("agent:", 0) == 0;
 }
 
 // renderPreview/printToFile image jobs awaiting the browser's JPEG re-encode.
@@ -1517,6 +1517,8 @@ EM_JS(void, js_ensure_helpers, (), {
       W.blePrint(port, bytes, copies, printerId);
     } else if (printerId.indexOf('qz:') === 0) {
       W.qzPrint(port, bytes, printerId, copies, false);
+    } else if (printerId.indexOf('agent:') === 0) {
+      W.agentPrint(port, 'raw', bytes, printerId, copies);
     } else if (printerId === "" || printerId.indexOf('usb:') === 0) {
       W.usbPrint(port, bytes, copies, printerId);
     } else {
@@ -1776,6 +1778,176 @@ EM_JS(void, js_ensure_helpers, (), {
     }, 10000);
   };
 
+  // ── Nitro Print Agent (first-party, agent/ in this repo) ───────────────
+  // A localhost WebSocket wrapping this plugin's OWN native backends, so a
+  // web app can silently print to ANY OS printer with real PrintResults and
+  // native printer/job status. Protocol: {id, call, ...} JSON frames;
+  // {event, data} pushes. printerId scheme: "agent:" / "agent:<printer id>".
+  W.agent = { socket: null, ready: null, pending: new Map(), uidSeq: 0, printers: [] };
+  W.agentEndpoints = function() {
+    var o = globalThis.__nitroAgentEndpoint;
+    return o ? [o] : ['ws://127.0.0.1:9629', 'ws://localhost:9629'];
+  };
+  W.agentReset = function() {
+    try { if (W.agent.socket) W.agent.socket.close(); } catch (e) {}
+    W.agent.socket = null;
+    W.agent.ready = null;
+    W.agent.pending.clear();
+  };
+  W.agentCall = function(msg, timeoutMs) {
+    return new Promise(function(resolve, reject) {
+      var id = 'a' + (++W.agent.uidSeq);
+      msg.id = id;
+      var timer = setTimeout(function() {
+        W.agent.pending.delete(id);
+        reject(new Error('agent call timed out: ' + msg.call));
+      }, timeoutMs || 8000);
+      W.agent.pending.set(id, function(reply) {
+        clearTimeout(timer);
+        W.agent.pending.delete(id);
+        if (reply.error) reject(new Error(String(reply.error)));
+        else resolve(reply.result);
+      });
+      W.agent.socket.send(JSON.stringify(msg));
+    });
+  };
+  W.agentStateInt = function(name) {
+    var map = { idle: 0, printing: 1, completed: 2, cancelled: 3, failed: 4, paused: 5 };
+    return map[name] != null ? map[name] : 0;
+  };
+  W.agentEvent = function(m) {
+    if (!m || !m.event) return;
+    var d = m.data || {};
+    if (m.event === 'printerStatus') {
+      var id = 'agent:' + (d.printerId || "");
+      W.cache.status[id] = { online: d.isOnline !== false, ready: d.isOnline !== false && !d.isPrinting,
+                             state: d.isPrinting ? 'printing' : 'idle', reasons: "",
+                             msg: d.statusMessage || "" };
+      wasmExports.nitro_printing_web_status_changed(
+          W.cstr([id, d.isOnline !== false ? '1' : '0', d.isPrinting ? '1' : '0',
+                  d.statusMessage || "", d.errorCode || ""].join('')));
+    } else if (m.event === 'job') {
+      // Native job lifecycle from the agent, re-emitted on onPrintJobChanged.
+      wasmExports.nitro_printing_web_job_changed(
+          W.cstr([d.jobId || "", "", "", String(W.agentStateInt(d.state)),
+                  String(d.progress || 0), '0', '0', d.message || "", '0'].join('')));
+    }
+  };
+  W.agentConnect = function(timeoutMs) {
+    if (W.agent.ready) return W.agent.ready;
+    W.agent.ready = new Promise(function(resolve, reject) {
+      var endpoints = W.agentEndpoints();
+      var attempt = function(i) {
+        if (i >= endpoints.length) {
+          W.agent.ready = null;
+          reject(new Error('agent not reachable'));
+          return;
+        }
+        var ws;
+        try { ws = new WebSocket(endpoints[i]); } catch (e) { attempt(i + 1); return; }
+        var settled = false;
+        var timer = setTimeout(function() {
+          if (settled) return;
+          settled = true;
+          try { ws.close(); } catch (e) {}
+          attempt(i + 1);
+        }, timeoutMs || 1200);
+        ws.onerror = function() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          attempt(i + 1);
+        };
+        ws.onopen = async function() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          W.agent.socket = ws;
+          ws.onmessage = function(ev) {
+            var m;
+            try { m = JSON.parse(ev.data); } catch (e) { return; }
+            if (m && m.id && W.agent.pending.has(m.id)) W.agent.pending.get(m.id)(m);
+            else W.agentEvent(m);
+          };
+          ws.onclose = function() { W.agentReset(); };
+          try {
+            await W.agentCall({ call: 'version' }, 3000);
+            resolve(ws);
+          } catch (e) {
+            W.agentReset();
+            reject(e);
+          }
+        };
+      };
+      attempt(0);
+    });
+    return W.agent.ready;
+  };
+  W.agentErr = function(e) {
+    var m = e && e.message ? e.message : String(e);
+    if (m.indexOf('not reachable') >= 0) {
+      return 'AGENT_UNAVAILABLE|Nitro Print Agent not reachable — start the agent app, or set WebPrintAgent.configure(agentEndpoint:)';
+    }
+    return 'AGENT_PRINT_FAILED|Print agent: ' + m;
+  };
+  // kind: raw|escpos|zpl|text|image|pdf. Success carries the NATIVE job id.
+  W.agentPrint = async function(port, kind, bytes, printerId, copies) {
+    try {
+      await W.agentConnect(1500);
+      var data = (kind === 'text' || kind === 'zpl')
+          ? new TextDecoder().decode(bytes)
+          : W.qzB64(bytes);
+      var r = await W.agentCall({
+        call: 'print', printer: printerId.slice(6), kind: kind,
+        data: data, copies: copies > 1 ? copies : 1,
+      }, 60000);
+      if (r && r.success) {
+        W.rawDone(port, 1, r.jobId || "");
+      } else {
+        var code = (r && r.errorCode) ? r.errorCode : 'AGENT_PRINT_FAILED';
+        W.rawDone(port, 0, code + '|' + ((r && r.errorMessage) || 'print failed'));
+      }
+    } catch (e) {
+      W.rawDone(port, 0, W.agentErr(e));
+    }
+  };
+  W.agentDiscover = async function() {
+    try {
+      await W.agentConnect(1200);
+      var printers = await W.agentCall({ call: 'printers' }, 8000);
+      if (!Array.isArray(printers)) printers = [];
+      W.agent.printers = printers;
+      for (var p of printers) {
+        var id = 'agent:' + p.id;
+        if (W.cache.printers.indexOf(id) < 0) W.cache.printers.push(id);
+        W.cache.caps[id] = { color: true, duplex: true, maxCopies: 999, dpi: 600,
+                             a4: true, a5: true, letter: true, legal: true,
+                             draft: true, normal: true, high: true, trays: "" };
+        if (!W.cache.status[id]) {
+          W.cache.status[id] = { online: p.isAvailable !== false, ready: true,
+                                 state: 'idle', reasons: "", msg: 'agent printer' };
+        }
+        wasmExports.nitro_printing_web_discovered(
+            W.cstr([id, p.name || p.id, 'localhost', '0', 'nitro-agent', id,
+                    p.isAvailable !== false ? '1' : '0'].join('')));
+      }
+      return printers.length > 0;
+    } catch (e) { return false; }
+  };
+  // Live status through the agent's native getPrinterStatusDetail.
+  W.agentStatus = async function(printerId) {
+    await W.agentConnect(1500);
+    var d = await W.agentCall({ call: 'status', printer: printerId.slice(6) }, 8000);
+    var reasons = d.hasPaperJam ? 'media-jam'
+        : d.isOutOfPaper ? 'media-empty'
+        : d.isOutOfInk ? 'toner-empty' : (d.stateReasons || "");
+    W.cache.status['agent:' + (d.printerId || printerId.slice(6))] = {
+      online: d.isOnline !== false, ready: d.isReady !== false,
+      state: d.printerState || 'idle', reasons: reasons, msg: d.statusMessage || "",
+    };
+    return d;
+  };
+
   // ── QZ Tray local agent (https://github.com/qzind/tray) ────────────────
   // The industry-standard localhost print agent. Wire protocol: JSON calls
   // {call, params, uid, timestamp} over WebSocket (wss:8181 / ws:8182 +
@@ -2024,6 +2196,15 @@ EM_JS(void, js_ensure_helpers, (), {
       // endpoint (or the agent is already connected) — plain enumeration
       // must not fire localhost probes / LNA prompts on its own.
       if (!W.qz.socket && globalThis.__nitroQzEndpoint) await W.qzDiscover();
+      if (!W.agent.socket && globalThis.__nitroAgentEndpoint) await W.agentDiscover();
+      if (W.agent.socket) {
+        for (var ap of W.agent.printers) {
+          var aid = 'agent:' + ap.id;
+          rows.push([aid, ap.name || ap.id, 'nitro-agent', ap.isDefault ? '1' : '0',
+                     ap.isAvailable !== false ? '1' : '0'].join(''));
+          if (cache.printers.indexOf(aid) < 0) cache.printers.push(aid);
+        }
+      }
       if (W.qz.socket) {
         for (var qn of W.qz.names) {
           var qid = 'qz:' + qn;
@@ -2149,7 +2330,8 @@ EM_JS(void, js_ensure_helpers, (), {
   // find is emitted on onPrinterDiscovered.
   W.discover = async function(port) {
     var mdns = W.mdnsDiscover(); // gesture-free; resolves with "found any"
-    var qzFound = W.qzDiscover(); // localhost agent probe (gesture-free)
+    var qzFound = W.qzDiscover(); // localhost agent probes (gesture-free)
+    var agentFound = W.agentDiscover();
     var granted = false;
     if (navigator.usb) {
       try {
@@ -2193,7 +2375,8 @@ EM_JS(void, js_ensure_helpers, (), {
         }
       } catch (e) {}
     }
-    W.boolDone(port, granted || (await mdns) || (await qzFound) ? 1 : 0);
+    W.boolDone(port,
+        granted || (await mdns) || (await qzFound) || (await agentFound) ? 1 : 0);
   };
 
   // ── Connection probe ───────────────────────────────────────────────────
@@ -2209,6 +2392,13 @@ EM_JS(void, js_ensure_helpers, (), {
       if (printerId.indexOf('serial:') === 0) {
         var ports2 = navigator.serial ? await navigator.serial.getPorts() : [];
         W.boolDone(port, ports2.length ? 1 : 0);
+        return;
+      }
+      if (printerId.indexOf('agent:') === 0) {
+        try {
+          await W.agentStatus(printerId);
+          W.boolDone(port, 1);
+        } catch (e4) { W.boolDone(port, 0); }
         return;
       }
       if (printerId.indexOf('qz:') === 0) {
@@ -2383,6 +2573,12 @@ EM_JS(void, js_text_preview_jpegs, (int64_t port, const char* text, const char* 
 EM_JS(void, js_resume_job, (int64_t port, const char* jobId), {
   js_ensure_helpers();
   globalThis.__nitroWeb.resumeJob(port, UTF8ToString(jobId));
+});
+
+EM_JS(void, js_agent_print, (int64_t port, const char* kind, const uint8_t* data, int len, const char* printerId, int copies), {
+  js_ensure_helpers();
+  var W = globalThis.__nitroWeb;
+  W.agentPrint(port, UTF8ToString(kind), HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies);
 });
 
 EM_JS(void, js_qz_pdf, (int64_t port, const uint8_t* data, int len, const char* printerId, int copies), {
@@ -2956,6 +3152,13 @@ public:
                    NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
         auto s = decodeSettings(settings);
+        if (s && s->printerId.rfind("agent:", 0) == 0) {
+            // First-party agent: let the NATIVE backend lay the text out —
+            // works on any OS printer, not just ESC/POS devices.
+            js_agent_print(dartPort, "text", (const uint8_t*)text.data(), (int)text.size(),
+                           s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
+            return;
+        }
         if (s && isRawPrinterId(s->printerId)) {
             auto escPos = textToEscPos(text);
             rawPrintDecoded(escPos.data(), escPos.size(), s, dartPort, /*forceSingle=*/false);
@@ -2970,6 +3173,11 @@ public:
                     NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
         auto s = decodeSettings(settings);
+        if (s && s->printerId.rfind("agent:", 0) == 0) {
+            js_agent_print(dartPort, "image", imageData, (int)imageData_length,
+                           s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
+            return;
+        }
         if (s && isRawPrinterId(s->printerId)) {
             // 58 mm heads are 384 dots wide, 80 mm are 576 (at 203 dpi).
             int widthDots = (s->paperSize == PAPERSIZE_CUSTOM && s->customPaperWidth > 200) ? 576 : 384;
@@ -3003,6 +3211,11 @@ public:
                       s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
+        if (s && s->printerId.rfind("agent:", 0) == 0) {
+            js_agent_print(dartPort, "pdf", pdfData, (int)pdfData_length,
+                           s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
+            return;
+        }
         // Dialog path: apply pageRange by rewriting the page tree in wasm
         // (classic-xref PDFs; exotic files print in full).
         if (s && (s->pageRangeFrom > 0 || s->pageRangeTo > 0)) {
@@ -3033,6 +3246,14 @@ public:
         if (doc.type == DOCUMENTTYPE_PDF && s && s->printerId.rfind("qz:", 0) == 0) {
             js_qz_pdf(dartPort, doc.data.data(), (int)doc.data.size(),
                       s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
+            return;
+        }
+        if (s && s->printerId.rfind("agent:", 0) == 0 &&
+            doc.type != DOCUMENTTYPE_HTML) {
+            const char* kind = doc.type == DOCUMENTTYPE_PDF ? "pdf"
+                : doc.type == DOCUMENTTYPE_IMAGE ? "image" : "text";
+            js_agent_print(dartPort, kind, doc.data.data(), (int)doc.data.size(),
+                           s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
         if (doc.type == DOCUMENTTYPE_PLAIN_TEXT && s && isRawPrinterId(s->printerId)) {

@@ -102,6 +102,7 @@ void main() {
   late int serverPort;
   final rawReceived = StreamController<String>.broadcast();
   final qzReceived = StreamController<String>.broadcast();
+  final agentReceived = StreamController<String>.broadcast();
 
   setUpAll(() async {
     final channel = spawnHybridUri('asset_server.dart');
@@ -111,6 +112,8 @@ void main() {
         first.complete(message.toInt());
       } else if (message is String && message.startsWith('raw:')) {
         rawReceived.add(message);
+      } else if (message is String && message.startsWith('agent')) {
+        agentReceived.add(message);
       } else if (message is String && message.startsWith('qz')) {
         qzReceived.add(message);
       }
@@ -182,12 +185,15 @@ void main() {
     test('startPrinterDiscovery is false without a user gesture', () async {
       // Pin the agent probe to a dead endpoint so a QZ Tray instance on the
       // host machine cannot flip this assertion.
-      WebPrintAgent.configure(endpoint: 'ws://localhost:1/qz');
+      WebPrintAgent.configure(
+        endpoint: 'ws://localhost:1/qz',
+        agentEndpoint: 'ws://localhost:1/agent',
+      );
       try {
         expect(await p.startPrinterDiscovery(), isFalse);
         expect(await p.stopPrinterDiscovery(), isFalse);
       } finally {
-        WebPrintAgent.configure(endpoint: null);
+        WebPrintAgent.configure();
       }
     });
   });
@@ -1334,6 +1340,111 @@ void main() {
       expect(detail, isA<NitroOk<PrinterStatusDetail>>());
       final d = (detail as NitroOk<PrinterStatusDetail>).value;
       expect(d.isOutOfPaper, isTrue);
+    });
+  });
+
+  group('Nitro Print Agent transport (mock agent)', () {
+    tearDownAll(() => WebPrintAgent.configure());
+
+    test('unreachable agent fails with agentUnavailable guidance', () async {
+      WebPrintAgent.configure(agentEndpoint: 'ws://localhost:1/agent');
+      final r = await p.printRaw(
+        Uint8List.fromList([1, 2, 3]),
+        settings: PrintSettings(printerId: 'agent:'),
+      );
+      expect(r.success, isFalse);
+      expect(r.errorKind, PrintErrorCode.agentUnavailable);
+      expect(r.errorMessage, contains('Nitro Print Agent'));
+    });
+
+    test('raw bytes print through the agent with the native job id', () async {
+      WebPrintAgent.configure(
+        agentEndpoint: 'ws://localhost:$serverPort/agent',
+      );
+      final received = agentReceived.stream.first;
+      final r = await p.printRaw(
+        Uint8List.fromList([1, 2, 3]),
+        settings: PrintSettings(printerId: 'agent:Office Laser'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(r.outcome, PrintOutcome.printed);
+      expect(r.jobId, 'native-42'); // the NATIVE result's job id, passed through
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'agentraw:3:Office Laser',
+      );
+    });
+
+    test('printText goes as native text, not ESC/POS', () async {
+      final received = agentReceived.stream.first;
+      final r = await p.printText(
+        'RECEIPT',
+        settings: PrintSettings(printerId: 'agent:Office Laser'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'agenttext:7:Office Laser', // plain text bytes — no ESC/POS wrapper
+      );
+    });
+
+    test('printPdf prints silently through the native driver', () async {
+      final pdf = _minimalPdf();
+      final received = agentReceived.stream.first;
+      final r = await p.printPdf(
+        pdf,
+        settings: PrintSettings(printerId: 'agent:Office Laser'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(r.outcome, PrintOutcome.printed);
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'agentpdf:${pdf.length}:Office Laser',
+      );
+    });
+
+    test('printImage routes natively (no thermal raster)', () async {
+      final received = agentReceived.stream.first;
+      final r = await p.printImage(
+        _pngPixel(),
+        settings: PrintSettings(printerId: 'agent:Office Laser'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'agentimage:${_pngPixel().length}:Office Laser',
+      );
+    });
+
+    test('native job lifecycle is re-emitted on onPrintJobChanged', () async {
+      final updates = <PrintJobUpdate>[];
+      final sub = p.onPrintJobChanged().listen(updates.add);
+      await p.printRaw(
+        Uint8List.fromList([7]),
+        settings: PrintSettings(printerId: 'agent:Office Laser'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await sub.cancel();
+      final native = updates.where((u) => u.jobId == 'native-42');
+      expect(native, isNotEmpty);
+      expect(native.last.state, PrintState.completed);
+    });
+
+    test('enumeration, probing, and live native status', () async {
+      expect(await p.startPrinterDiscovery(), isTrue);
+      final printers = await p.getAllPrinters();
+      expect(printers.map((x) => x.id), contains('agent:Office Laser'));
+
+      expect(
+        await p.testPrinterConnection('agent:Office Laser', timeoutSeconds: 3),
+        isTrue,
+      );
+      // testPrinterConnection refreshed the cache from the agent's NATIVE
+      // getPrinterStatusDetail — the mock reports a paper jam.
+      final detail = await p.getPrinterStatusDetail('agent:Office Laser',
+          timeoutSeconds: 1);
+      final d = (detail as NitroOk<PrinterStatusDetail>).value;
+      expect(d.hasPaperJam, isTrue);
     });
   });
 }

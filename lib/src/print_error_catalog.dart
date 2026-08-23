@@ -86,6 +86,12 @@ enum PrintErrorCode {
   /// The QZ Tray print call failed.
   qzPrintFailed,
 
+  /// The Nitro Print Agent is not reachable (not installed / not running).
+  agentUnavailable,
+
+  /// The Nitro Print Agent's native print call failed.
+  agentPrintFailed,
+
   /// An error code this catalog does not know.
   unknown,
 }
@@ -117,6 +123,8 @@ const Map<String, PrintErrorCode> _codeTable = {
   'QZ_UNAVAILABLE': PrintErrorCode.qzUnavailable,
   'QZ_BLOCKED': PrintErrorCode.qzBlocked,
   'QZ_PRINT_FAILED': PrintErrorCode.qzPrintFailed,
+  'AGENT_UNAVAILABLE': PrintErrorCode.agentUnavailable,
+  'AGENT_PRINT_FAILED': PrintErrorCode.agentPrintFailed,
 };
 
 /// Informational code on successful dialog prints: the browser closed its

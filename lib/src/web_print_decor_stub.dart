@@ -19,7 +19,7 @@ class WebPrintAgent {
   WebPrintAgent._();
 
   /// No-op outside the web.
-  static void configure({String? endpoint}) {}
+  static void configure({String? endpoint, String? agentEndpoint}) {}
 }
 
 /// Native platforms report real print outcomes — there is nothing to settle.

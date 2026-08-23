@@ -51,6 +51,72 @@ void _mockQzAgent(WebSocket ws, StreamChannel<Object?> channel) {
   });
 }
 
+/// Minimal mock of the first-party Nitro Print Agent protocol.
+void _mockNitroAgent(WebSocket ws, StreamChannel<Object?> channel) {
+  ws.listen((message) {
+    if (message is! String) return;
+    final msg = jsonDecode(message) as Map<String, dynamic>;
+    final id = msg['id'];
+    Object? result;
+    switch (msg['call']) {
+      case 'version':
+        result = 'nitro-print-agent/mock';
+      case 'printers':
+        result = [
+          {
+            'id': 'Office Laser',
+            'name': 'Office Laser',
+            'address': 'usb',
+            'isDefault': true,
+            'isAvailable': true,
+          },
+        ];
+      case 'status':
+        result = {
+          'printerId': msg['printer'],
+          'isOnline': true,
+          'isReady': false,
+          'hasPaperJam': true,
+          'isOutOfPaper': false,
+          'isOutOfInk': false,
+          'printerState': 'stopped',
+          'stateReasons': 'media-jam',
+          'statusMessage': 'Paper jam',
+          'isDuplexSupported': true,
+          'isColorSupported': true,
+        };
+      case 'print':
+        final kind = msg['kind'] as String;
+        final data = msg['data'] as String;
+        final len = (kind == 'text' || kind == 'zpl')
+            ? utf8.encode(data).length
+            : base64Decode(data).length;
+        channel.sink.add('agent$kind:$len:${msg['printer']}');
+        result = {
+          'success': true,
+          'jobId': 'native-42',
+          'errorMessage': '',
+          'errorCode': '',
+        };
+        // Native job lifecycle push, as the real agent forwards it.
+        Future<void>.delayed(const Duration(milliseconds: 30), () {
+          ws.add(jsonEncode({
+            'event': 'job',
+            'data': {
+              'jobId': 'native-42',
+              'state': 'completed',
+              'progress': 100,
+              'message': '',
+            },
+          }));
+        });
+      default:
+        result = null;
+    }
+    ws.add(jsonEncode({'id': id, 'result': result}));
+  });
+}
+
 Future<void> hybridMain(StreamChannel<Object?> channel) async {
   final dir = Directory.current.path;
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -67,6 +133,11 @@ Future<void> hybridMain(StreamChannel<Object?> channel) async {
     }
     if (req.uri.path == '/qz' && WebSocketTransformer.isUpgradeRequest(req)) {
       _mockQzAgent(await WebSocketTransformer.upgrade(req), channel);
+      return;
+    }
+    if (req.uri.path == '/agent' &&
+        WebSocketTransformer.isUpgradeRequest(req)) {
+      _mockNitroAgent(await WebSocketTransformer.upgrade(req), channel);
       return;
     }
     final name = req.uri.path.split('/').last;
