@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nitro/nitro.dart';
+import 'package:nitro_printing/nitro_printing.dart';
 import 'core/repositories/printer_repository.dart';
 import 'features/status/status_feature.dart';
 import 'features/print/print_feature.dart';
@@ -7,11 +8,13 @@ import 'features/raw/raw_feature.dart';
 import 'features/jobs/jobs_feature.dart';
 import 'features/printers/printers_feature.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   NitroConfig.instance
     ..logLevel = NitroLogLevel.verbose
     ..debugMode = true;
+  // Instantiates the WASM module on web; a synchronous no-op on native.
+  await ensureNitroPrintingReady();
   runApp(App(printerRepository: NitroPrinterRepository()));
 }
 

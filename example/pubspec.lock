@@ -214,18 +214,18 @@ packages:
     dependency: "direct main"
     description:
       name: nitro
-      sha256: "9eced3c15e16eaa145158e94ab09caac8badec6c7c860198795b61435ba7185c"
+      sha256: b27febfa5a85bbe5e73441b6603e7eb1687d057176cd1b83b44ac48a1a35b4d3
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.11"
+    version: "0.7.1"
   nitro_annotations:
     dependency: transitive
     description:
       name: nitro_annotations
-      sha256: a943d32f534af249b293936a9dd024b60bc78924204d8f19bd4ac02988cc8b2e
+      sha256: "5a996cee52bd19262fcc3b97aee8c27fbed25bacfd4a9db78246937435249e5b"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.9"
+    version: "0.7.1"
   nitro_printing:
     dependency: "direct main"
     description:
@@ -245,10 +245,10 @@ packages:
     dependency: "direct dev"
     description:
       name: patrol
-      sha256: "38e010044c035024345ce25c7f1682a64a4d45a578a2481856330227bf1618c1"
+      sha256: "743678f959a4878807efec59d19f8ebd65cc3d6953fdecce6562c987963f30a8"
       url: "https://pub.dev"
     source: hosted
-    version: "4.7.0"
+    version: "4.9.0"
   patrol_finders:
     dependency: transitive
     description:
@@ -261,10 +261,10 @@ packages:
     dependency: transitive
     description:
       name: patrol_log
-      sha256: "1f5b6f7e1d9feaab7a60eef31e34a83a6168d754e5c0336006a4f50fb5f27526"
+      sha256: "3d91c93e8d0ed19cb12d4b27aa24eca7294e0a48d9d8445505c9775feb5fde2d"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.0"
+    version: "0.10.1"
   platform:
     dependency: transitive
     description:
@@ -378,10 +378,10 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: "0016aef94fc66495ac78af5859181e3f3bf2026bd8eecc72b9565601e19ab360"
+      sha256: "5f37239c4851efcef929cea7824e76df7f2f0970aef85d66bbc430afa40e72f0"
       url: "https://pub.dev"
     source: hosted
-    version: "15.2.0"
+    version: "15.3.0"
   web:
     dependency: transitive
     description:
