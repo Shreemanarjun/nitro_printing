@@ -543,6 +543,28 @@ Web Printing printer for attribute control over PDFs.
 passed (or defaults) — the browser cannot report what the user actually chose
 in its dialog.
 
+### QZ Tray setup (the `qz:` transport)
+
+[QZ Tray](https://github.com/qzind/tray) is a local print agent that gives web
+apps silent, spool-confirmed printing and OS printer status.
+
+1. Download the installer for Windows/macOS/Linux from
+   <https://qz.io/download/> and run it. Version 2.2+ bundles its own Java —
+   no separate install. The installer also adds a localhost certificate so
+   `wss://localhost:8181` works (for Firefox, install QZ Tray after Firefox).
+2. Launch QZ Tray — an icon appears in the system tray and the agent listens
+   on `wss://localhost:8181` / `ws://localhost:8182`.
+3. Print with `PrintSettings(printerId: 'qz:')` (default printer) or
+   `'qz:Printer Name'`, or call `startPrinterDiscovery()` to enumerate agent
+   printers. On the first request QZ Tray shows an Allow/Block prompt —
+   tick "Remember this decision" to persist it. Signed certificates (silent,
+   no prompt) are a QZ Tray feature configured on their side; this plugin
+   connects in untrusted mode.
+4. Non-standard agent host/port:
+   `WebPrintAgent.configure(endpoint: 'ws://host:port')`.
+5. Auto-start: enable "Launch on startup" in the QZ Tray menu (or install it
+   as a Windows service — see <https://qz.io/docs/windows-service>).
+
 ### Testing the web backend
 
 ```bash
