@@ -47,7 +47,7 @@ nitro ecosystem (Flutter port of React Native Nitro Modules)
 | **Print-to-file (virtual)** | Limited | ✅ `printToFile`, `renderPreview` |
 | **Built-in settings UI** | ❌ | ✅ `NitroPrintSettingsPage` — Material 3 full-screen editor |
 | **Batch printing** | ❌ | ✅ `printBatch` extension |
-| **Platforms** | Android, iOS, macOS, Web | Android, iOS, macOS, Windows, Linux |
+| **Platforms** | Android, iOS, macOS, Web | Android, iOS, macOS, Windows, Linux, Web (WASM) |
 
 ---
 
@@ -156,6 +156,25 @@ A running CUPS daemon (`cupsd`) is required on the target machine for local prin
 ### 🪟 Windows
 
 No special permissions, configuration, or external dependencies are required. The plugin uses standard Win32 print spooler APIs (like WinSpool) which are built into all Windows environments.
+
+### 🌐 Web (WASM)
+
+The web backend is the same C++ module compiled to WebAssembly (bundled
+automatically as a Flutter asset — no setup beyond one call). Module
+instantiation is asynchronous on web, so await the ready hook before first
+use; it is a no-op on every native platform:
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ensureNitroPrintingReady(); // instantiates the WASM module on web
+  runApp(const App());
+}
+```
+
+WebUSB and the browser print dialog require a **secure context** (HTTPS or
+localhost). See [Web Support](#web-support) for what each API does on web and
+which `PrintSettings` fields are respected there.
 
 ---
 
@@ -465,7 +484,94 @@ quality, media type, color/duplex/collate toggles, header/footer text, and input
 | macOS | ✅ | ✅ | ✅ | ✅ |
 | Windows | ✅ | ✅ | ✅ | ✅ |
 | Linux | ✅ | ✅ | ✅ | ✅ (CUPS) |
-| Web | ❌ | ❌ | ❌ | ❌ |
+| Web | ✅ (browser dialog / Web Printing) | ⚠️ WebUSB picker | ✅ (WebUSB / ws relay / TCPSocket) | ✅ (browser dialog) |
+
+---
+
+## Web Support
+
+The web backend is the same C++ implementation compiled to WASM, driving the
+browser APIs that actually exist. Every capability is **feature-detected at
+runtime**; what the sandbox cannot do fails honestly with an actionable
+message instead of hanging.
+
+### How each API behaves on web
+
+| API | Open web (any HTTPS Chromium page) | Isolated Web App (Chrome 147+) |
+|---|---|---|
+| `printText` / `printImage` / `printDocument` | Browser print dialog (hidden-iframe flow). Plain text with a raw `printerId` (`usb:`/`ws://`/`socket://`) is ESC/POS-encoded (init + text + feed/cut) and sent straight to the thermal printer | same |
+| `printPdf` | Browser print dialog — **or a real, silent print job** when `printerId` names a system printer | Web Printing API job with state tracking |
+| `printBatch` | Sequential dialog prints, per-item results | same |
+| `showPrintDialog` | Browser dialog; `confirmed` = dialog shown & closed (browsers cannot reveal Print-vs-Cancel) | same |
+| `printRaw` / `printEscPos` / `printZpl` | **WebUSB** (`usb:`), **Web Serial** (`serial:[baud]`), **Web Bluetooth** (`ble:[name]`), or **`ws://` relay** (network printers via websockify). ESC/POS text is CP437-translated; images raster to `GS v 0` | also direct **TCPSocket** to port 9100 — no relay |
+| `getAllPrinters` / `getPrinterAt` / `getPrintersCount` | Granted WebUSB devices | + full system printer list (Web Printing) |
+| `getPrinterCapabilities` / `getPrinterStatusDetail` | Basic WebUSB info | Full IPP attributes (media, duplex, color, quality, state reasons) |
+| `startPrinterDiscovery` | Opens the WebUSB device picker, falling back to the Web Serial then Web Bluetooth pickers (**needs a user gesture** — call from a button tap); grants emit `onPrinterDiscovered` | + one-shot **mDNS/Bonjour query** over Direct Sockets UDP (`_ipp`/`_pdl-datastream`/`_printer`), discovered network printers emitted too |
+| `testPrinterConnection` | USB open-probe or `ws://` reachability | + TCP connect probe |
+| `getPrintJobsCount` / `getPrintJobAt` / `getPrintJobStatus` / `cancelPrintJob` / `clearPrintQueue` | Empty / false (no job queue) | Web Printing jobs, live `onPrintJobChanged` events |
+| `renderPreview` | PDF documents pass through (`pageRange` extracts a sub-document in wasm); plain text renders to a generated PDF sized by `PrintSettings`; images become a one-page PDF; **HTML rasterizes to a multi-page PDF** (SVG `foreignObject` → canvas — inline content only, no external images/fonts) | same |
+| `getPageCount` | PDF page-tree walk; text paginated at 60 lines/page; HTML rasterized and counted | same |
+| `printToFile` | Browser download — text, images, and HTML render to a real PDF first | same |
+| `printFile` | ✅ `http(s)://`, `data:`, `blob:` URLs are fetched and printed by sniffed type (PDF/image/text); plain filesystem paths return false | same |
+| `getDefaultPrinter` / `setDefaultPrinter` | `NitroErr` / false — **no default-printer concept exists on the web** | same |
+| `pausePrintJob` / `resumePrintJob` | false — no web API | same |
+| `getPrinterDriverVersion` / `openSystemPrintQueue` / `openPrinterProperties` | Empty / false — OS surface unreachable from the sandbox | same |
+
+The sync `@NitroResult` lookups (`getPrinterAt`, capabilities, status detail,
+jobs) are served from the cache the last `getAllPrinters()` populated — call
+it first, or they fail with a `NitroErr` that says exactly that.
+
+### `printerId` routing on web
+
+Raw printing and PDF job submission pick their transport from the
+`PrintSettings.printerId` scheme:
+
+| `printerId` | Transport |
+|---|---|
+| *(empty)* or `usb:VID:PID[:serial]` | WebUSB bulk transfer to the (matching) granted USB printer |
+| `ws://host:port` / `wss://host:port` | WebSocket→TCP relay (e.g. [websockify](https://github.com/novnc/websockify) forwarding to the printer's port 9100) |
+| `socket://host:port` or a bare IP | Direct Sockets `TCPSocket` (Isolated Web Apps only); elsewhere fails with guidance |
+| A system printer name from `getAllPrinters()` | Web Printing API PDF job (Isolated Web Apps only) |
+
+### Which `PrintSettings` fields are respected on web
+
+Dialog flows apply your settings to the **document itself** (CSS `@page`
+rules, content repetition, grayscale filtering), so they take effect even
+though the browser's dialog also lets the user override paper/margins/copies.
+PDF *documents* are pre-rendered and print as-is in the dialog flow — target a
+Web Printing printer for attribute control over PDFs.
+
+| Field | Dialog printing (text / HTML / image) | Raw (WebUSB / relay / TCP) | Web Printing PDF job |
+|---|---|---|---|
+| `printerId` | picks the flow: a Web Printing printer name routes to a silent job; otherwise the user picks the target in the dialog | ✅ selects the transport & device | ✅ selects the printer |
+| `copies` | ✅ page content is repeated per copy inside one job | ✅ repeats the payload (`printZpl` always sends once — ZPL carries its own quantity commands) | ✅ `copies` attribute |
+| `paperSize` / `customPaperWidth`/`Height` | ✅ CSS `@page size` (A4/A5/letter/legal/custom pt) | n/a | ✅ `media` size name (custom → printer default) |
+| `orientationDegrees` | ✅ portrait/landscape via `@page size` | n/a | ✅ `orientation-requested` |
+| margins (`marginTop/Right/Bottom/Left`, pt) | ✅ CSS `@page margin` | n/a | — |
+| `color` | ✅ `false` renders grayscale | n/a | ✅ `print-color-mode` |
+| `duplex` | dialog-controlled by the user | n/a | ✅ `sides` (two-sided-long-edge) |
+| `quality` | dialog-controlled by the user | n/a | ✅ `print-quality` (draft/normal/high) |
+| `headerText` / `footerText` | ✅ per page (all document types) | n/a | — |
+| `pageRangeFrom`/`To` | ✅ plain-text documents (hard-paginated at 60 lines/page) | n/a | ✅ `page-ranges` |
+| `fitToPage` | ✅ images scale to page width | n/a | — |
+| `pagesPerSheet` | ✅ N-up grid layout (2/4/6/8/16 per sheet) | n/a | — |
+| `jobName` | ✅ document title — names the print job and the default save-as-PDF file | — | ✅ job title |
+| `networkTimeoutSeconds` | — | ✅ bounds relay/TCP connect + send | — |
+| `collate` | n/a (single document) | n/a | ✅ `multiple-document-handling` |
+| `mediaType` | not mappable | n/a | ✅ `media-type` (glossy/matte/photo/labels/envelope) |
+| `showPrintDialog` | effectively always true — the dialog is the only document path unless `printerId` names a Web Printing printer | n/a | n/a |
+
+`showPrintDialog()`'s `confirmedSettings` echoes the `initialSettings` you
+passed (or defaults) — the browser cannot report what the user actually chose
+in its dialog.
+
+### Testing the web backend
+
+```bash
+bash web/build_web.sh                                             # needs emsdk
+flutter pub run test -p chrome test/nitro_printing_web_test.dart  # dart2js
+flutter pub run test -p chrome -c dart2wasm test/nitro_printing_web_test.dart
+```
 
 ---
 
