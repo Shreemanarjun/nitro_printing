@@ -7,15 +7,31 @@ class SettingsPanel extends StatelessWidget {
   final p.PrintQuality quality;
   final bool color;
   final bool duplex;
+  final bool collate;
+  final bool fitToPage;
   final int copies;
   final int pagesPerSheet;
+  final p.MediaType mediaType;
+  final double marginPt;
+  final int pageFrom;
+  final int pageTo;
+  final double customWidth;
+  final double customHeight;
   final ValueChanged<p.PaperSize> onPaperSize;
   final ValueChanged<double> onOrientationDegrees;
   final ValueChanged<p.PrintQuality> onQuality;
   final ValueChanged<bool> onColor;
   final ValueChanged<bool> onDuplex;
+  final ValueChanged<bool> onCollate;
+  final ValueChanged<bool> onFitToPage;
   final ValueChanged<int> onCopies;
   final ValueChanged<int> onPagesPerSheet;
+  final ValueChanged<p.MediaType> onMediaType;
+  final ValueChanged<double> onMarginPt;
+  final ValueChanged<int> onPageFrom;
+  final ValueChanged<int> onPageTo;
+  final ValueChanged<double> onCustomWidth;
+  final ValueChanged<double> onCustomHeight;
 
   const SettingsPanel({
     super.key,
@@ -24,15 +40,31 @@ class SettingsPanel extends StatelessWidget {
     required this.quality,
     required this.color,
     required this.duplex,
+    required this.collate,
+    required this.fitToPage,
     required this.copies,
     required this.pagesPerSheet,
+    required this.mediaType,
+    required this.marginPt,
+    required this.pageFrom,
+    required this.pageTo,
+    required this.customWidth,
+    required this.customHeight,
     required this.onPaperSize,
     required this.onOrientationDegrees,
     required this.onQuality,
     required this.onColor,
     required this.onDuplex,
+    required this.onCollate,
+    required this.onFitToPage,
     required this.onCopies,
     required this.onPagesPerSheet,
+    required this.onMediaType,
+    required this.onMarginPt,
+    required this.onPageFrom,
+    required this.onPageTo,
+    required this.onCustomWidth,
+    required this.onCustomHeight,
   });
 
   @override
@@ -66,13 +98,57 @@ class SettingsPanel extends StatelessWidget {
                 ),
               ],
             ),
+            if (paperSize == p.PaperSize.custom) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownTile<double>(
+                      label: 'Custom Width (pt)',
+                      value: customWidth,
+                      items: const [204.0, 297.0, 420.0, 500.0, 595.0],
+                      labelOf: (v) => v.toStringAsFixed(0),
+                      onChanged: onCustomWidth,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownTile<double>(
+                      label: 'Custom Height (pt)',
+                      value: customHeight,
+                      items: const [420.0, 566.0, 595.0, 842.0, 1000.0],
+                      labelOf: (v) => v.toStringAsFixed(0),
+                      onChanged: onCustomHeight,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
-            DropdownTile<p.PrintQuality>(
-              label: 'Print Quality',
-              value: quality,
-              items: p.PrintQuality.values,
-              labelOf: (v) => v.name[0].toUpperCase() + v.name.substring(1),
-              onChanged: onQuality,
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownTile<p.PrintQuality>(
+                    label: 'Print Quality',
+                    value: quality,
+                    items: p.PrintQuality.values,
+                    labelOf: (v) =>
+                        v.name[0].toUpperCase() + v.name.substring(1),
+                    onChanged: onQuality,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownTile<p.MediaType>(
+                    label: 'Media Type',
+                    value: mediaType,
+                    items: p.MediaType.values,
+                    labelOf: (v) =>
+                        v.name[0].toUpperCase() + v.name.substring(1),
+                    onChanged: onMediaType,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
@@ -98,6 +174,41 @@ class SettingsPanel extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownTile<double>(
+                    label: 'Margins',
+                    value: marginPt,
+                    items: const [0.0, 20.0, 40.0, 60.0],
+                    labelOf: (v) =>
+                        v == 0 ? 'Default' : '${v.toStringAsFixed(0)} pt',
+                    onChanged: onMarginPt,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownTile<int>(
+                    label: 'Pages From',
+                    value: pageFrom,
+                    items: const [0, 1, 2, 3, 4, 5],
+                    labelOf: (v) => v == 0 ? 'Start' : 'Page $v',
+                    onChanged: onPageFrom,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownTile<int>(
+                    label: 'Pages To',
+                    value: pageTo,
+                    items: const [0, 1, 2, 3, 4, 5],
+                    labelOf: (v) => v == 0 ? 'End' : 'Page $v',
+                    onChanged: onPageTo,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             const Divider(color: Color(0xFF1E293B)),
             const SizedBox(height: 8),
@@ -115,6 +226,25 @@ class SettingsPanel extends StatelessWidget {
                     label: '2-Sided Duplex',
                     value: duplex,
                     onChanged: onDuplex,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: ToggleWidget(
+                    label: 'Collate Copies',
+                    value: collate,
+                    onChanged: onCollate,
+                  ),
+                ),
+                Expanded(
+                  child: ToggleWidget(
+                    label: 'Fit To Page',
+                    value: fitToPage,
+                    onChanged: onFitToPage,
                   ),
                 ),
               ],

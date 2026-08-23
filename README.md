@@ -1,53 +1,25 @@
 # nitro_printing
 
 [![pub version](https://img.shields.io/pub/v/nitro_printing.svg)](https://pub.dev/packages/nitro_printing)
-[![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios%20%7C%20macos%20%7C%20windows%20%7C%20linux-blue)](https://pub.dev/packages/nitro_printing)
+[![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios%20%7C%20macos%20%7C%20windows%20%7C%20linux%20%7C%20web-blue)](https://pub.dev/packages/nitro_printing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A **high-performance Flutter printing plugin** built on top of the **Nitrogen SDK** —
-a Flutter port of [Nitro Modules for React Native](https://nitro.margelo.com) that calls
-native code **directly via Dart FFI**, completely bypassing Flutter method channels.
+A Flutter printing plugin built on the [Nitrogen SDK](https://github.com/Shreemanarjun/nitro_ecosystem)
+(a Flutter port of [React Native Nitro Modules](https://nitro.margelo.com)): native calls go through
+Dart FFI instead of method channels. Docs: https://nitro.shreeman.dev
 
 ---
 
-## What is Nitro / Nitrogen?
+## Features
 
-[Nitro Modules](https://nitro.margelo.com) is a React Native library by Marc Rousavy (Margelo)
-that replaces the JS bridge with **zero-overhead JSI bindings**. The Nitrogen SDK
-([`nitro`](https://pub.dev/packages/nitro) · [`nitro_generator`](https://pub.dev/packages/nitro_generator) · [`nitrogen_cli`](https://pub.dev/packages/nitrogen_cli))
-is a **Flutter port** of that same concept — it replaces method channels with pure
-**Dart FFI** (C ABI) calls, using `dart:ffi` and a code-generation pipeline
-(`build_runner` + `nitro_generator`) that turns a single annotated Dart file into
-type-safe Dart ↔ Kotlin / Swift / C++ bridge code.
-
-```
-nitro ecosystem (Flutter port of React Native Nitro Modules)
-├── nitro               ← runtime: HybridObject, annotations, NitroRuntime
-├── nitro_annotations   ← @NitroModule, @HybridStruct, @HybridEnum, @nitroAsync, @NitroStream
-├── nitro_generator     ← build_runner builder → generates *.g.dart + native stubs
-└── nitrogen_cli        ← CLI: scaffold plugins, run generator, doctor
-```
-
-> **Repository:** https://github.com/Shreemanarjun/nitro_ecosystem
->
-> **Docs:** https://nitro.shreeman.dev
-
----
-
-## Why nitro_printing vs. existing packages?
-
-| Feature | `printing` (pub.dev) | `nitro_printing` |
-|---|---|---|
-| **Bridge** | Method channels (async serialize/deserialize) | Nitrogen JSI/FFI — **zero serialization overhead** |
-| **Sync printer queries** | ❌ always async | ✅ `getPrintersCount()`, `getPrinterAt()`, `getDefaultPrinter()` are **synchronous** |
-| **Raw TCP / ESC-POS / ZPL** | ❌ not supported | ✅ `printRaw`, `printEscPos`, `printZpl` |
-| **mDNS/Bonjour discovery** | ❌ | ✅ `startPrinterDiscovery` + `onPrinterDiscovered` stream |
-| **IPP detailed status** | ❌ | ✅ `getPrinterStatusDetail` (ink, paper jam, toner, …) |
-| **Real-time job streams** | ❌ polling only | ✅ `onPrintJobChanged`, `onPrinterStatusChanged` (zero-copy streams) |
-| **Print-to-file (virtual)** | Limited | ✅ `printToFile`, `renderPreview` |
-| **Built-in settings UI** | ❌ | ✅ `NitroPrintSettingsPage` — Material 3 full-screen editor |
-| **Batch printing** | ❌ | ✅ `printBatch` extension |
-| **Platforms** | Android, iOS, macOS, Web | Android, iOS, macOS, Windows, Linux, Web (WASM) |
+- Synchronous printer queries (`getPrintersCount()`, `isPrintingSupported()`)
+- Text, image, PDF, and file printing with a full `PrintSettings` model
+- Raw TCP, ESC/POS, and ZPL printing
+- mDNS/Bonjour printer discovery and IPP status queries
+- Print job management with `onPrintJobChanged` / `onPrinterStatusChanged` streams
+- Print preview, print-to-file, batch printing
+- Built-in Material 3 settings page (`NitroPrintSettingsPage`)
+- Android, iOS, macOS, Windows, Linux, and Web (WASM)
 
 ---
 
@@ -57,7 +29,7 @@ nitro ecosystem (Flutter port of React Native Nitro Modules)
 dependencies:
   flutter:
     sdk: flutter
-  nitro_printing: ^0.0.3
+  nitro_printing: ^0.0.4
 ```
 
 ```bash
@@ -490,31 +462,37 @@ quality, media type, color/duplex/collate toggles, header/footer text, and input
 
 ## Web Support
 
-The web backend is the same C++ implementation compiled to WASM, driving the
-browser APIs that actually exist. Every capability is **feature-detected at
-runtime**; what the sandbox cannot do fails honestly with an actionable
-message instead of hanging.
+The web backend is the same C++ implementation compiled to WASM. Capabilities
+are feature-detected at runtime; unsupported operations fail with a typed
+error instead of hanging.
 
 ### How each API behaves on web
 
 | API | Open web (any HTTPS Chromium page) | Isolated Web App (Chrome 147+) |
 |---|---|---|
 | `printText` / `printImage` / `printDocument` | Browser print dialog (hidden-iframe flow). Plain text with a raw `printerId` (`usb:`/`ws://`/`socket://`) is ESC/POS-encoded (init + text + feed/cut) and sent straight to the thermal printer | same |
-| `printPdf` | Browser print dialog — **or a real, silent print job** when `printerId` names a system printer | Web Printing API job with state tracking |
+| `printPdf` | Browser print dialog; a `qz:` or system printerId prints silently | Web Printing API job with state tracking |
 | `printBatch` | Sequential dialog prints, per-item results | same |
 | `showPrintDialog` | Browser dialog; `confirmed` = dialog shown & closed (browsers cannot reveal Print-vs-Cancel) | same |
-| `printRaw` / `printEscPos` / `printZpl` | **WebUSB** (`usb:`), **Web Serial** (`serial:[baud]`), **Web Bluetooth** (`ble:[name]`), or **`ws://` relay** (network printers via websockify). ESC/POS text is CP437-translated; images raster to `GS v 0` | also direct **TCPSocket** to port 9100 — no relay |
+| `printRaw` / `printEscPos` / `printZpl` | WebUSB (`usb:`), Web Serial (`serial:[baud]`), Web Bluetooth (`ble:[name]`), QZ Tray agent (`qz:`, spool-confirmed), or `ws://` relay (websockify). ESC/POS text is CP437-translated; images raster to `GS v 0` | also direct TCPSocket to port 9100, no relay |
 | `getAllPrinters` / `getPrinterAt` / `getPrintersCount` | Granted WebUSB devices | + full system printer list (Web Printing) |
 | `getPrinterCapabilities` / `getPrinterStatusDetail` | Basic WebUSB info | Full IPP attributes (media, duplex, color, quality, state reasons) |
-| `startPrinterDiscovery` | Opens the WebUSB device picker, falling back to the Web Serial then Web Bluetooth pickers (**needs a user gesture** — call from a button tap); grants emit `onPrinterDiscovered` | + one-shot **mDNS/Bonjour query** over Direct Sockets UDP (`_ipp`/`_pdl-datastream`/`_printer`), discovered network printers emitted too |
+| `startPrinterDiscovery` | Opens the WebUSB, Web Serial, then Web Bluetooth device pickers (needs a user gesture) and probes the QZ agent; grants emit `onPrinterDiscovered` | + one-shot mDNS query over Direct Sockets UDP (`_ipp`/`_pdl-datastream`/`_printer`) |
 | `testPrinterConnection` | USB open-probe or `ws://` reachability | + TCP connect probe |
-| `getPrintJobsCount` / `getPrintJobAt` / `getPrintJobStatus` / `cancelPrintJob` / `clearPrintQueue` | Empty / false (no job queue) | Web Printing jobs, live `onPrintJobChanged` events |
-| `renderPreview` | PDF documents pass through (`pageRange` extracts a sub-document in wasm); plain text renders to a generated PDF sized by `PrintSettings`; images become a one-page PDF; **HTML rasterizes to a multi-page PDF** (SVG `foreignObject` → canvas — inline content only, no external images/fonts) | same |
+| `getPrintJobsCount` / `getPrintJobAt` / `getPrintJobStatus` | Every web print is tracked (dialog, raw transports, batch items) with `onPrintJobChanged` events and `lastPrintJob()` | + Web Printing system jobs with page progress |
+| `cancelPrintJob` / `clearPrintQueue` | Unknown ids are inert | Cancels/clears Web Printing jobs |
+| `resumePrintJob` | Retries a finished raw-transport job's kept payload; dialog/Web Printing jobs are not resumable | same |
+| Job failure reasons | `PrintJob.failureReason` — typed (`mediaEmpty`, `mediaJam`, `tonerEmpty`, `coverOpen`, `printerOffline`, …) parsed from the job's error | populated from IPP `printer-state-reasons` |
+| Typed errors | `PrintResult.errorKind` → `PrintErrorCode` enum (`noUsbDevice`, `relayTimeout`, `tcpUnavailable`, …) for switch-based handling | same |
+| Outcomes | `PrintResult.outcome` / `PrintJob.outcome` → `PrintOutcome`: `printed` only when delivery was verified (raw transports, system jobs); dialog prints report `dialogShown` since no web API reveals Print-vs-Cancel | Web Printing jobs report IPP terminal states incl. `cancelled` |
+| Dialog-outcome signals | `PrintResult.dialogDurationMs` (measured via `afterprint`), the `dialogGuess` heuristic, and `PrintOutcomeConfirmation.markJobOutcome(jobId, printed:)` to settle a job after asking the user | not needed (real job states) |
+| Page decoration | `WebPrintDecor.configure(backgroundHtml:, headerHtml:, footerHtml:)` — per-page watermark/letterhead and HTML header/footer | same |
+| `renderPreview` | PDF documents pass through (`pageRange` extracts a sub-document in wasm); plain text renders to a generated PDF sized by `PrintSettings`; images become a one-page PDF; HTML rasterizes to a multi-page PDF (inline content only) | same |
 | `getPageCount` | PDF page-tree walk; text paginated at 60 lines/page; HTML rasterized and counted | same |
 | `printToFile` | Browser download — text, images, and HTML render to a real PDF first | same |
-| `printFile` | ✅ `http(s)://`, `data:`, `blob:` URLs are fetched and printed by sniffed type (PDF/image/text); plain filesystem paths return false | same |
-| `getDefaultPrinter` / `setDefaultPrinter` | `NitroErr` / false — **no default-printer concept exists on the web** | same |
-| `pausePrintJob` / `resumePrintJob` | false — no web API | same |
+| `printFile` | `http(s)://`, `data:`, `blob:` URLs are fetched and printed by sniffed type; filesystem paths return false | same |
+| `getDefaultPrinter` / `setDefaultPrinter` | `NitroErr` / false — no default-printer concept on the web | same |
+| `pausePrintJob` | false — no web API | same |
 | `getPrinterDriverVersion` / `openSystemPrintQueue` / `openPrinterProperties` | Empty / false — OS surface unreachable from the sandbox | same |
 
 The sync `@NitroResult` lookups (`getPrinterAt`, capabilities, status detail,
@@ -531,14 +509,14 @@ Raw printing and PDF job submission pick their transport from the
 | *(empty)* or `usb:VID:PID[:serial]` | WebUSB bulk transfer to the (matching) granted USB printer |
 | `ws://host:port` / `wss://host:port` | WebSocket→TCP relay (e.g. [websockify](https://github.com/novnc/websockify) forwarding to the printer's port 9100) |
 | `socket://host:port` or a bare IP | Direct Sockets `TCPSocket` (Isolated Web Apps only); elsewhere fails with guidance |
+| `qz:` or `qz:Printer Name` | [QZ Tray](https://github.com/qzind/tray) local agent: silent raw and PDF printing to any OS printer, spool-confirmed results, and OS printer status on `onPrinterStatusChanged`. QZ shows its own Allow prompt; `WebPrintAgent.configure(endpoint:)` overrides the default ports |
 | A system printer name from `getAllPrinters()` | Web Printing API PDF job (Isolated Web Apps only) |
 
 ### Which `PrintSettings` fields are respected on web
 
-Dialog flows apply your settings to the **document itself** (CSS `@page`
-rules, content repetition, grayscale filtering), so they take effect even
-though the browser's dialog also lets the user override paper/margins/copies.
-PDF *documents* are pre-rendered and print as-is in the dialog flow — target a
+Dialog flows apply settings to the document itself (CSS `@page`, content
+repetition, grayscale), so they take effect even though the browser dialog can
+override them. PDF documents print as-is in the dialog flow; use a `qz:` or
 Web Printing printer for attribute control over PDFs.
 
 | Field | Dialog printing (text / HTML / image) | Raw (WebUSB / relay / TCP) | Web Printing PDF job |
@@ -575,52 +553,12 @@ flutter pub run test -p chrome -c dart2wasm test/nitro_printing_web_test.dart
 
 ---
 
-## How It's Built — Nitrogen SDK
-
-`nitro_printing` is powered by the **Nitrogen SDK**, a Flutter port of
-[React Native Nitro Modules](https://nitro.margelo.com) originally by Marc Rousavy (Margelo).
-
-### Architecture
-
-```
-nitro_printing (this plugin)
-└── depends on: nitro ^0.4.3
-                └── nitro_annotations ^0.4.3
-    dev:        nitro_generator ^0.4.3  (build_runner builder)
-
-nitro_ecosystem/packages/     ← local source of the SDK
-├── nitro/                    ← runtime: HybridObject, NitroRuntime, NitroConfig
-├── nitro_annotations/        ← @NitroModule, @HybridStruct, @HybridEnum, @nitroAsync, @NitroStream, @ZeroCopy
-├── nitro_generator/          ← build_runner builder → *.g.dart + native stubs
-└── nitrogen_cli/             ← CLI (nitrogen generate / init / doctor)
-```
-
-### Key differences vs. method channels
-
-| Concern | Method channel | Nitrogen |
-|---|---|---|
-| Per-call overhead | ~0.3 ms (serialize → platform thread → deserialize) | **~0 µs** (direct C ABI via `dart:ffi`) |
-| Sync calls | ❌ impossible | ✅ any non-`@nitroAsync` method |
-| Streams | EventChannel + serialized JSON | `@NitroStream` → `Dart_PostCObject` direct push |
-| Large buffers | Copied twice (platform → Dart) | `@ZeroCopy` → pointer handoff, zero copies |
-| Code to write | Dart + platform channel + boilerplate | **1 `.native.dart` file** + generated everything |
-
-### How code generation works
-
-1. You write `lib/src/nitro_printing.native.dart` — a single abstract Dart class annotated with `@NitroModule`.
-2. Running `dart run build_runner build` invokes `nitro_generator`, which outputs:
-   - `lib/src/nitro_printing.g.dart` — the Dart FFI bridge (`_NitroPrintingImpl`)
-   - Native stub headers for Kotlin (Android), Swift (iOS/macOS), C++ (Windows/Linux)
-3. Platform implementations (`NitroPrintingPlugin.kt`, `SwiftNitroPrintingPlugin.swift`, etc.) fill in the business logic against the generated spec.
-
----
-
 ## Development
 
-Regenerate the Nitrogen glue code after modifying the Dart API spec:
+Regenerate the bridge code after modifying `lib/src/nitro_printing.native.dart`:
 
 ```bash
-dart run build_runner build --delete-conflicting-outputs
+nitrogen generate && nitrogen link
 ```
 
 Run the example app:

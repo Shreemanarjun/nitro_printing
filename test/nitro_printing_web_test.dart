@@ -32,6 +32,8 @@ import 'package:test/test.dart';
 
 import 'package:nitro_printing/src/nitro_printing.native.dart';
 import 'package:nitro_printing/src/nitro_printing.platform.g.dart';
+import 'package:nitro_printing/src/print_error_catalog.dart';
+import 'package:nitro_printing/src/web_print_decor.dart';
 
 PrintDocument _textDoc([String text = 'hello web']) => PrintDocument(
   id: 'doc-1',
@@ -99,6 +101,7 @@ void main() {
   late NitroPrinting p;
   late int serverPort;
   final rawReceived = StreamController<String>.broadcast();
+  final qzReceived = StreamController<String>.broadcast();
 
   setUpAll(() async {
     final channel = spawnHybridUri('asset_server.dart');
@@ -108,6 +111,8 @@ void main() {
         first.complete(message.toInt());
       } else if (message is String && message.startsWith('raw:')) {
         rawReceived.add(message);
+      } else if (message is String && message.startsWith('qz')) {
+        qzReceived.add(message);
       }
     });
     // dart2wasm hands JS numbers over as double — never cast with `as int`.
@@ -175,8 +180,15 @@ void main() {
     });
 
     test('startPrinterDiscovery is false without a user gesture', () async {
-      expect(await p.startPrinterDiscovery(), isFalse);
-      expect(await p.stopPrinterDiscovery(), isFalse);
+      // Pin the agent probe to a dead endpoint so a QZ Tray instance on the
+      // host machine cannot flip this assertion.
+      WebPrintAgent.configure(endpoint: 'ws://localhost:1/qz');
+      try {
+        expect(await p.startPrinterDiscovery(), isFalse);
+        expect(await p.stopPrinterDiscovery(), isFalse);
+      } finally {
+        WebPrintAgent.configure(endpoint: null);
+      }
     });
   });
 
@@ -184,7 +196,10 @@ void main() {
     void expectPrinted(PrintResult r) {
       expect(r.success, isTrue, reason: 'error: ${r.errorMessage}');
       expect(r.jobId, startsWith('web-print-'));
-      expect(r.errorCode, isEmpty);
+      // Dialog prints are honest: the browser cannot reveal Print vs Cancel,
+      // so the outcome is dialogShown — never a verified "printed".
+      expect(r.errorCode, kDialogOutcomeUnknown);
+      expect(r.outcome, PrintOutcome.dialogShown);
     }
 
     test('printText succeeds', () async {
@@ -241,7 +256,7 @@ void main() {
       // either a success or the flow's honest timeout failure.
       final r = await p.printPdf(_minimalPdf());
       if (!r.success) {
-        expect(r.errorCode, 'WEB_PRINT_FAILED');
+        expect(r.errorCode, 'DIALOG_FAILED');
       }
     }, timeout: const Timeout(Duration(seconds: 30)));
 
@@ -462,8 +477,42 @@ void main() {
     test('no printerId fails with WebUSB guidance', () async {
       final r = await p.printRaw(Uint8List.fromList([1, 2, 3]));
       expect(r.success, isFalse);
+      expect(r.errorKind, PrintErrorCode.noUsbDevice);
       expect(r.errorMessage, contains('USB printer'));
       expect(r.errorMessage, contains('startPrinterDiscovery'));
+    });
+
+    test('errorKind is none on success and typed on each transport', () async {
+      final ok = await p.printRaw(
+        Uint8List.fromList([1]),
+        settings: PrintSettings(printerId: 'ws://localhost:$serverPort/raw'),
+      );
+      expect(ok.errorKind, PrintErrorCode.none);
+
+      final serial = await p.printRaw(
+        Uint8List.fromList([1]),
+        settings: PrintSettings(printerId: 'serial:9600'),
+      );
+      expect(
+        [
+          PrintErrorCode.noSerialDevice,
+          PrintErrorCode.webSerialUnavailable,
+        ],
+        contains(serial.errorKind),
+      );
+
+      final ble = await p.printRaw(
+        Uint8List.fromList([1]),
+        settings: PrintSettings(printerId: 'ble:'),
+      );
+      expect(
+        [
+          PrintErrorCode.noBleDevice,
+          PrintErrorCode.webBluetoothUnavailable,
+          PrintErrorCode.bleFailed,
+        ],
+        contains(ble.errorKind),
+      );
     });
 
     test('bare IP fails with Isolated Web App guidance', () async {
@@ -484,7 +533,10 @@ void main() {
         ),
       );
       expect(r.success, isFalse);
-      expect(r.errorCode, 'WEB_PRINT_FAILED');
+      expect(
+        [PrintErrorCode.relayFailed, PrintErrorCode.relayTimeout],
+        contains(r.errorKind),
+      );
     });
 
     test('cancelRawPrint is false with nothing in flight', () async {
@@ -517,13 +569,143 @@ void main() {
   });
 
   group('job management / admin', () {
-    test('job queue is empty (Web Printing unavailable outside IWAs)',
-        () async {
-      expect(await p.getPrintJobsCount(), 0);
-      expect(await p.cancelPrintJob('j'), isFalse);
-      expect(await p.pausePrintJob('j'), isFalse);
-      expect(await p.resumePrintJob('j'), isFalse);
+    test('job queue reflects every tracked web print', () async {
+      // Earlier groups printed via dialog and relay — all tracked.
+      expect(await p.getPrintJobsCount(), greaterThan(0));
+      final last = await p.lastPrintJob();
+      expect(last, isNotNull);
+      expect(last!.id, startsWith('web-print-'));
+    });
+
+    test('unknown job ids are inert', () async {
+      expect(await p.cancelPrintJob('nope'), isFalse);
+      expect(await p.pausePrintJob('nope'), isFalse);
+      expect(await p.resumePrintJob('nope'), isFalse);
       expect(await p.clearPrintQueue(), isFalse);
+    });
+
+    test('a completed relay print is queryable by job id', () async {
+      final r = await p.printRaw(
+        Uint8List.fromList([9, 9]),
+        settings: PrintSettings(printerId: 'ws://localhost:$serverPort/raw'),
+      );
+      expect(r.success, isTrue);
+      // Raw transports VERIFY delivery — outcome is a real "printed".
+      expect(r.outcome, PrintOutcome.printed);
+      final job = await p.getPrintJobStatus(r.jobId);
+      expect(job, isA<NitroOk<PrintJob>>());
+      final j = (job as NitroOk<PrintJob>).value;
+      expect(j.state, PrintState.completed);
+      expect(j.errorMessage, isEmpty);
+      expect(j.outcome, PrintOutcome.printed);
+    });
+
+    test('a dialog print job reports dialogShown, never printed', () async {
+      final r = await p.printText('dialog outcome check');
+      expect(r.success, isTrue);
+      expect(r.outcome, PrintOutcome.dialogShown);
+      final job = await p.getPrintJobStatus(r.jobId);
+      final j = (job as NitroOk<PrintJob>).value;
+      expect(j.state, PrintState.completed);
+      expect(j.outcome, PrintOutcome.dialogShown);
+    });
+
+    test('dialog duration heuristic is measured and typed', () async {
+      final r = await p.printText('duration check');
+      expect(r.outcome, PrintOutcome.dialogShown);
+      // Headless Chrome's print() is a no-op: the dialog "closes" instantly,
+      // so the measured duration reads as a fast close.
+      expect(r.dialogDurationMs, isNotNull);
+      expect(r.dialogGuess, DialogOutcomeGuess.likelyCancelled);
+
+      final raw = await p.printRaw(
+        Uint8List.fromList([1]),
+        settings: PrintSettings(printerId: 'ws://localhost:$serverPort/raw'),
+      );
+      expect(raw.dialogDurationMs, isNull);
+      expect(raw.dialogGuess, DialogOutcomeGuess.notApplicable);
+    });
+
+    test('markJobOutcome settles a dialog job definitively', () async {
+      final r = await p.printText('confirm me');
+      expect(r.outcome, PrintOutcome.dialogShown);
+
+      expect(
+        PrintOutcomeConfirmation.markJobOutcome(r.jobId, printed: true),
+        isTrue,
+      );
+      var job = (await p.getPrintJobStatus(r.jobId)) as NitroOk<PrintJob>;
+      expect(job.value.outcome, PrintOutcome.printed);
+      expect(job.value.state, PrintState.completed);
+
+      final r2 = await p.printText('cancel me');
+      expect(
+        PrintOutcomeConfirmation.markJobOutcome(r2.jobId, printed: false),
+        isTrue,
+      );
+      job = (await p.getPrintJobStatus(r2.jobId)) as NitroOk<PrintJob>;
+      expect(job.value.outcome, PrintOutcome.cancelled);
+      expect(job.value.failureReason, PrintJobFailureReason.cancelled);
+
+      expect(
+        PrintOutcomeConfirmation.markJobOutcome('nope', printed: true),
+        isFalse,
+      );
+    });
+
+    test('failed and cancelled results map to typed outcomes', () async {
+      final failed = await p.printRaw(
+        Uint8List.fromList([1]),
+        settings: PrintSettings(printerId: '192.0.2.1'),
+      );
+      expect(failed.outcome, PrintOutcome.failed);
+      final cancelled = PrintResult(
+        success: false,
+        jobId: '',
+        errorMessage: 'Cancelled',
+        errorCode: 'CANCELLED',
+      );
+      expect(cancelled.outcome, PrintOutcome.cancelled);
+    });
+
+    test('a failed print records state and failure reason', () async {
+      final r = await p.printRaw(
+        Uint8List.fromList([1]),
+        settings: PrintSettings(printerId: '192.0.2.1'),
+      );
+      expect(r.success, isFalse);
+      expect(r.errorKind, PrintErrorCode.tcpUnavailable);
+      final last = await p.lastPrintJob();
+      expect(last!.state, PrintState.failed);
+      expect(last.failureReason, isNot(PrintJobFailureReason.none));
+    });
+
+    test('onPrintJobChanged streams the job lifecycle', () async {
+      final updates = <PrintJobUpdate>[];
+      final sub = p.onPrintJobChanged().listen(updates.add);
+      final r = await p.printRaw(
+        Uint8List.fromList([7, 7, 7]),
+        settings: PrintSettings(printerId: 'ws://localhost:$serverPort/raw'),
+      );
+      expect(r.success, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await sub.cancel();
+      final mine = updates.where((u) => u.jobId == r.jobId).toList();
+      expect(mine.length, greaterThanOrEqualTo(2)); // printing → completed
+      expect(mine.last.state, PrintState.completed);
+    });
+
+    test('resumePrintJob re-dispatches a finished raw job', () async {
+      final first = rawReceived.stream.first;
+      final r = await p.printRaw(
+        Uint8List(64),
+        settings: PrintSettings(printerId: 'ws://localhost:$serverPort/raw'),
+      );
+      expect(r.success, isTrue);
+      await first;
+      final again = rawReceived.stream.first;
+      expect(await p.resumePrintJob(r.jobId), isTrue);
+      expect(await again.timeout(const Duration(seconds: 5)), 'raw:64');
     });
 
     test('OS-level admin is false (unreachable from the sandbox)', () async {
@@ -947,6 +1129,211 @@ void main() {
       final r = await p.getDefaultPrinter();
       expect(r, isA<NitroErr<PrinterInfo>>());
       expect((r as NitroErr).message.toLowerCase(), contains('default'));
+    });
+  });
+
+  group('preview follows configuration', () {
+    test('headerText/footerText change the rendered preview', () async {
+      // The preview is a page raster (faithful to the dialog output), so
+      // assert the decoration alters the rendered bytes.
+      final plain = await p.renderPreview(_textDoc('body line'));
+      final decorated = await p.renderPreview(
+        _textDoc('body line'),
+        settings: PrintSettings(headerText: 'ACME-HDR', footerText: 'FTR-9'),
+      );
+      expect(decorated.length, greaterThan(0));
+      expect(String.fromCharCodes(decorated.bytes.take(5)), '%PDF-');
+      expect(decorated.bytes, isNot(equals(plain.bytes)));
+    });
+
+    test('copies multiply the preview sheets', () async {
+      final r = await p.renderPreview(
+        _textDoc('single page'),
+        settings: PrintSettings(copies: 2),
+      );
+      expect(String.fromCharCodes(r.bytes), contains('/Count 2'));
+    });
+
+    test('pagesPerSheet folds pages into one preview sheet', () async {
+      final text = List.generate(200, (i) => 'line ${'.' * (i % 3)}').join('\n'); // 4 pages
+      final r = await p.renderPreview(
+        _textDoc(text),
+        settings: PrintSettings(pagesPerSheet: 4),
+      );
+      expect(String.fromCharCodes(r.bytes), contains('/Count 1'));
+    });
+
+    test('grayscale changes the rendered preview bytes', () async {
+      WebPrintDecor.configure(
+        backgroundHtml: '<div style="color:#ff0000;font-size:60px">RED</div>',
+      );
+      try {
+        final color = await p.renderPreview(_textDoc('x'));
+        final gray = await p.renderPreview(
+          _textDoc('x'),
+          settings: PrintSettings(color: false),
+        );
+        expect(gray.bytes, isNot(equals(color.bytes)));
+      } finally {
+        WebPrintDecor.clear();
+      }
+    });
+
+    test('pageRange slices the text preview', () async {
+      final text = List.generate(120, (i) => 'line $i').join('\n');
+      final r = await p.renderPreview(
+        _textDoc(text),
+        settings: PrintSettings(pageRangeFrom: 2, pageRangeTo: 2),
+      );
+      expect(String.fromCharCodes(r.bytes), contains('/Count 1'));
+    });
+  });
+
+  group('page decoration (WebPrintDecor)', () {
+    tearDown(WebPrintDecor.clear);
+
+    test('background + HTML header/footer print and preview', () async {
+      WebPrintDecor.configure(
+        backgroundHtml:
+            '<div style="font-size:96px;opacity:.06;transform:rotate(-30deg)">DRAFT</div>',
+        headerHtml: '<b>ACME Corp</b>',
+        footerHtml: '<i>confidential</i>',
+      );
+      final printed = await p.printText('decorated');
+      expect(printed.success, isTrue, reason: printed.errorMessage);
+
+      final preview = await p.renderPreview(_htmlDoc('<p>content</p>'));
+      expect(preview.length, greaterThan(0));
+      expect(String.fromCharCodes(preview.bytes.take(5)), '%PDF-');
+    });
+
+    test('markup-looking headerText renders as HTML without decor', () async {
+      final r = await p.printText(
+        'body',
+        settings: PrintSettings(headerText: '<b>bold header</b>'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+    });
+  });
+
+  group('failure-reason catalog (pure parsing)', () {
+    PrintJob job(String error, [PrintState state = PrintState.failed]) =>
+        PrintJob(
+          id: 'j',
+          printerId: 'p',
+          documentTitle: 't',
+          state: state,
+          createdAtMillis: 0,
+          completedAtMillis: 0,
+          errorMessage: error,
+        );
+
+    test('maps IPP reason codes', () {
+      expect(job('[MEDIA_JAM] media-jam').failureReason,
+          PrintJobFailureReason.mediaJam);
+      expect(job('[MEDIA_EMPTY] media-empty').failureReason,
+          PrintJobFailureReason.mediaEmpty);
+      expect(job('[TONER_EMPTY] toner-empty').failureReason,
+          PrintJobFailureReason.tonerEmpty);
+      expect(job('[COVER_OPEN] cover-open').failureReason,
+          PrintJobFailureReason.coverOpen);
+      expect(job('[PRINTER_OFFLINE] offline').failureReason,
+          PrintJobFailureReason.printerOffline);
+      expect(job('[JOB_CANCELLED] cancelled', PrintState.cancelled).failureReason,
+          PrintJobFailureReason.cancelled);
+    });
+
+    test('successful jobs report none, unknown text reports unknown', () {
+      expect(job('', PrintState.completed).failureReason,
+          PrintJobFailureReason.none);
+      expect(job('something odd').failureReason,
+          PrintJobFailureReason.unknown);
+    });
+  });
+
+  group('QZ Tray agent transport (mock agent)', () {
+    tearDownAll(() => WebPrintAgent.configure(endpoint: null));
+
+    test('unreachable agent fails with qzUnavailable guidance', () async {
+      WebPrintAgent.configure(endpoint: 'ws://localhost:1/qz');
+      final r = await p.printRaw(
+        Uint8List.fromList([1, 2, 3]),
+        settings: PrintSettings(printerId: 'qz:'),
+      );
+      expect(r.success, isFalse);
+      expect(r.errorKind, PrintErrorCode.qzUnavailable);
+      expect(r.errorMessage, contains('QZ Tray'));
+    });
+
+    test('raw ESC/POS through the agent is spool-confirmed', () async {
+      WebPrintAgent.configure(endpoint: 'ws://localhost:$serverPort/qz');
+      final received = qzReceived.stream.first;
+      final r = await p.printRaw(
+        Uint8List.fromList([1, 2, 3, 4, 5]),
+        settings: PrintSettings(printerId: 'qz:Mock Printer'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(r.outcome, PrintOutcome.printed); // spooler accepted = verified
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'qzraw:5:Mock Printer',
+      );
+    });
+
+    test('bare qz: resolves the agent default printer', () async {
+      final received = qzReceived.stream.first;
+      final r = await p.printRaw(
+        Uint8List.fromList([9, 9, 9]),
+        settings: PrintSettings(printerId: 'qz:'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'qzraw:3:Mock Printer',
+      );
+    });
+
+    test('printText ESC/POS-encodes through the agent', () async {
+      final received = qzReceived.stream.first;
+      final r = await p.printText(
+        'RCPT',
+        settings: PrintSettings(printerId: 'qz:Mock Receipt'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      // init (2) + RCPT (4) + LF (1) + feed/cut (7)
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'qzraw:14:Mock Receipt',
+      );
+    });
+
+    test('printPdf prints silently via the agent driver path', () async {
+      final pdf = _minimalPdf();
+      final received = qzReceived.stream.first;
+      final r = await p.printPdf(
+        pdf,
+        settings: PrintSettings(printerId: 'qz:Mock Printer'),
+      );
+      expect(r.success, isTrue, reason: r.errorMessage);
+      expect(r.outcome, PrintOutcome.printed);
+      expect(
+        await received.timeout(const Duration(seconds: 5)),
+        'qzpdf:${pdf.length}:Mock Printer',
+      );
+    });
+
+    test('discovery enumerates agent printers and streams OS status',
+        () async {
+      expect(await p.startPrinterDiscovery(), isTrue);
+      final printers = await p.getAllPrinters();
+      expect(printers.map((x) => x.id), contains('qz:Mock Printer'));
+      // The mock pushes a PAPER_OUT status stream event after startListening.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final detail =
+          await p.getPrinterStatusDetail('qz:Mock Printer', timeoutSeconds: 1);
+      expect(detail, isA<NitroOk<PrinterStatusDetail>>());
+      final d = (detail as NitroOk<PrinterStatusDetail>).value;
+      expect(d.isOutOfPaper, isTrue);
     });
   });
 }

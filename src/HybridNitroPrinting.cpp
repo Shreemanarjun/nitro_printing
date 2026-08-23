@@ -227,7 +227,9 @@ std::string buildWpAttrs(const std::optional<PrintSettings>& sOpt) {
     out += std::to_string(s.pageRangeTo); out += '\x1F';
     out += s.collate ? "separate-documents-collated-copies"
                      : "separate-documents-uncollated-copies"; out += '\x1F';
-    out += mediaType;
+    out += mediaType; out += '\x1F';
+    out += std::to_string(s.pagesPerSheet > 1 ? s.pagesPerSheet : 1); out += '\x1F';
+    out += s.fitToPage ? "1" : "0";
     return out;
 }
 
@@ -405,9 +407,16 @@ std::string mediaBox(const PageGeom& g) {
 }
 
 /// Renders plain text into a minimal multi-page PDF (Helvetica 11pt) sized
-/// and paginated by [g]. Enough for previews and virtual printing.
-std::vector<uint8_t> textToPdf(const std::string& text, const PageGeom& g) {
-    const int kLinesPerPage = g.linesPerPage();
+/// and paginated by [g], with optional per-page header/footer lines and a
+/// 1-based page range — preview output mirrors the dialog flow's settings.
+std::vector<uint8_t> textToPdf(const std::string& text, const PageGeom& g,
+                               const std::string& header = "",
+                               const std::string& footer = "",
+                               int64_t rangeFrom = 0, int64_t rangeTo = 0) {
+    int kLinesPerPage = g.linesPerPage();
+    if (!header.empty()) kLinesPerPage -= 2;
+    if (!footer.empty()) kLinesPerPage -= 2;
+    if (kLinesPerPage < 1) kLinesPerPage = 1;
     std::vector<std::string> lines;
     std::string cur;
     for (char c : text) {
@@ -418,6 +427,15 @@ std::vector<uint8_t> textToPdf(const std::string& text, const PageGeom& g) {
 
     size_t pageCount = (lines.size() + kLinesPerPage - 1) / kLinesPerPage;
     if (pageCount == 0) pageCount = 1;
+    size_t pageFirst = 0, pageLast = pageCount; // [first, last)
+    if (rangeFrom > 0 || rangeTo > 0) {
+        int64_t f = rangeFrom > 0 ? rangeFrom : 1;
+        int64_t t = (rangeTo > 0 && (size_t)rangeTo <= pageCount) ? rangeTo : (int64_t)pageCount;
+        if (f <= t && (size_t)f <= pageCount) {
+            pageFirst = (size_t)(f - 1);
+            pageLast = (size_t)t;
+        }
+    }
 
     std::vector<std::string> objects;
     std::string kids;
@@ -428,12 +446,22 @@ std::vector<uint8_t> textToPdf(const std::string& text, const PageGeom& g) {
     char head[96];
     snprintf(head, sizeof(head), "BT /F1 11 Tf %g %g Td 13 TL\n",
              g.marginL, g.h - g.firstBaseline);
-    for (size_t p = 0; p < pageCount; p++) {
+    for (size_t p = pageFirst; p < pageLast; p++) {
         std::string stream = head;
+        if (!header.empty()) {
+            stream += "(" + pdfEscape(header) + ") Tj T*\n() Tj T*\n";
+        }
         size_t first = p * (size_t)kLinesPerPage;
         size_t last = std::min(lines.size(), first + (size_t)kLinesPerPage);
         for (size_t i = first; i < last; i++) {
             stream += "(" + pdfEscape(lines[i]) + ") Tj T*\n";
+        }
+        if (!footer.empty()) {
+            char foot[64];
+            snprintf(foot, sizeof(foot), "ET BT /F1 9 Tf %g %g Td ",
+                     g.marginL, g.marginB + 4);
+            stream += foot;
+            stream += "(" + pdfEscape(footer) + ") Tj\n";
         }
         stream += "ET";
         int contentNum = (int)objects.size() + 1;
@@ -444,7 +472,8 @@ std::vector<uint8_t> textToPdf(const std::string& text, const PageGeom& g) {
                           std::to_string(contentNum) + " 0 R>>");
         kids += std::to_string(pageNum) + " 0 R ";
     }
-    objects[1] = "<</Type/Pages/Kids[" + kids + "]/Count " + std::to_string(pageCount) + ">>";
+    objects[1] = "<</Type/Pages/Kids[" + kids + "]/Count " +
+                 std::to_string(pageLast - pageFirst) + ">>";
     return finishPdf(objects);
 }
 
@@ -776,21 +805,22 @@ struct JpegSlice {
 };
 
 /// Builds a PDF with one page per JPEG slice, each scaled into [g] with
-/// 40pt padding.
-std::vector<uint8_t> jpegsToPdf(const std::vector<JpegSlice>& slices, const PageGeom& g) {
+/// [pad]pt padding (0 = full-bleed page-sized slices).
+std::vector<uint8_t> jpegsToPdf(const std::vector<JpegSlice>& slices, const PageGeom& g,
+                                double pad = 40) {
     std::vector<std::string> objects;
     objects.push_back("<</Type/Catalog/Pages 2 0 R>>");
     objects.push_back(""); // Pages — filled once kids are known
     std::string kids;
     for (const auto& s : slices) {
-        double boxW = g.w - 80, boxH = g.h - 80;
+        double boxW = g.w - 2 * pad, boxH = g.h - 2 * pad;
         if (boxW < 1) boxW = g.w;
         if (boxH < 1) boxH = g.h;
         double scale = std::min(boxW / (s.w > 0 ? s.w : 1), boxH / (s.h > 0 ? s.h : 1));
         double drawW = s.w * scale, drawH = s.h * scale;
         char cm[128];
         snprintf(cm, sizeof(cm), "q %g 0 0 %g %g %g cm /Im1 Do Q",
-                 drawW, drawH, (g.w - drawW) / 2, g.h - 40 - drawH);
+                 drawW, drawH, (g.w - drawW) / 2, g.h - pad - drawH);
         std::string content = cm;
         int imgNum = (int)objects.size() + 1;
         std::string img = "<</Type/XObject/Subtype/Image/Width " + std::to_string(s.w) +
@@ -816,7 +846,8 @@ std::vector<uint8_t> jpegsToPdf(const std::vector<JpegSlice>& slices, const Page
 bool isRawPrinterId(const std::string& id) {
     return id.rfind("usb:", 0) == 0 || id.rfind("ws://", 0) == 0 ||
            id.rfind("wss://", 0) == 0 || id.rfind("socket://", 0) == 0 ||
-           id.rfind("serial:", 0) == 0 || id.rfind("ble:", 0) == 0;
+           id.rfind("serial:", 0) == 0 || id.rfind("ble:", 0) == 0 ||
+           id.rfind("qz:", 0) == 0;
 }
 
 // renderPreview/printToFile image jobs awaiting the browser's JPEG re-encode.
@@ -832,6 +863,7 @@ struct PendingHtmlPdf {
     int intent;          // 0 = preview, 1 = download, 2 = page count
     PageGeom geom;
     std::string name;    // download filename (intent 1)
+    double pad = 40;     // 0 = full-bleed (page-accurate preview raster)
 };
 std::map<int64_t, PendingHtmlPdf> g_pendingHtmlPdf;
 
@@ -862,40 +894,150 @@ EM_JS(void, js_ensure_helpers, (), {
     HEAPU8[p + bytes.length] = 0;
     return p;
   };
+  // ── Job tracker ────────────────────────────────────────────────────────
+  // EVERY print path (dialog, raw transports, Web Printing, batch items)
+  // records a job and emits onPrintJobChanged on each state transition.
+  // States mirror PrintState: 1=printing, 2=completed, 3=cancelled, 4=failed.
+  W.jobSeq = 0;
+  W.jobsByPort = new Map();
+  W.emitJob = function(rec) {
+    try { wasmExports.nitro_printing_web_job_changed(W.cstr(W.wpJobRow(rec))); } catch (e) {}
+  };
+  W.newJob = function(port, printerId, title) {
+    var rec = { id: 'web-print-' + (++W.jobSeq), printerId: printerId || "",
+                title: title || "", state: 1, progress: 0,
+                createdMs: Date.now(), completedMs: 0, error: "", pages: 0 };
+    W.cache.jobs.push(rec);
+    W.jobsByPort.set(port, rec);
+    W.emitJob(rec);
+    return rec;
+  };
+  W.finishJob = function(port, ok, error) {
+    var rec = W.jobsByPort.get(port);
+    if (!rec) return null;
+    W.jobsByPort.delete(port);
+    rec.state = ok ? 2 : ((error || "").indexOf('CANCELLED') === 0 ? 3 : 4);
+    rec.progress = ok ? 100 : rec.progress;
+    rec.completedMs = Date.now();
+    rec.error = error || "";
+    W.emitJob(rec);
+    return rec;
+  };
+
+  // Failure messages carry a machine code as "CODE|human message" — the C++
+  // side splits them into PrintResult.errorCode / errorMessage.
   W.rawDone = function(port, ok, msg) {
-    if (port < 0n) { // batch-item sentinel — feed the sequential batch driver
-      if (W.batchDone) W.batchDone(ok ? 1 : 0);
+    var rec = W.finishJob(port, ok, ok ? "" : msg);
+    if (port < 0n) {
+      // -1..-999999: batch-item sentinels; below that: resume re-dispatches
+      // (tracked purely through job events).
+      if (port > -1000000n && W.batchDone) W.batchDone(ok ? 1 : 0);
       return;
     }
+    if (ok && rec && !msg) msg = rec.id;
     wasmExports.nitro_printing_web_raw_done(port, ok ? 1 : 0, W.cstr(msg || ""));
+  };
+  // Resume = re-dispatch a finished raw job's kept payload. True when the
+  // retry started; completion arrives via onPrintJobChanged.
+  W.resumeJob = function(port, jobId) {
+    for (var rec of W.cache.jobs) {
+      if (rec.id !== jobId) continue;
+      if (rec.state < 2 || !rec.retry) break; // still running or nothing kept
+      rec.state = 1;
+      rec.error = "";
+      rec.completedMs = 0;
+      W.emitJob(rec);
+      var synth = -1000000n - BigInt(++W.jobSeq);
+      W.jobsByPort.set(synth, rec);
+      W.dispatchRaw(synth, rec.retry.bytes, rec.retry.printerId,
+                    rec.retry.copies, rec.retry.timeoutMs);
+      W.boolDone(port, 1);
+      return;
+    }
+    W.boolDone(port, 0);
   };
   W.boolDone = function(port, v) {
     wasmExports.nitro_printing_web_bool_done(port, v ? 1 : 0);
   };
 
   // ── Hidden-iframe dialog printing ──────────────────────────────────────
+  // window.print() BLOCKS the main thread while the dialog is open, so the
+  // elapsed time is an exact measure of how long the user kept it open — the
+  // only Print-vs-Cancel signal the web platform leaks (a heuristic, exposed
+  // as dialogMs; the definitive answer needs markJobOutcome / a verified
+  // transport).
   W.printFrame = function(port, kind, timeoutMs, setup) {
     var fired = false;
     var frame = null;
+    var dialogMs = 0;
+    var rec = W.newJob(port, "", kind === 1 ? 'print dialog' : "");
     var done = function(ok) {
       if (fired) return;
       fired = true;
       setTimeout(function() { try { if (frame) frame.remove(); } catch (e) {} }, 500);
-      wasmExports.nitro_printing_web_done(port, kind, ok ? 1 : 0);
+      // A closed browser dialog can NOT reveal Print-vs-Cancel — mark the
+      // job so callers see the outcome is unknowable, not "printed".
+      W.finishJob(port, ok,
+          ok ? '[DIALOG_OUTCOME_UNKNOWN] dialogMs=' + Math.round(dialogMs)
+             : 'DIALOG_FAILED|Browser print failed or timed out');
+      wasmExports.nitro_printing_web_done(port, kind, ok ? 1 : 0, W.cstr(rec.id),
+                                          Math.round(dialogMs));
     };
     try {
       frame = document.createElement('iframe');
       frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
       document.body.appendChild(frame);
-      setTimeout(function() { done(0); }, timeoutMs);
+      var loadTimer = setTimeout(function() { done(0); }, timeoutMs);
       setup(frame, function() {
         try {
+          // The dialog can stay open indefinitely — stop the LOAD timeout
+          // once we reach print().
+          clearTimeout(loadTimer);
           frame.contentWindow.focus();
-          frame.contentWindow.print(); // blocks while the dialog is open
-          done(1);
+          var t0 = performance.now();
+          var sawAfterprint = false;
+          // afterprint fires when the dialog truly closes (Print OR Cancel)
+          // — the reliable duration signal. Chromium 127+ can return from
+          // print() EARLY while the dialog is still open when an asset was
+          // just loaded (crbug 357784797), so return-timing alone lies.
+          try {
+            frame.contentWindow.addEventListener('afterprint', function() {
+              sawAfterprint = true;
+              dialogMs = performance.now() - t0;
+              if (!fired) {
+                done(1);
+              } else if (rec) {
+                // We already reported (headless-style fallback) — correct
+                // the tracked job with the real dialog time.
+                rec.error = '[DIALOG_OUTCOME_UNKNOWN] dialogMs=' + Math.round(dialogMs);
+                W.emitJob(rec);
+              }
+            });
+          } catch (e2) {}
+          frame.contentWindow.print();
+          dialogMs = performance.now() - t0;
+          // Blocking path: afterprint has fired (or fires this task) —
+          // grace-wait; if it never comes (headless no-op print), complete
+          // with the return-timing measurement.
+          setTimeout(function() { if (!sawAfterprint) done(1); }, 250);
         } catch (e) { done(0); }
       });
     } catch (e) { done(0); }
+  };
+  // Definitive dialog-outcome settlement: the app asked the user (or has an
+  // out-of-band signal) and records the truth on the tracked job.
+  W.markJobOutcome = function(jobId, printed) {
+    for (var rec of W.cache.jobs) {
+      if (rec.id !== jobId) continue;
+      if (rec.state < 2) return false; // still running
+      rec.state = printed ? 2 : 3;
+      rec.progress = printed ? 100 : rec.progress;
+      rec.error = printed ? '[USER_CONFIRMED] printed'
+                          : '[JOB_CANCELLED] user confirmed cancelled';
+      W.emitJob(rec);
+      return true;
+    }
+    return false;
   };
   W.printHtml = function(port, kind, html) {
     W.printFrame(port, kind, 5000, function(frame, ready) {
@@ -962,42 +1104,63 @@ EM_JS(void, js_ensure_helpers, (), {
     d.textContent = s;
     return d.innerHTML;
   };
+  // Page decoration (set from Dart via WebPrintDecor → globalThis):
+  // { background, header, footer } as raw HTML. headerText/footerText that
+  // start with '<' are also treated as HTML rather than escaped.
+  W.decor = function() { return globalThis.__nitroWebDecor || {}; };
+  W.decorPart = function(cls, htmlOverride, text) {
+    var content = htmlOverride ? htmlOverride
+        : text ? (text.charAt(0) === '<' ? text : W.escHtml(text)) : "";
+    return content ? '<div class="' + cls + '">' + content + '</div>' : "";
+  };
   // Wraps a logical-page's inner markup with the optional header/footer.
   W.decoratePage = function(inner, o) {
-    return (o.header ? '<div class="hdr">' + W.escHtml(o.header) + '</div>' : "") +
-        inner +
-        (o.footer ? '<div class="ftr">' + W.escHtml(o.footer) + '</div>' : "");
+    var d = W.decor();
+    return W.decorPart('hdr', d.header, o.header) + inner +
+        W.decorPart('ftr', d.footer, o.footer);
+  };
+  // position:fixed repeats on every printed page — the watermark technique.
+  W.backgroundDiv = function() {
+    var d = W.decor();
+    if (!d.background) return "";
+    return '<div style="position:fixed;inset:0;z-index:-1;pointer-events:none">' +
+        d.background + '</div>';
   };
   // Assembles logical pages into physical ones. pagesPerSheet > 1 lays N
   // logical pages out N-up in a grid, font scaled by the row count.
   // ponytail: N-up scales via font-size, not true page-box scaling — text
   // reflows slightly vs 1-up; swap for transform-scale boxes if fidelity
   // ever matters.
-  W.assemblePages = function(pages, o) {
-    var doc = function(body) {
-      return '<html><head>' +
-          (o.title ? '<title>' + W.escHtml(o.title) + '</title>' : "") +
-          W.pageCss(o) + '</head><body>' + body + '</body></html>';
-    };
-    if (o.nup <= 1) {
-      return doc(pages.map(function(p) { return '<div class="pg">' + p + '</div>'; }).join(""));
-    }
+  // Groups logical pages into physical sheets (N-up grid) — one HTML string
+  // per PHYSICAL page. Shared by the dialog document and the page-accurate
+  // preview raster.
+  W.physicalPages = function(pages, o) {
+    if (o.nup <= 1) return pages;
     var cols = o.nup === 2 ? 2 : Math.ceil(Math.sqrt(o.nup));
     var rows = Math.ceil(o.nup / cols);
-    var body = "";
+    var out = [];
     for (var i = 0; i < pages.length; i += o.nup) {
-      body += '<div class="pg nup" style="grid-template-columns:repeat(' + cols + ',1fr)">';
+      var body = '<div class="nup" style="display:grid;gap:8pt;align-content:start;' +
+          'grid-template-columns:repeat(' + cols + ',1fr)">';
       for (var j = i; j < Math.min(i + o.nup, pages.length); j++) {
-        body += '<div class="cell" style="font-size:' + Math.round(100 / rows) + '%">' +
-            pages[j] + '</div>';
+        body += '<div class="cell" style="font-size:' + Math.round(100 / rows) +
+            '%;overflow:hidden;border:0.5pt solid #bbb;padding:4pt">' + pages[j] + '</div>';
       }
-      body += '</div>';
+      out.push(body + '</div>');
     }
-    return doc(body);
+    return out;
+  };
+  W.assemblePages = function(pages, o) {
+    var phys = W.physicalPages(pages, o);
+    return '<html><head>' +
+        (o.title ? '<title>' + W.escHtml(o.title) + '</title>' : "") +
+        W.pageCss(o) + '</head><body>' + W.backgroundDiv() +
+        phys.map(function(p) { return '<div class="pg">' + p + '</div>'; }).join("") +
+        '</body></html>';
   };
   // Plain text: hard-paginated at 60 lines/page (matches the wasm PDF
   // renderer), honoring pageRange, header/footer, copies, and N-up.
-  W.textPagesHtml = function(text, o) {
+  W.textLogicalPages = function(text, o) {
     var lines = text.split('\n');
     var pages = [];
     for (var i = 0; i < lines.length || pages.length === 0; i += 60) {
@@ -1007,12 +1170,95 @@ EM_JS(void, js_ensure_helpers, (), {
     var to = o.to > 0 ? Math.min(o.to, pages.length) : pages.length;
     var chosen = from <= to ? pages.slice(from - 1, to) : [];
     if (!chosen.length) chosen = [[]];
-    var logical = chosen.map(function(p) {
+    return chosen.map(function(p) {
       return W.decoratePage(
           '<pre style="white-space:pre-wrap;margin:0;font:inherit">' +
           W.escHtml(p.join('\n')) + '</pre>', o);
     });
-    return W.assemblePages(W.applyCopies(logical, o), o);
+  };
+  W.textPagesHtml = function(text, o) {
+    return W.assemblePages(W.applyCopies(W.textLogicalPages(text, o), o), o);
+  };
+
+  // ── Page-accurate preview raster ───────────────────────────────────────
+  // Renders ONE physical page (fixed page-sized box, margins as padding,
+  // grayscale filter, background decor) to a JPEG through SVG foreignObject.
+  W.renderPageJpeg = async function(pageInner, o, pageWpt, pageHpt) {
+    var PXPT = 2; // 2 px per pt for sharpness
+    var wpx = Math.round(pageWpt * PXPT), hpx = Math.round(pageHpt * PXPT);
+    var pad = o.margin || '30pt 30pt 30pt 30pt';
+    var d = W.decor();
+    var bg = d.background
+        ? '<div style="position:absolute;inset:0;z-index:0;pointer-events:none">' + d.background + '</div>'
+        : "";
+    var page = '<div style="width:' + pageWpt + 'pt;height:' + pageHpt + 'pt;' +
+        'background:#fff;position:relative;box-sizing:border-box;padding:' + pad +
+        ';font:14px/1.4 monospace;overflow:hidden' +
+        (o.gray ? ';filter:grayscale(1)' : "") + '">' + bg +
+        '<div style="position:relative;height:100%">' + pageInner + '</div></div>';
+    // foreignObject needs well-formed XML — round-trip through the DOM.
+    // (No regex literals in EM_JS: macro stringification mangles them.)
+    var parsed = new DOMParser().parseFromString(page, 'text/html');
+    var xhtml = new XMLSerializer().serializeToString(parsed.body);
+    xhtml = '<div' + xhtml.slice(5, xhtml.lastIndexOf('</body>')) + '</div>';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + wpx + '" height="' + hpx +
+        '"><foreignObject width="100%" height="100%">' +
+        '<div xmlns="http://www.w3.org/1999/xhtml" style="transform:scale(' + PXPT +
+        ');transform-origin:0 0">' +
+        '<style>.hdr,.ftr{font:11px sans-serif;color:#444}</style>' +
+        xhtml + '</div></foreignObject></svg>';
+    var img = new Image();
+    var loaded = new Promise(function(res, rej) { img.onload = res; img.onerror = rej; });
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    await loaded;
+    var canvas = new OffscreenCanvas(wpx, hpx);
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, wpx, hpx);
+    ctx.drawImage(img, 0, 0);
+    var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+    return { w: wpx, h: hpx, bytes: new Uint8Array(await blob.arrayBuffer()) };
+  };
+  // Full text preview: the SAME logical→copies→N-up pipeline the dialog
+  // prints, one JPEG per physical sheet, packed for the html_jpegs callback.
+  W.textPreviewJpegs = async function(port, text, optsStr, pageWpt, pageHpt) {
+    var fired = false;
+    var fail = function() {
+      if (fired) return;
+      fired = true;
+      wasmExports.nitro_printing_web_html_jpegs(port, 0, 0);
+    };
+    setTimeout(fail, 10000);
+    try {
+      var o = W.parseOpts(optsStr);
+      var phys = W.physicalPages(W.applyCopies(W.textLogicalPages(text, o), o), o);
+      // ponytail: preview caps at 40 sheets — enough to inspect, cheap to render.
+      if (phys.length > 40) phys = phys.slice(0, 40);
+      var slices = [];
+      var total = 0;
+      for (var pg of phys) {
+        var s = await W.renderPageJpeg(pg, o, pageWpt, pageHpt);
+        slices.push(s);
+        total += s.bytes.length;
+      }
+      if (fired) return;
+      fired = true;
+      var headLen = 4 + slices.length * 12;
+      var pack = new Uint8Array(headLen + total);
+      var dv = new DataView(pack.buffer);
+      dv.setUint32(0, slices.length, true);
+      var off = headLen;
+      for (var k = 0; k < slices.length; k++) {
+        dv.setUint32(4 + k * 12, slices[k].w, true);
+        dv.setUint32(8 + k * 12, slices[k].h, true);
+        dv.setUint32(12 + k * 12, slices[k].bytes.length, true);
+        pack.set(slices[k].bytes, off);
+        off += slices[k].bytes.length;
+      }
+      var p = wasmExports.malloc(pack.length);
+      HEAPU8.set(pack, p);
+      wasmExports.nitro_printing_web_html_jpegs(port, p, pack.length);
+    } catch (e) { fail(); }
   };
   // User-authored HTML: left untouched unless settings demand a wrapper.
   // ponytail: copies>1 repeats the markup in page-break divs — fine for
@@ -1070,13 +1316,13 @@ EM_JS(void, js_ensure_helpers, (), {
     try {
       device = await W.usbFind(printerId);
       if (!device) {
-        W.rawDone(port, 0, 'No granted USB printer' +
+        W.rawDone(port, 0, 'NO_USB_DEVICE|No granted USB printer' +
             (printerId ? ' matching "' + printerId + '"' : "") +
             ' — call startPrinterDiscovery() from a user gesture to grant one');
         return;
       }
       var target = W.usbEndpoint(device);
-      if (!target) { W.rawDone(port, 0, 'USB device has no bulk-OUT endpoint'); return; }
+      if (!target) { W.rawDone(port, 0, 'USB_NO_ENDPOINT|USB device has no bulk-OUT endpoint'); return; }
       await device.open();
       if (device.configuration == null ||
           device.configuration.configurationValue !== target.conf) {
@@ -1090,17 +1336,17 @@ EM_JS(void, js_ensure_helpers, (), {
       for (var c = 0; c < copies && !cancelled; c++) {
         for (var off = 0; off < bytes.length && !cancelled; off += CHUNK) {
           var r = await device.transferOut(target.ep, bytes.subarray(off, off + CHUNK));
-          if (r.status !== 'ok') { W.rawDone(port, 0, 'USB transfer ' + r.status); return; }
+          if (r.status !== 'ok') { W.rawDone(port, 0, 'USB_TRANSFER_FAILED|USB transfer ' + r.status); return; }
         }
       }
       W.rawAbort = null;
       try { await device.releaseInterface(target.iface); await device.close(); } catch (e) {}
-      if (cancelled) W.rawDone(port, 0, 'Cancelled');
+      if (cancelled) W.rawDone(port, 0, 'CANCELLED|Cancelled');
       else W.rawDone(port, 1, "");
     } catch (e) {
       W.rawAbort = null;
       try { if (device) await device.close(); } catch (e2) {}
-      W.rawDone(port, 0, 'WebUSB: ' + (e && e.message ? e.message : e));
+      W.rawDone(port, 0, 'USB_FAILED|WebUSB: ' + (e && e.message ? e.message : e));
     }
   };
 
@@ -1115,12 +1361,12 @@ EM_JS(void, js_ensure_helpers, (), {
       try { if (ws) ws.close(); } catch (e) {}
       W.rawDone(port, ok, msg);
     };
-    setTimeout(function() { done(0, 'WebSocket relay timeout'); }, timeoutMs);
+    setTimeout(function() { done(0, 'RELAY_TIMEOUT|WebSocket relay timeout'); }, timeoutMs);
     try {
       ws = new WebSocket(url);
       ws.binaryType = 'arraybuffer';
-      W.rawAbort = function() { done(0, 'Cancelled'); };
-      ws.onerror = function() { done(0, 'WebSocket relay connection failed'); };
+      W.rawAbort = function() { done(0, 'CANCELLED|Cancelled'); };
+      ws.onerror = function() { done(0, 'RELAY_FAILED|WebSocket relay connection failed'); };
       ws.onopen = function() {
         try {
           for (var c = 0; c < copies; c++) ws.send(bytes);
@@ -1130,15 +1376,15 @@ EM_JS(void, js_ensure_helpers, (), {
             else setTimeout(waitDrain, 50);
           };
           waitDrain();
-        } catch (e) { done(0, 'WebSocket send failed: ' + e.message); }
+        } catch (e) { done(0, 'RELAY_FAILED|WebSocket send failed: ' + e.message); }
       };
-    } catch (e) { done(0, 'WebSocket: ' + e.message); }
+    } catch (e) { done(0, 'RELAY_FAILED|WebSocket: ' + e.message); }
   };
 
   // ── Direct Sockets TCP transport (Isolated Web Apps, Chrome 147+) ──────
   W.tcpPrint = async function(port, bytes, copies, host, tcpPort, timeoutMs) {
     if (typeof TCPSocket === 'undefined') {
-      W.rawDone(port, 0, 'Raw TCP needs an Isolated Web App (Direct Sockets) — ' +
+      W.rawDone(port, 0, 'TCP_UNAVAILABLE|Raw TCP needs an Isolated Web App (Direct Sockets) — ' +
           'or use a ws://host:port relay printerId');
       return;
     }
@@ -1156,11 +1402,11 @@ EM_JS(void, js_ensure_helpers, (), {
       await writer.close();
       clearTimeout(timer);
       W.rawAbort = null;
-      W.rawDone(port, cancelled ? 0 : 1, cancelled ? 'Cancelled' : "");
+      W.rawDone(port, cancelled ? 0 : 1, cancelled ? 'CANCELLED|Cancelled' : "");
     } catch (e) {
       clearTimeout(timer);
       W.rawAbort = null;
-      W.rawDone(port, 0, 'TCP: ' + (e && e.message ? e.message : e));
+      W.rawDone(port, 0, 'TCP_FAILED|TCP: ' + (e && e.message ? e.message : e));
     }
   };
 
@@ -1169,14 +1415,14 @@ EM_JS(void, js_ensure_helpers, (), {
   // baud rate (default 9600).
   W.serialPrint = async function(port, bytes, copies, printerId) {
     if (!navigator.serial) {
-      W.rawDone(port, 0, 'Web Serial is not available in this browser');
+      W.rawDone(port, 0, 'WEB_SERIAL_UNAVAILABLE|Web Serial is not available in this browser');
       return;
     }
     var sp = null;
     try {
       var ports = await navigator.serial.getPorts();
       if (!ports.length) {
-        W.rawDone(port, 0, 'No granted serial printer — call startPrinterDiscovery() from a user gesture to grant one');
+        W.rawDone(port, 0, 'NO_SERIAL_DEVICE|No granted serial printer — call startPrinterDiscovery() from a user gesture to grant one');
         return;
       }
       sp = ports[0];
@@ -1189,11 +1435,11 @@ EM_JS(void, js_ensure_helpers, (), {
       writer.releaseLock();
       await sp.close();
       W.rawAbort = null;
-      W.rawDone(port, cancelled ? 0 : 1, cancelled ? 'Cancelled' : "");
+      W.rawDone(port, cancelled ? 0 : 1, cancelled ? 'CANCELLED|Cancelled' : "");
     } catch (e) {
       W.rawAbort = null;
       try { if (sp) await sp.close(); } catch (e2) {}
-      W.rawDone(port, 0, 'Web Serial: ' + (e && e.message ? e.message : e));
+      W.rawDone(port, 0, 'SERIAL_FAILED|Web Serial: ' + (e && e.message ? e.message : e));
     }
   };
 
@@ -1207,7 +1453,7 @@ EM_JS(void, js_ensure_helpers, (), {
   ];
   W.blePrint = async function(port, bytes, copies, printerId) {
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) {
-      W.rawDone(port, 0, 'Web Bluetooth is not available in this browser');
+      W.rawDone(port, 0, 'WEB_BLUETOOTH_UNAVAILABLE|Web Bluetooth is not available in this browser');
       return;
     }
     var server = null;
@@ -1216,7 +1462,7 @@ EM_JS(void, js_ensure_helpers, (), {
       var name = printerId.slice(4);
       var device = devices.find(function(d) { return !name || (d.name || "").indexOf(name) >= 0; });
       if (!device) {
-        W.rawDone(port, 0, 'No granted Bluetooth printer — call startPrinterDiscovery() from a user gesture to grant one');
+        W.rawDone(port, 0, 'NO_BLE_DEVICE|No granted Bluetooth printer — call startPrinterDiscovery() from a user gesture to grant one');
         return;
       }
       server = await device.gatt.connect();
@@ -1229,7 +1475,7 @@ EM_JS(void, js_ensure_helpers, (), {
         }
         if (ch) break;
       }
-      if (!ch) { server.disconnect(); W.rawDone(port, 0, 'BLE printer exposes no writable characteristic'); return; }
+      if (!ch) { server.disconnect(); W.rawDone(port, 0, 'BLE_NO_CHARACTERISTIC|BLE printer exposes no writable characteristic'); return; }
       var cancelled = false;
       W.rawAbort = function() { cancelled = true; };
       var CHUNK = 180; // conservative BLE ATT payload
@@ -1242,22 +1488,35 @@ EM_JS(void, js_ensure_helpers, (), {
       }
       server.disconnect();
       W.rawAbort = null;
-      W.rawDone(port, cancelled ? 0 : 1, cancelled ? 'Cancelled' : "");
+      W.rawDone(port, cancelled ? 0 : 1, cancelled ? 'CANCELLED|Cancelled' : "");
     } catch (e) {
       W.rawAbort = null;
       try { if (server) server.disconnect(); } catch (e2) {}
-      W.rawDone(port, 0, 'Web Bluetooth: ' + (e && e.message ? e.message : e));
+      W.rawDone(port, 0, 'BLE_FAILED|Web Bluetooth: ' + (e && e.message ? e.message : e));
     }
   };
 
   // ── Raw transport router (shared by direct calls, images, and batches) ─
   W.routeRaw = function(port, bytes, printerId, copies, timeoutMs) {
+    var rec = W.newJob(port, printerId, "");
+    // Keep the payload so a failed job can be resumed (retried) after the
+    // printer recovers; retain only the most recent payloads.
+    rec.retry = { bytes: bytes, printerId: printerId, copies: copies, timeoutMs: timeoutMs };
+    var kept = 0;
+    for (var i = W.cache.jobs.length - 1; i >= 0; i--) {
+      if (W.cache.jobs[i].retry && ++kept > 20) delete W.cache.jobs[i].retry;
+    }
+    W.dispatchRaw(port, bytes, printerId, copies, timeoutMs);
+  };
+  W.dispatchRaw = function(port, bytes, printerId, copies, timeoutMs) {
     if (printerId.indexOf('ws://') === 0 || printerId.indexOf('wss://') === 0) {
       W.wsPrint(port, bytes, copies, printerId, timeoutMs);
     } else if (printerId.indexOf('serial:') === 0) {
       W.serialPrint(port, bytes, copies, printerId);
     } else if (printerId.indexOf('ble:') === 0) {
       W.blePrint(port, bytes, copies, printerId);
+    } else if (printerId.indexOf('qz:') === 0) {
+      W.qzPrint(port, bytes, printerId, copies, false);
     } else if (printerId === "" || printerId.indexOf('usb:') === 0) {
       W.usbPrint(port, bytes, copies, printerId);
     } else {
@@ -1302,7 +1561,7 @@ EM_JS(void, js_ensure_helpers, (), {
       job.set(tail, head.length + raster.length);
       W.routeRaw(port, job, printerId, copies, timeoutMs);
     } catch (e) {
-      W.rawDone(port, 0, 'Image raster failed: ' + (e && e.message ? e.message : e));
+      W.rawDone(port, 0, 'IMAGE_DECODE_FAILED|Image raster failed: ' + (e && e.message ? e.message : e));
     }
   };
 
@@ -1311,7 +1570,20 @@ EM_JS(void, js_ensure_helpers, (), {
   // payloads, and reports through nitro_printing_web_html_jpegs (ptr 0 on
   // failure). ponytail: external images/fonts inside the HTML won't load in
   // the SVG sandbox — inline content only.
-  W.htmlToJpegs = async function(port, html, pageWpt, pageHpt) {
+  W.htmlToJpegs = async function(port, html, pageWpt, pageHpt, optsStr) {
+    var o = W.parseOpts(optsStr || "");
+    // Decoration inside the raster: header above, footer below, background
+    // behind the full content (ponytail: the background paints once across
+    // the whole flow, not per sliced page), grayscale via CSS filter.
+    var d = W.decor();
+    var deco = W.decorPart('hdr', d.header, o.header) + html +
+        W.decorPart('ftr', d.footer, o.footer);
+    if (d.background) {
+      deco = '<div style="position:absolute;inset:0;z-index:-1">' + d.background +
+          '</div><div style="position:relative">' + deco + '</div>';
+    }
+    if (o.gray) deco = '<div style="filter:grayscale(1)">' + deco + '</div>';
+    html = deco;
     var holder = null;
     var fired = false;
     var fail = function() {
@@ -1504,6 +1776,188 @@ EM_JS(void, js_ensure_helpers, (), {
     }, 10000);
   };
 
+  // ── QZ Tray local agent (https://github.com/qzind/tray) ────────────────
+  // The industry-standard localhost print agent. Wire protocol: JSON calls
+  // {call, params, uid, timestamp} over WebSocket (wss:8181 / ws:8182 +
+  // fallbacks), responses correlated by uid; certificate:null = untrusted
+  // mode (QZ shows its own Allow prompt); printers.startListening streams
+  // REAL OS printer status. printerId scheme: "qz:" or "qz:Printer Name".
+  W.qz = { socket: null, ready: null, pending: new Map(), uidSeq: 0, names: [] };
+  W.qzEndpoints = function() {
+    var o = globalThis.__nitroQzEndpoint;
+    if (o) return [o];
+    return ['wss://localhost:8181', 'ws://localhost:8182',
+            'wss://localhost:8282', 'ws://localhost:8283'];
+  };
+  W.qzSend = function(msg, timeoutMs, tolerateTimeout) {
+    return new Promise(function(resolve, reject) {
+      var uid = 'nitro-' + (++W.qz.uidSeq);
+      msg.uid = uid;
+      msg.timestamp = Date.now();
+      var timer = setTimeout(function() {
+        W.qz.pending.delete(uid);
+        if (tolerateTimeout) resolve(null);
+        else reject(new Error('QZ call timed out: ' + (msg.call || 'handshake')));
+      }, timeoutMs || 5000);
+      W.qz.pending.set(uid, function(reply) {
+        clearTimeout(timer);
+        W.qz.pending.delete(uid);
+        if (reply && reply.error) reject(new Error(String(reply.error)));
+        else resolve(reply ? reply.result : null);
+      });
+      W.qz.socket.send(JSON.stringify(msg));
+    });
+  };
+  W.qzReset = function() {
+    try { if (W.qz.socket) W.qz.socket.close(); } catch (e) {}
+    W.qz.socket = null;
+    W.qz.ready = null;
+    W.qz.pending.clear();
+  };
+  W.qzConnect = function(timeoutMs) {
+    if (W.qz.ready) return W.qz.ready;
+    W.qz.ready = new Promise(function(resolve, reject) {
+      var endpoints = W.qzEndpoints();
+      var attempt = function(i) {
+        if (i >= endpoints.length) {
+          W.qz.ready = null;
+          reject(new Error('QZ Tray agent not reachable'));
+          return;
+        }
+        var ws;
+        try { ws = new WebSocket(endpoints[i]); } catch (e) { attempt(i + 1); return; }
+        var settled = false;
+        var connTimer = setTimeout(function() {
+          if (settled) return;
+          settled = true;
+          try { ws.close(); } catch (e) {}
+          attempt(i + 1);
+        }, timeoutMs || 1500);
+        ws.onerror = function() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(connTimer);
+          attempt(i + 1);
+        };
+        ws.onopen = async function() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(connTimer);
+          W.qz.socket = ws;
+          ws.onmessage = function(ev) {
+            var m;
+            try { m = JSON.parse(ev.data); } catch (e) { return; }
+            if (m && m.uid && W.qz.pending.has(m.uid)) W.qz.pending.get(m.uid)(m);
+            else W.qzStream(m);
+          };
+          ws.onclose = function() { W.qzReset(); };
+          try {
+            await W.qzSend({ call: 'getVersion', params: {} }, 3000);
+            // Untrusted mode: QZ gates calls behind its own Allow prompt.
+            await W.qzSend({ certificate: null }, 1500, /*tolerateTimeout=*/true);
+            resolve(ws);
+          } catch (e) {
+            W.qzReset();
+            reject(e);
+          }
+        };
+      };
+      attempt(0);
+    });
+    return W.qz.ready;
+  };
+  // QZ status strings → our status cache + onPrinterStatusChanged.
+  W.qzStream = function(m) {
+    if (!m || m.type !== 'PRINTER') return;
+    var ev = m.event;
+    if (typeof ev === 'string') { try { ev = JSON.parse(ev); } catch (e) { ev = {}; } }
+    ev = ev || {};
+    var name = ev.printerName || m.key;
+    if (!name) return;
+    var status = String(ev.statusText || ev.status || "").toUpperCase();
+    var id = 'qz:' + name;
+    var online = status.indexOf('OFFLINE') < 0 && status.indexOf('ERROR') < 0 &&
+                 status.indexOf('NOT_AVAILABLE') < 0;
+    var reasons = "";
+    if (status.indexOf('PAPER_JAM') >= 0 || status.indexOf('JAM') >= 0) reasons = 'media-jam';
+    else if (status.indexOf('PAPER_OUT') >= 0 || status.indexOf('OUT_OF_PAPER') >= 0) reasons = 'media-empty';
+    else if (status.indexOf('TONER_LOW') >= 0) reasons = 'toner-low';
+    else if (status.indexOf('NO_TONER') >= 0 || status.indexOf('TONER_EMPTY') >= 0) reasons = 'toner-empty';
+    else if (status.indexOf('DOOR_OPEN') >= 0 || status.indexOf('COVER') >= 0) reasons = 'cover-open';
+    W.cache.status[id] = { online: online, ready: online && status.indexOf('PRINTING') < 0,
+                           state: status.toLowerCase() || 'idle', reasons: reasons,
+                           msg: 'QZ Tray: ' + (status || 'ONLINE') };
+    wasmExports.nitro_printing_web_status_changed(
+        W.cstr([id, online ? '1' : '0',
+                status.indexOf('PRINTING') >= 0 ? '1' : '0',
+                status.toLowerCase() || 'idle', reasons].join('\x1F')));
+  };
+  W.qzB64 = function(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+      s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(s);
+  };
+  W.qzErrCode = function(e) {
+    var m = (e && e.message ? e.message : String(e));
+    if (m.indexOf('not reachable') >= 0) {
+      return 'QZ_UNAVAILABLE|QZ Tray agent not reachable — install and start QZ Tray (https://qz.io), or point WebPrintAgent.endpoint at your agent';
+    }
+    if (m.toLowerCase().indexOf('block') >= 0 || m.toLowerCase().indexOf('denied') >= 0) {
+      return 'QZ_BLOCKED|QZ Tray blocked the request — allow this site in the QZ Tray prompt';
+    }
+    return 'QZ_PRINT_FAILED|QZ Tray: ' + m;
+  };
+  // Spool-confirmed printing through the agent: QZ resolves the print call
+  // once the OS spooler accepted the job — a REAL delivery signal, so these
+  // report PrintOutcome.printed.
+  W.qzPrint = async function(port, bytes, printerId, copies, asPdf) {
+    try {
+      await W.qzConnect(1800);
+      var name = printerId.slice(3);
+      if (!name) name = await W.qzSend({ call: 'printers.getDefault', params: {} }, 5000);
+      if (!name) { W.rawDone(port, 0, 'QZ_PRINT_FAILED|QZ Tray reports no default printer'); return; }
+      var entry = asPdf
+          ? { type: 'pixel', format: 'pdf', flavor: 'base64', data: W.qzB64(bytes) }
+          : { type: 'raw', format: 'command', flavor: 'base64', data: W.qzB64(bytes) };
+      await W.qzSend({
+        call: 'print',
+        params: { printer: { name: name }, options: { copies: copies > 1 ? copies : 1 }, data: [entry] },
+      }, 30000);
+      W.rawDone(port, 1, '');
+    } catch (e) {
+      W.rawDone(port, 0, W.qzErrCode(e));
+    }
+  };
+  // Agent discovery: enumerate + start the OS status stream.
+  W.qzDiscover = async function() {
+    try {
+      await W.qzConnect(1500);
+      var names = await W.qzSend({ call: 'printers.find', params: {} }, 5000);
+      if (!Array.isArray(names)) names = names ? [names] : [];
+      W.qz.names = names;
+      for (var n of names) {
+        var id = 'qz:' + n;
+        if (W.cache.printers.indexOf(id) < 0) W.cache.printers.push(id);
+        W.cache.caps[id] = { color: true, duplex: false, maxCopies: 999, dpi: 300,
+                             a4: true, a5: false, letter: true, legal: false,
+                             draft: true, normal: true, high: true, trays: "" };
+        if (!W.cache.status[id]) {
+          W.cache.status[id] = { online: true, ready: true, state: 'idle', reasons: "",
+                                 msg: 'QZ Tray agent printer' };
+        }
+        wasmExports.nitro_printing_web_discovered(
+            W.cstr([id, n, 'localhost', '0', 'qz-tray', id, '1'].join('\x1F')));
+      }
+      try {
+        await W.qzSend({ call: 'printers.startListening',
+                         params: { printerNames: names, jobData: false } }, 5000, true);
+      } catch (e2) {}
+      return names.length > 0;
+    } catch (e) { return false; }
+  };
+
   // ── Web Printing API (Isolated Web Apps) ───────────────────────────────
   W.wp = function() { return self.printing || navigator.printing || null; };
   W.wpJobRow = function(rec) {
@@ -1512,6 +1966,18 @@ EM_JS(void, js_ensure_helpers, (), {
   };
   W.jobsTable = function() {
     return W.cache.jobs.map(W.wpJobRow).join('\x1E');
+  };
+  // Job failure → "[REASON_CODE] human text" (parsed by the Dart catalog).
+  W.jobFailure = function(state, reasons) {
+    var code = state === 3 ? 'JOB_CANCELLED' : 'JOB_ABORTED';
+    if (reasons.indexOf('media-jam') >= 0) code = 'MEDIA_JAM';
+    else if (reasons.indexOf('media-empty') >= 0 || reasons.indexOf('media-needed') >= 0) code = 'MEDIA_EMPTY';
+    else if (reasons.indexOf('toner-empty') >= 0 || reasons.indexOf('marker-supply-empty') >= 0) code = 'TONER_EMPTY';
+    else if (reasons.indexOf('toner-low') >= 0 || reasons.indexOf('marker-supply-low') >= 0) code = 'TONER_LOW';
+    else if (reasons.indexOf('cover-open') >= 0 || reasons.indexOf('door-open') >= 0) code = 'COVER_OPEN';
+    else if (reasons.indexOf('offline') >= 0 || reasons.indexOf('shutdown') >= 0 ||
+             reasons.indexOf('stopped') >= 0) code = 'PRINTER_OFFLINE';
+    return '[' + code + '] ' + (reasons || (state === 3 ? 'cancelled' : 'aborted'));
   };
   // IPP job state → PrintState enum (idle/printing/completed/cancelled/failed).
   W.wpMapState = function(s) {
@@ -1553,6 +2019,18 @@ EM_JS(void, js_ensure_helpers, (), {
           var bles = await navigator.bluetooth.getDevices();
           for (var b of bles) addLocal('ble:' + (b.name || b.id), b.name || 'BLE printer', 'ble');
         } catch (e) {}
+      }
+      // QZ Tray agent printers. Only auto-probes when the app configured an
+      // endpoint (or the agent is already connected) — plain enumeration
+      // must not fire localhost probes / LNA prompts on its own.
+      if (!W.qz.socket && globalThis.__nitroQzEndpoint) await W.qzDiscover();
+      if (W.qz.socket) {
+        for (var qn of W.qz.names) {
+          var qid = 'qz:' + qn;
+          rows.push([qid, qn, 'qz-tray', '0',
+                     (W.cache.status[qid] && W.cache.status[qid].online === false) ? '0' : '1'].join(''));
+          if (cache.printers.indexOf(qid) < 0) cache.printers.push(qid);
+        }
       }
       var wp = W.wp();
       if (wp) {
@@ -1619,13 +2097,15 @@ EM_JS(void, js_ensure_helpers, (), {
     }
     if (+a[6] > 0) t.pageRanges = [{ from: +a[6], to: +a[7] > 0 ? +a[7] : 65535 }];
     if (a[8]) t.multipleDocumentHandling = a[8];
+    if (+a[10] > 1) t.numberUp = +a[10];
+    if (a[11] === '1') t.printScaling = 'fit';
     return t;
   };
   // Submits a real Web Printing PDF job; fallback is handled C++-side.
   W.wpSubmit = async function(port, printerId, title, bytes, attrsStr) {
     try {
       var p = W.cache['wpPrinter:' + printerId];
-      if (!p) { W.rawDone(port, 0, 'Unknown system printer "' + printerId + '" — call getAllPrinters() first'); return; }
+      if (!p) { W.rawDone(port, 0, 'WP_UNKNOWN_PRINTER|Unknown system printer "' + printerId + '" — call getAllPrinters() first'); return; }
       var attrs = W.wpAttrs(attrsStr);
       var caps = W.cache.caps[printerId];
       if (attrs.printQuality === 'high' && caps && caps.dpi > 0) {
@@ -1648,13 +2128,17 @@ EM_JS(void, js_ensure_helpers, (), {
           var total = a['job-pages'] || 0;
           rec.progress = total > 0 ? Math.round(rec.pages * 100 / total) : (rec.state === 2 ? 100 : 0);
           if (rec.state >= 2) rec.completedMs = Date.now();
+          if (rec.state >= 3) { // cancelled / failed — attach the printer's reason
+            var st = W.cache.status[printerId] || {};
+            rec.error = W.jobFailure(rec.state, st.reasons || "");
+          }
           wasmExports.nitro_printing_web_job_changed(W.cstr(W.wpJobRow(rec)));
         } catch (e) {}
       };
       W.cache.jobs.push(rec);
       W.rawDone(port, 1, rec.id); // msg carries the job id on success
     } catch (e) {
-      W.rawDone(port, 0, 'Web Printing: ' + (e && e.message ? e.message : e));
+      W.rawDone(port, 0, 'WP_SUBMIT_FAILED|Web Printing: ' + (e && e.message ? e.message : e));
     }
   };
 
@@ -1665,6 +2149,7 @@ EM_JS(void, js_ensure_helpers, (), {
   // find is emitted on onPrinterDiscovered.
   W.discover = async function(port) {
     var mdns = W.mdnsDiscover(); // gesture-free; resolves with "found any"
+    var qzFound = W.qzDiscover(); // localhost agent probe (gesture-free)
     var granted = false;
     if (navigator.usb) {
       try {
@@ -1708,7 +2193,7 @@ EM_JS(void, js_ensure_helpers, (), {
         }
       } catch (e) {}
     }
-    W.boolDone(port, granted || (await mdns) ? 1 : 0);
+    W.boolDone(port, granted || (await mdns) || (await qzFound) ? 1 : 0);
   };
 
   // ── Connection probe ───────────────────────────────────────────────────
@@ -1724,6 +2209,16 @@ EM_JS(void, js_ensure_helpers, (), {
       if (printerId.indexOf('serial:') === 0) {
         var ports2 = navigator.serial ? await navigator.serial.getPorts() : [];
         W.boolDone(port, ports2.length ? 1 : 0);
+        return;
+      }
+      if (printerId.indexOf('qz:') === 0) {
+        try {
+          await W.qzConnect(1800);
+          var qname = printerId.slice(3);
+          if (!qname) { W.boolDone(port, 1); return; }
+          var found = await W.qzSend({ call: 'printers.find', params: {} }, 5000);
+          W.boolDone(port, Array.isArray(found) && found.indexOf(qname) >= 0 ? 1 : 0);
+        } catch (e3) { W.boolDone(port, 0); }
         return;
       }
       if (printerId.indexOf('ble:') === 0) {
@@ -1875,9 +2370,25 @@ EM_JS(void, js_image_escpos, (int64_t port, const uint8_t* data, int len, const 
   W.imageEscPos(port, HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies, timeoutMs, widthDots);
 });
 
-EM_JS(void, js_html_to_jpegs, (int64_t port, const char* html, double pageWpt, double pageHpt), {
+EM_JS(void, js_html_to_jpegs, (int64_t port, const char* html, double pageWpt, double pageHpt, const char* opts), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.htmlToJpegs(port, UTF8ToString(html), pageWpt, pageHpt);
+  globalThis.__nitroWeb.htmlToJpegs(port, UTF8ToString(html), pageWpt, pageHpt, UTF8ToString(opts));
+});
+
+EM_JS(void, js_text_preview_jpegs, (int64_t port, const char* text, const char* opts, double pageWpt, double pageHpt), {
+  js_ensure_helpers();
+  globalThis.__nitroWeb.textPreviewJpegs(port, UTF8ToString(text), UTF8ToString(opts), pageWpt, pageHpt);
+});
+
+EM_JS(void, js_resume_job, (int64_t port, const char* jobId), {
+  js_ensure_helpers();
+  globalThis.__nitroWeb.resumeJob(port, UTF8ToString(jobId));
+});
+
+EM_JS(void, js_qz_pdf, (int64_t port, const uint8_t* data, int len, const char* printerId, int copies), {
+  js_ensure_helpers();
+  var W = globalThis.__nitroWeb;
+  W.qzPrint(port, HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies, true);
 });
 
 EM_JS(void, js_raw_cancel, (int64_t port), {
@@ -2018,19 +2529,21 @@ EM_JS(void, js_batch_run, (int64_t port, int stopOnError, const char* opts, cons
   var id = UTF8ToString(printerId);
   var attrs = UTF8ToString(wpAttrs);
   var mask = 0n;
+  var dialogMask = 0n;
   var ran = 0;
   var runOne = function(i) {
     if (i >= items.length) {
-      wasmExports.nitro_printing_web_batch_done(port, mask, ran);
+      wasmExports.nitro_printing_web_batch_done(port, mask, dialogMask, ran);
       return;
     }
     var item = items[i];
+    if (item.kind === 0) dialogMask |= (1n << BigInt(i));
     var localPort = -1n - BigInt(i); // sentinel — routed to W.batchDone
     W.batchDone = function(ok) {
       ran++;
       if (ok) mask |= (1n << BigInt(i));
       if (!ok && stopOnError) {
-        wasmExports.nitro_printing_web_batch_done(port, mask, ran);
+        wasmExports.nitro_printing_web_batch_done(port, mask, dialogMask, ran);
       } else {
         runOne(i + 1);
       }
@@ -2069,7 +2582,9 @@ namespace { void emitStatusChanged(const std::vector<std::string>& f); }
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
-void nitro_printing_web_done(int64_t port, int kind, int ok) {
+void nitro_printing_web_done(int64_t port, int kind, int ok, char* jobId, int dialogMs) {
+    std::string id = jobId ? jobId : "";
+    ::free(jobId);
     if (kind == kDoneBatchItem) {
         EM_ASM({
           var W = globalThis.__nitroWeb;
@@ -2096,25 +2611,37 @@ void nitro_printing_web_done(int64_t port, int kind, int ok) {
         return;
     }
     if (ok) {
-        postPrintResult(port, PrintResult{true, makeJobId(), "", ""});
+        // The browser cannot reveal Print-vs-Cancel: success here means the
+        // dialog was shown and closed. The informational code lets callers
+        // (PrintResult.outcome) separate this from verified-sent paths.
+        // errorMessage carries the measured dialog-open time (heuristic
+        // Print-vs-Cancel signal — see PrintResult.dialogDurationMs).
+        postPrintResult(port, PrintResult{true, id.empty() ? makeJobId() : id,
+                                          "dialogMs=" + std::to_string(dialogMs),
+                                          "DIALOG_OUTCOME_UNKNOWN"});
     } else {
-        postPrintResult(port, failedResult("Browser print failed or timed out", "WEB_PRINT_FAILED"));
+        postPrintResult(port, failedResult("Browser print failed or timed out", "DIALOG_FAILED"));
     }
 }
 
-/// Raw-transport / Web Printing submit completion. On success `msg` may carry
-/// the job id (Web Printing) or be empty (raw transports).
+/// Raw-transport / Web Printing submit completion. On success `msg` carries
+/// the tracked job id; on failure it is "CODE|human message".
 EMSCRIPTEN_KEEPALIVE
 void nitro_printing_web_raw_done(int64_t port, int ok, char* msg) {
     std::string m = msg ? msg : "";
     ::free(msg);
     if (ok) {
         postPrintResult(port, PrintResult{true, m.empty() ? makeJobId() : m, "", ""});
-    } else {
-        const char* code =
-            m.find("Cancelled") != std::string::npos ? "CANCELLED" : "WEB_PRINT_FAILED";
-        postPrintResult(port, failedResult(m, code));
+        return;
     }
+    std::string code = "WEB_PRINT_FAILED";
+    std::string human = m;
+    size_t bar = m.find('|');
+    if (bar != std::string::npos) {
+        code = m.substr(0, bar);
+        human = m.substr(bar + 1);
+    }
+    postPrintResult(port, failedResult(human, code.c_str()));
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -2123,13 +2650,15 @@ void nitro_printing_web_bool_done(int64_t port, int v) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void nitro_printing_web_batch_done(int64_t port, int64_t mask, int ran) {
+void nitro_printing_web_batch_done(int64_t port, int64_t mask, int64_t dialogMask, int ran) {
     std::vector<std::vector<uint8_t>> blobs;
     blobs.reserve((size_t)ran);
     for (int i = 0; i < ran; i++) {
         bool ok = i < 64 && ((mask >> i) & 1); // i ≥ 64 would be shift UB
+        bool viaDialog = i < 64 && ((dialogMask >> i) & 1);
         NitroRecordWriter w;
-        PrintResult r = ok ? PrintResult{true, makeJobId(), "", ""}
+        PrintResult r = ok ? PrintResult{true, makeJobId(), "",
+                                         viaDialog ? "DIALOG_OUTCOME_UNKNOWN" : ""}
                            : failedResult("Browser print failed or timed out", "WEB_PRINT_FAILED");
         r.encodeInto(w);
         blobs.push_back(std::move(w._buf));
@@ -2228,7 +2757,7 @@ void nitro_printing_web_html_jpegs(int64_t port, uint8_t* pack, int packLen) {
         return;
     }
     std::vector<uint8_t> pdf;
-    if (!slices.empty()) pdf = jpegsToPdf(slices, job.geom);
+    if (!slices.empty()) pdf = jpegsToPdf(slices, job.geom, job.pad);
     ::free(pack);
     if (job.intent == 1) { // download
         if (pdf.empty()) {
@@ -2467,6 +2996,13 @@ public:
                          pdfData, (int)pdfData_length, buildWpAttrs(s).c_str());
             return;
         }
+        if (s && s->printerId.rfind("qz:", 0) == 0) {
+            // QZ Tray agent: silent driver print, resolved when the OS
+            // spooler accepts the job (a verified PrintOutcome.printed).
+            js_qz_pdf(dartPort, pdfData, (int)pdfData_length,
+                      s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
+            return;
+        }
         // Dialog path: apply pageRange by rewriting the page tree in wasm
         // (classic-xref PDFs; exotic files print in full).
         if (s && (s->pageRangeFrom > 0 || s->pageRangeTo > 0)) {
@@ -2492,6 +3028,11 @@ public:
             std::string title = !doc.title.empty() ? doc.title : s->jobName;
             js_wp_submit(dartPort, s->printerId.c_str(), title.c_str(),
                          doc.data.data(), (int)doc.data.size(), buildWpAttrs(s).c_str());
+            return;
+        }
+        if (doc.type == DOCUMENTTYPE_PDF && s && s->printerId.rfind("qz:", 0) == 0) {
+            js_qz_pdf(dartPort, doc.data.data(), (int)doc.data.size(),
+                      s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
         if (doc.type == DOCUMENTTYPE_PLAIN_TEXT && s && isRawPrinterId(s->printerId)) {
@@ -2602,7 +3143,18 @@ public:
             PageGeom g = pageGeomFrom(s);
             g_pendingHtmlPdf[dartPort] = {0, g, ""};
             std::string html(doc.data.begin(), doc.data.end());
-            js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h);
+            js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h, buildDialogOpts(s).c_str());
+            return; // completes via nitro_printing_web_html_jpegs
+        }
+        if (doc.type == DOCUMENTTYPE_PLAIN_TEXT) {
+            // Page-accurate: the SAME logical→copies→N-up pipeline the dialog
+            // prints, rastered one JPEG per physical sheet — so copies,
+            // pagesPerSheet, grayscale, and decor all show in the preview.
+            PageGeom g = pageGeomFrom(s);
+            g_pendingHtmlPdf[dartPort] = {0, g, "", 0};
+            std::string text(doc.data.begin(), doc.data.end());
+            js_text_preview_jpegs(dartPort, text.c_str(),
+                                  buildDialogOpts(s).c_str(), g.w, g.h);
             return; // completes via nitro_printing_web_html_jpegs
         }
         auto* bytes = new std::vector<uint8_t>();
@@ -2612,9 +3164,6 @@ public:
                                          s->pageRangeFrom, s->pageRangeTo);
             }
             if (bytes->empty()) *bytes = std::move(doc.data);
-        } else if (doc.type == DOCUMENTTYPE_PLAIN_TEXT) {
-            *bytes = textToPdf(std::string(doc.data.begin(), doc.data.end()),
-                               pageGeomFrom(s));
         }
         PreviewResult* pv = (PreviewResult*)::malloc(sizeof(PreviewResult));
         if (pv == nullptr) {
@@ -2666,7 +3215,7 @@ public:
                 PageGeom g;
                 g_pendingHtmlPdf[dartPort] = {2, g, ""};
                 std::string html(doc.data.begin(), doc.data.end());
-                js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h);
+                js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h, "");
                 return; // completes via nitro_printing_web_html_jpegs
             }
         }
@@ -2694,7 +3243,7 @@ public:
             PageGeom g = pageGeomFrom(s);
             g_pendingHtmlPdf[dartPort] = {1, g, name};
             std::string html(doc.data.begin(), doc.data.end());
-            js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h);
+            js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h, buildDialogOpts(s).c_str());
             return; // completes via nitro_printing_web_html_jpegs
         }
         std::vector<uint8_t> out;
@@ -2702,7 +3251,9 @@ public:
         switch (doc.type) {
             case DOCUMENTTYPE_PLAIN_TEXT:
                 out = textToPdf(std::string(doc.data.begin(), doc.data.end()),
-                                pageGeomFrom(s));
+                                pageGeomFrom(s), s ? s->headerText : "",
+                                s ? s->footerText : "",
+                                s ? s->pageRangeFrom : 0, s ? s->pageRangeTo : 0);
                 mime = "application/pdf";
                 break;
             case DOCUMENTTYPE_PDF:
@@ -2729,9 +3280,12 @@ public:
         postBool(dartPort, false); // no pause in the Web Printing API
     }
 
+    /// Resume = retry: re-dispatches the kept payload of a finished raw job
+    /// (the recover-from-paper-jam path). Web Printing jobs and dialog
+    /// prints are not resumable.
     void resumePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
-        (void)jobId; (void)_nitro_err;
-        postBool(dartPort, false); // no resume in the Web Printing API
+        (void)_nitro_err;
+        js_resume_job(dartPort, jobId.c_str());
     }
 
     void clearPrintQueue(NitroError* _nitro_err, int64_t dartPort) override {
