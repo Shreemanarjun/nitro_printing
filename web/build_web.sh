@@ -23,10 +23,10 @@ mkdir -p "$OUT"
 # shims the Dart API under __EMSCRIPTEN__).
 IMPL_SOURCES=$(ls src/Hybrid*.cpp 2>/dev/null || ls src/*.cpp 2>/dev/null | grep -v dart_api_dl || true)
 
-# nitro_printing: shared src/ impl
+# nitro_printing: web-specific impl
 em++ -O2 --no-entry -fwasm-exceptions \
   -Isrc -Isrc/native -I"$GEN" \
-  "$GEN/nitro_printing.bridge.g.cpp" $IMPL_SOURCES \
+  "$GEN/nitro_printing.bridge.g.cpp" web/src/HybridNitroPrinting.cpp \
   -sMODULARIZE=1 -sEXPORT_NAME=createNitroPrintingModule \
   -sALLOW_MEMORY_GROWTH=1 -sALLOW_TABLE_GROWTH=1 \
   -sWASM_BIGINT=1 -sENVIRONMENT=web \
