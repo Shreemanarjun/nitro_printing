@@ -11,6 +11,8 @@ import 'package:patrol/patrol.dart';
 import 'package:nitro_printing/nitro_printing.dart' as np;
 import 'package:nitro_printing_example/main.dart' as app;
 
+import 'print_tab.dart';
+
 /// Patrol tests that verify the printer configuration selected in the app is
 /// exactly what the native layer transmits, using fake network printers that
 /// run inside the test process on loopback.
@@ -68,16 +70,9 @@ void main() {
     await $.pumpAndSettle();
   }
 
-  /// Scrolls the visible list (the IndexedStack keeps offstage tabs alive, so
-  /// only the hit-testable scrollable may be dragged) and taps [label].
+  /// Brings [label] into view inside the Print tab and taps it.
   Future<void> scrollToAndTap(PatrolIntegrationTester $, String label) async {
-    await $(label)
-        .scrollTo(
-          view: find.byType(Scrollable).hitTestable(),
-          step: 300,
-          maxScrolls: 40,
-        )
-        .tap();
+    await tapInPrintTab($, $(label));
   }
 
   /// Scrolls the Raw tab's per-tab vertical scrollable (keyed
@@ -115,12 +110,8 @@ void main() {
     PatrolIntegrationTester $,
     Pattern pattern,
   ) async {
-    await $(pattern).scrollTo(
-      view: find.byType(Scrollable).hitTestable(),
-      scrollDirection: AxisDirection.up,
-      step: 300,
-      maxScrolls: 40,
-    );
+    await revealInPrintTab($, $(pattern), towardsTop: true);
+    await $(pattern).first.waitUntilVisible();
   }
 
   // ───────────────────────── Fake printers ─────────────────────────

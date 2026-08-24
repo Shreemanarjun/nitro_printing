@@ -114,7 +114,9 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            dart pub global activate patrol_cli
+            # Pinned: patrol_cli must match `patrol` in example/pubspec.yaml,
+            # or it refuses to run (CI failed exactly this way in July).
+            dart pub global activate patrol_cli 4.7.0
             cd example && patrol test -d emulator-5554
 
   ios:
@@ -163,7 +165,7 @@ jobs:
       - name: Patrol suites
         env: { UDID: '${{ steps.sim.outputs.udid }}' }
         run: |
-          dart pub global activate patrol_cli
+          dart pub global activate patrol_cli 4.7.0
           (cd ios && pod install)
           set +e
           patrol test -d "$UDID" --verbose 2>&1 | tee patrol.log
