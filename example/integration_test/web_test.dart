@@ -13,6 +13,7 @@
 // the plugin's test/nitro_printing_web_test.dart.
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:nitro_printing/nitro_printing.dart';
@@ -26,6 +27,16 @@ PrintDocument _textDoc([String text = 'hello web']) => PrintDocument(
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  // `flutter test integration_test` runs this whole directory on whatever
+  // device is attached, so the web-only assertions below (empty enumeration,
+  // WebUSB routing, Isolated Web App messages) would fail against a native
+  // backend that legitimately answers differently.
+  if (!kIsWeb) {
+    test('web suite', () {},
+        skip: 'asserts browser-backend behaviour — web only');
+    return;
+  }
 
   setUpAll(() async {
     await ensureNitroPrintingReady();
