@@ -41,3 +41,6 @@ migrate_working_dir/
 .nitrogen_backup*/
 .nitrogen_bakcup*/
 
+# Local-only dependency pins (e.g. validating an unreleased nitro from a
+# sibling checkout). Absolute paths here would break CI's `pub get`.
+pubspec_overrides.yaml

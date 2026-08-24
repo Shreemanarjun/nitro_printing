@@ -5,9 +5,9 @@
 //   flutter drive --driver=test_driver/integration_test.dart \
 //     --target=integration_test/web_test.dart -d chrome
 //
-// The native suites (nitro_printing_test.dart / native_transport_test.dart)
-// import dart:io and cannot run on web; this file is the web-safe
-// counterpart. It sticks to APIs that never open the browser print dialog —
+// nitro_printing_test.dart also runs on web (platform differences are guarded
+// by kIsWeb); native_transport_test.dart is native-only (loopback sockets).
+// This file sticks to APIs that never open the browser print dialog —
 // flutter drive runs HEADED Chrome, where window.print() would block the run.
 // The dialog flows and the ws:// relay transport are covered headlessly by
 // the plugin's test/nitro_printing_web_test.dart.
@@ -77,10 +77,15 @@ void main() {
       expect(await p.getPageCount(_textDoc(text)), 2);
     });
 
-    testWidgets('jobs / admin are inert outside Isolated Web Apps',
+    testWidgets('jobs are tracked; admin is inert outside Isolated Web Apps',
         (tester) async {
       final p = NitroPrinting.instance;
-      expect(await p.getPrintJobsCount(), 0);
+      final before = await p.getPrintJobsCount();
+      await p.printEscPos(
+        Uint8List.fromList([0x1B, 0x40]),
+        settings: PrintSettings(printerId: 'usb:0000:0000'),
+      );
+      expect(await p.getPrintJobsCount(), before + 1);
       expect(await p.cancelPrintJob('j'), isFalse);
       expect(await p.clearPrintQueue(), isFalse);
       expect(await p.testPrinterConnection('usb:0000:0000', timeoutSeconds: 1),

@@ -1428,6 +1428,11 @@ EM_JS(void, js_ensure_helpers, (), {
 
   // ── Web Bluetooth transport (BLE thermal printers) ─────────────────────
   // Known transparent-UART service UUIDs used by common thermal printers.
+  // Enumerating granted BLE devices spins up the OS Bluetooth stack (and can
+  // abort a browser lacking the platform's Bluetooth usage permission), so
+  // plain enumeration stays clear of it until the app deliberately uses BLE —
+  // the same rule the QZ/agent probes follow.
+  W.bleOptIn = false;
   W.bleServices = [
     0x18f0,
     '49535343-fe7d-4ae5-8fa9-9fafd205e455',
@@ -1435,6 +1440,7 @@ EM_JS(void, js_ensure_helpers, (), {
     '0000ff00-0000-1000-8000-00805f9b34fb',
   ];
   W.blePrint = async function(port, bytes, copies, printerId) {
+    W.bleOptIn = true;
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) {
       W.rawDone(port, 0, 'WEB_BLUETOOTH_UNAVAILABLE|Web Bluetooth is not available in this browser');
       return;
@@ -2173,7 +2179,7 @@ EM_JS(void, js_ensure_helpers, (), {
         var ports = await navigator.serial.getPorts();
         if (ports.length) addLocal('serial:', 'Serial printer', 'serial');
       }
-      if (navigator.bluetooth && navigator.bluetooth.getDevices) {
+      if (W.bleOptIn && navigator.bluetooth && navigator.bluetooth.getDevices) {
         try {
           var bles = await navigator.bluetooth.getDevices();
           for (var b of bles) addLocal('ble:' + (b.name || b.id), b.name || 'BLE printer', 'ble');
@@ -2352,6 +2358,7 @@ EM_JS(void, js_ensure_helpers, (), {
           optionalServices: W.bleServices,
         });
         if (bd) {
+          W.bleOptIn = true;
           var bid = 'ble:' + (bd.name || bd.id);
           wasmExports.nitro_printing_web_discovered(
               W.cstr([bid, bd.name || 'BLE printer', "", '0', 'ble', bid, '1'].join('\x1F')));
@@ -2396,6 +2403,7 @@ EM_JS(void, js_ensure_helpers, (), {
         return;
       }
       if (printerId.indexOf('ble:') === 0) {
+        W.bleOptIn = true;
         var bles = (navigator.bluetooth && navigator.bluetooth.getDevices)
             ? await navigator.bluetooth.getDevices() : [];
         W.boolDone(port, bles.length ? 1 : 0);
