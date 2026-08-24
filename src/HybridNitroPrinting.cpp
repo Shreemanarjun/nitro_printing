@@ -966,6 +966,20 @@ EM_JS(void, js_ensure_helpers, (), {
   // only Print-vs-Cancel signal the web platform leaks (a heuristic, exposed
   // as dialogMs; the definitive answer needs markJobOutcome / a verified
   // transport).
+  // After the dialog closes, hand focus back to the page and kick Flutter's
+  // renderer — the hidden iframe held focus during print(), and the
+  // print-media switch can leave the app unpainted/unresponsive otherwise.
+  W.restoreAfterDialog = function(frame) {
+    var kick = function() {
+      try { if (frame) frame.blur(); } catch (e) {}
+      try { window.focus(); } catch (e) {}
+      try { window.dispatchEvent(new Event('resize')); } catch (e) {}
+      var glass = document.querySelector('flt-glass-pane') || document.querySelector('flutter-view');
+      try { if (glass && glass.focus) glass.focus(); } catch (e) {}
+    };
+    kick();
+    setTimeout(kick, 250);
+  };
   W.printFrame = function(port, kind, timeoutMs, setup) {
     var fired = false;
     var frame = null;
@@ -974,14 +988,19 @@ EM_JS(void, js_ensure_helpers, (), {
     var done = function(ok) {
       if (fired) return;
       fired = true;
-      setTimeout(function() { try { if (frame) frame.remove(); } catch (e) {} }, 500);
-      // A closed browser dialog can NOT reveal Print-vs-Cancel — mark the
-      // job so callers see the outcome is unknowable, not "printed".
-      W.finishJob(port, ok,
-          ok ? '[DIALOG_OUTCOME_UNKNOWN] dialogMs=' + Math.round(dialogMs)
-             : 'DIALOG_FAILED|Browser print failed or timed out');
-      wasmExports.nitro_printing_web_done(port, kind, ok ? 1 : 0, W.cstr(rec.id),
-                                          Math.round(dialogMs));
+      // Defer ALL completion work out of the afterprint / print() call
+      // stack — running it re-entrantly there can wedge the page.
+      setTimeout(function() {
+        W.restoreAfterDialog(frame);
+        setTimeout(function() { try { if (frame) frame.remove(); } catch (e) {} }, 400);
+        // A closed browser dialog can NOT reveal Print-vs-Cancel — mark the
+        // job so callers see the outcome is unknowable, not "printed".
+        W.finishJob(port, ok,
+            ok ? '[DIALOG_OUTCOME_UNKNOWN] dialogMs=' + Math.round(dialogMs)
+               : 'DIALOG_FAILED|Browser print failed or timed out');
+        wasmExports.nitro_printing_web_done(port, kind, ok ? 1 : 0, W.cstr(rec.id),
+                                            Math.round(dialogMs));
+      }, 0);
     };
     try {
       frame = document.createElement('iframe');

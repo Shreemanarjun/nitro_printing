@@ -49,6 +49,7 @@ class _PrintTabState extends State<PrintTab> {
   double _customWidth = 420.0;
   double _customHeight = 595.0;
   bool _showDialog = true;
+  bool _isHtml = false;
 
   @override
   void dispose() {
@@ -203,13 +204,35 @@ class _PrintTabState extends State<PrintTab> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: false,
+                            label: Text('Plain Text'),
+                            icon: Icon(Icons.text_snippet_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            label: Text('HTML'),
+                            icon: Icon(Icons.code_rounded, size: 16),
+                          ),
+                        ],
+                        selected: {_isHtml},
+                        onSelectionChanged: (v) =>
+                            setState(() => _isHtml = v.first),
+                      ),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _textCtrl,
                         maxLines: 5,
                         onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          labelText: 'Print Text Content',
-                          hintText: 'Enter text here...',
+                        decoration: InputDecoration(
+                          labelText: _isHtml
+                              ? 'HTML Body Content'
+                              : 'Print Text Content',
+                          hintText: _isHtml
+                              ? '<h1>Invoice</h1><p>Hello <b>world</b></p>'
+                              : 'Enter text here...',
                           alignLabelWithHint: true,
                         ),
                       ),
@@ -275,15 +298,17 @@ class _PrintTabState extends State<PrintTab> {
                         runSpacing: 8,
                         children: [
                           widgets.PrintButton(
-                            label: 'Print Text',
-                            icon: Icons.text_snippet_rounded,
+                            label: _isHtml ? 'Print HTML' : 'Print Text',
+                            icon: _isHtml
+                                ? Icons.code_rounded
+                                : Icons.text_snippet_rounded,
                             loading: loading,
                             onPressed: () async {
                               updatePrintSettings(_build());
-                              await printTextAction(
-                                widget.repo,
-                                _textCtrl.text,
-                              );
+                              await (_isHtml
+                                  ? printHtmlAction(widget.repo, _textCtrl.text)
+                                  : printTextAction(
+                                      widget.repo, _textCtrl.text));
                             },
                           ),
                           widgets.PrintButton(
@@ -405,6 +430,7 @@ class _PrintTabState extends State<PrintTab> {
                           child: widgets.PreviewPanel(
                             text: _textCtrl.text,
                             settings: _build(),
+                            isHtml: _isHtml,
                             fillHeight: true,
                           ),
                         ),
@@ -426,7 +452,11 @@ class _PrintTabState extends State<PrintTab> {
 
               // Live preview below the configuration on narrow layouts.
               const SizedBox(height: 32),
-              widgets.PreviewPanel(text: _textCtrl.text, settings: _build()),
+              widgets.PreviewPanel(
+                text: _textCtrl.text,
+                settings: _build(),
+                isHtml: _isHtml,
+              ),
               const SizedBox(height: 48),
             ],
           );

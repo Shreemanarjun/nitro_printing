@@ -469,6 +469,37 @@ The web backend is the same C++ implementation compiled to WASM. Capabilities
 are feature-detected at runtime; unsupported operations fail with a typed
 error instead of hanging.
 
+### Supported on web
+
+| Feature | Notes |
+|---|---|
+| Document printing (text / HTML / image / PDF) | Browser print dialog, with `PrintSettings` applied to the document: paper size, orientation, margins, copies (collated/uncollated), grayscale, header/footer, page ranges, N-up, job name |
+| Silent printing to any OS printer | Via the first-party Nitro Print Agent (`agent:`) or QZ Tray (`qz:`) — spool-confirmed results, native job ids |
+| Silent PDF system jobs | Web Printing API in Isolated Web Apps (Chrome 147+), with IPP attributes and page-progress tracking |
+| Raw / ESC-POS / ZPL | WebUSB, Web Serial, Web Bluetooth, `ws://` relay, Direct Sockets TCP (IWA), or either local agent. ESC/POS text is CP437-translated; images raster to `GS v 0` |
+| Printer enumeration & status | Granted USB/serial/BLE devices, agent printers, and (IWA) the full system list with IPP capabilities and state reasons; live status streams from Web Printing, QZ, and the agent |
+| Discovery | USB/serial/BLE device pickers, local-agent probing, and (IWA) one-shot mDNS |
+| Preview & export | Page-accurate live preview (copies/N-up/grayscale/decor visible), PDF page counts and page-range extraction, HTML→PDF rasterization, `printToFile` download, `printFile` for `http(s)`/`data:`/`blob:` URLs |
+| Job tracking & typed status | Every print tracked with `onPrintJobChanged`; `PrintErrorCode`, `PrintOutcome`, `PrintJob.failureReason`, `lastPrintJob()`, `resumePrintJob` for raw jobs |
+| Page decoration | `WebPrintDecor` — per-page watermark/letterhead, HTML header/footer |
+| Both web compilers | dart2js and dart2wasm (`--wasm`) |
+
+### Web limitations
+
+| Limitation | Detail / workaround |
+|---|---|
+| Print-vs-Cancel in the browser dialog is unknowable | No web API reveals it. Dialog prints report `PrintOutcome.dialogShown`; use `dialogDurationMs`/`dialogGuess` heuristics, `PrintOutcomeConfirmation.markJobOutcome` (ask the user), or a verified path (agent / raw / Web Printing) |
+| No default-printer concept | `getDefaultPrinter`/`setDefaultPrinter` return `NitroErr`/false everywhere on web |
+| No pause/resume of OS jobs, driver version, or OS print-queue/properties UI | No web API in any context |
+| Dialog flow cannot force duplex, quality, or media type | The browser dialog owns those; all three work on Web Printing jobs, duplex/quality also via the agents |
+| PDF documents print as-is in the dialog flow | Settings apply via `qz:`/`agent:`/Web Printing instead; `pageRange` extraction covers classic-xref PDFs only (others print in full) |
+| No system-printer enumeration on the open web | Requires an Isolated Web App or a local agent |
+| Device transports are Chromium-only and need a user-gesture grant | WebUSB/Web Serial/Web Bluetooth; Windows WebUSB may additionally need a WinUSB driver (Zadig) for printers claimed by `usbprint.sys` |
+| Direct raw TCP only in Isolated Web Apps | On the open web use a `ws://` relay or a local agent |
+| HTML rendering is raster-based, inline content only | External images/fonts don't load in the SVG sandbox; HTML previews are JPEG pages, not vector PDF |
+| ESC/POS text is CP437 only; batch item status caps at 64 documents | Unmappable glyphs print as `?`; items past 64 report failed |
+| Secure context required | HTTPS or localhost; local endpoints (relay/agents) are gated by Chrome's Local Network Access permission |
+
 ### How each API behaves on web
 
 | API | Open web (any HTTPS Chromium page) | Isolated Web App (Chrome 147+) |

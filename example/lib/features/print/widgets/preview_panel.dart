@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,9 @@ class PreviewPanel extends StatefulWidget {
   final String text;
   final p.PrintSettings settings;
 
+  /// Renders/prints the content as an HTML document instead of plain text.
+  final bool isHtml;
+
   /// When true the panel expands to its parent's full height and the PDF
   /// surface fills the remaining space (side-pane layout).
   final bool fillHeight;
@@ -20,6 +24,7 @@ class PreviewPanel extends StatefulWidget {
     super.key,
     required this.text,
     required this.settings,
+    this.isHtml = false,
     this.fillHeight = false,
   });
 
@@ -47,7 +52,9 @@ class _PreviewPanelState extends State<PreviewPanel> {
   @override
   void didUpdateWidget(PreviewPanel old) {
     super.didUpdateWidget(old);
-    if (old.text != widget.text || old.settings != widget.settings) {
+    if (old.text != widget.text ||
+        old.settings != widget.settings ||
+        old.isHtml != widget.isHtml) {
       _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 400), _render);
     }
@@ -67,8 +74,8 @@ class _PreviewPanelState extends State<PreviewPanel> {
       final doc = p.PrintDocument(
         id: 'preview',
         title: widget.settings.jobName,
-        type: p.DocumentType.plainText,
-        data: Uint8List.fromList(widget.text.codeUnits),
+        type: widget.isHtml ? p.DocumentType.html : p.DocumentType.plainText,
+        data: Uint8List.fromList(utf8.encode(widget.text)),
       );
       final printing = p.NitroPrinting.instance;
       final preview = await printing.renderPreview(
