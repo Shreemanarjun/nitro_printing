@@ -1,6 +1,0 @@
-# Local nitro_generator with the web named-param override fix (0.7.1 web
-# bridge emitted named optional params positionally — invalid_override).
-# Remove once nitro_generator > 0.7.1 ships the fix.
-dependency_overrides:
-  nitro_generator:
-    path: /Users/shreemanarjunsahu/personal/flutter_package/nitro_ecosystem/packages/nitro_generator

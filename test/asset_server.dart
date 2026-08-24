@@ -1,9 +1,15 @@
 // Serves assets/web/ to the browser test with permissive CORS and reports the
 // port. Runs on the VM as a hybrid isolate.
 //
-// Also accepts WebSocket upgrades on /raw and reports each binary message's
-// byte count over the channel — the ws:// relay transport's end-to-end test
-// target (browser wasm → WebSocket → this server, standing in for websockify).
+// Also hosts the transport test doubles:
+//   /raw   — WebSocket sink reporting each binary message's byte count
+//            (the ws:// relay transport's end-to-end target).
+//   /qz    — mock QZ Tray agent speaking the real QZ wire protocol.
+//   /agent — mock first-party Nitro Print Agent protocol.
+//
+// NOTE: `nitrogen link` regenerates this file to its stock version — restore
+// these handlers after relinking (the browser suite fails all transport tests
+// without them).
 import 'dart:convert';
 import 'dart:io';
 
