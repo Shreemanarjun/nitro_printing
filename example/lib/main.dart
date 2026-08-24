@@ -1,3 +1,6 @@
+
+
+import 'core/build_stamp/build_stamp.dart';
 import 'package:flutter/material.dart';
 import 'package:nitro/nitro.dart';
 import 'package:nitro_printing/nitro_printing.dart';
@@ -403,6 +406,18 @@ class _HomePageState extends State<HomePage> {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF64748B),
+                  ),
+                ),
+                const Spacer(),
+                FutureBuilder<String>(
+                  future: buildStamp(),
+                  builder: (context, snap) => Text(
+                    snap.data ?? '',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF475569),
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ],

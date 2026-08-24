@@ -1283,11 +1283,25 @@ EM_JS(void, js_ensure_helpers, (), {
   // ponytail: copies>1 repeats the markup in page-break divs — fine for
   // fragments, technically invalid for full <html> documents (browsers cope).
   W.htmlDocHtml = function(html, o) {
+    var d = W.decor();
     if (!o.size && !o.margin && !o.gray && !o.title && !o.header && !o.footer &&
-        o.copies === 1 && o.nup === 1) {
+        o.copies === 1 && o.nup === 1 &&
+        !d.background && !d.header && !d.footer) {
       return html;
     }
-    return W.assemblePages(W.applyCopies([W.decoratePage(html, o)], o), o);
+    var doc = W.assemblePages(W.applyCopies([W.decoratePage(html, o)], o), o);
+    // HTML flows freely across printed pages, so inline .hdr/.ftr divs would
+    // land mid-flow. position:fixed repeats them at the top/bottom of EVERY
+    // printed page (the watermark technique); body padding keeps content
+    // clear of them.
+    var hasH = !!(d.header || o.header), hasF = !!(d.footer || o.footer);
+    if (hasH || hasF) {
+      doc = doc.replace('</head>', '<style>' +
+          (hasH ? '.hdr{position:fixed;top:0;left:0;right:0;}body{padding-top:28pt;}' : "") +
+          (hasF ? '.ftr{position:fixed;bottom:0;left:0;right:0;}body{padding-bottom:28pt;}' : "") +
+          '</style></head>');
+    }
+    return doc;
   };
   W.imgHtml = function(url, o) {
     var style = o.fit ? 'width:100%;height:auto' : 'max-width:100%';
@@ -1591,26 +1605,37 @@ EM_JS(void, js_ensure_helpers, (), {
   // payloads, and reports through nitro_printing_web_html_jpegs (ptr 0 on
   // failure). ponytail: external images/fonts inside the HTML won't load in
   // the SVG sandbox — inline content only.
+  // Renders an HTML fragment to an Image at a fixed width (height measured
+  // off-screen unless given). Shared by the per-page HTML raster below.
+  W.fragToImage = async function(fragHtml, wpx, hpx) {
+    var parsed = new DOMParser().parseFromString(fragHtml, 'text/html');
+    var xhtml = new XMLSerializer().serializeToString(parsed.body);
+    var h = hpx;
+    if (!h) {
+      var holder = document.createElement('div');
+      holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + wpx + 'px;';
+      holder.innerHTML = parsed.body.innerHTML;
+      document.body.appendChild(holder);
+      h = Math.max(holder.scrollHeight, 1);
+      holder.remove();
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + wpx +
+        '" height="' + h + '"><foreignObject width="100%" height="100%">' +
+        xhtml.replace('<body', '<body style="margin:0;width:' + wpx + 'px"') +
+        '</foreignObject></svg>';
+    var img = new Image();
+    var loaded = new Promise(function(res, rej) { img.onload = res; img.onerror = rej; });
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    await loaded;
+    return { img: img, h: h };
+  };
   W.htmlToJpegs = async function(port, html, pageWpt, pageHpt, optsStr) {
     var o = W.parseOpts(optsStr || "");
-    // Decoration inside the raster: header above, footer below, background
-    // behind the full content (ponytail: the background paints once across
-    // the whole flow, not per sliced page), grayscale via CSS filter.
     var d = W.decor();
-    var deco = W.decorPart('hdr', d.header, o.header) + html +
-        W.decorPart('ftr', d.footer, o.footer);
-    if (d.background) {
-      deco = '<div style="position:absolute;inset:0;z-index:-1">' + d.background +
-          '</div><div style="position:relative">' + deco + '</div>';
-    }
-    if (o.gray) deco = '<div style="filter:grayscale(1)">' + deco + '</div>';
-    html = deco;
-    var holder = null;
     var fired = false;
     var fail = function() {
       if (fired) return;
       fired = true;
-      try { if (holder) holder.remove(); } catch (e) {}
       wasmExports.nitro_printing_web_html_jpegs(port, 0, 0);
     };
     // Watchdog: an SVG image that never loads must still complete the future.
@@ -1619,40 +1644,43 @@ EM_JS(void, js_ensure_helpers, (), {
       var PXPT = 2; // render at 2 px per pt for sharpness
       var contentWpx = Math.max(64, Math.round((pageWpt - 80) * PXPT));
       var sliceHpx = Math.max(64, Math.round((pageHpt - 80) * PXPT));
-      // Sanitize to XHTML — foreignObject requires well-formed XML.
-      var parsed = new DOMParser().parseFromString(html, 'text/html');
-      var xhtml = new XMLSerializer().serializeToString(parsed.body);
-      // Measure at content width.
-      holder = document.createElement('div');
-      holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + contentWpx + 'px;';
-      holder.innerHTML = parsed.body.innerHTML;
-      document.body.appendChild(holder);
-      var fullHpx = Math.max(holder.scrollHeight, 1);
-      holder.remove();
-      holder = null;
-      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + contentWpx +
-          '" height="' + fullHpx + '"><foreignObject width="100%" height="100%">' +
-          xhtml.replace('<body', '<body style="margin:0;width:' + contentWpx + 'px"') +
-          '</foreignObject></svg>';
-      var img = new Image();
-      var loaded = new Promise(function(res, rej) { img.onload = res; img.onerror = rej; });
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-      await loaded;
-      var sliceCount = Math.max(1, Math.ceil(fullHpx / sliceHpx));
+      var gray = function(s) {
+        return o.gray && s ? '<div style="filter:grayscale(1)">' + s + '</div>' : s;
+      };
+      var style = '<style>.hdr,.ftr{font:11px sans-serif;color:#444}</style>';
+      // Header/footer/background render as separate images and composite onto
+      // EVERY page: header top, footer bottom, background behind — matching
+      // what the dialog path prints.
+      var hdrHtml = W.decorPart('hdr', d.header, o.header);
+      var ftrHtml = W.decorPart('ftr', d.footer, o.footer);
+      var hdr = hdrHtml ? await W.fragToImage(style + gray(hdrHtml), contentWpx) : null;
+      var ftr = ftrHtml ? await W.fragToImage(style + gray(ftrHtml), contentWpx) : null;
+      var bg = d.background
+          ? await W.fragToImage(gray('<div style="width:' + contentWpx + 'px;height:' +
+              sliceHpx + 'px;overflow:hidden">' + d.background + '</div>'), contentWpx, sliceHpx)
+          : null;
+      var body = await W.fragToImage(gray(html), contentWpx);
+      var hdrH = hdr ? hdr.h : 0;
+      var ftrH = ftr ? ftr.h : 0;
+      var contentHpx = Math.max(64, sliceHpx - hdrH - ftrH);
+      var sliceCount = Math.max(1, Math.ceil(body.h / contentHpx));
       var slices = [];
       var total = 0;
       for (var s = 0; s < sliceCount; s++) {
-        var y = s * sliceHpx;
-        var hpx = Math.min(sliceHpx, fullHpx - y);
-        if (hpx <= 0) break;
-        var canvas = new OffscreenCanvas(contentWpx, hpx);
+        var y = s * contentHpx;
+        var hpx = Math.min(contentHpx, body.h - y);
+        if (hpx <= 0 && s > 0) break;
+        var canvas = new OffscreenCanvas(contentWpx, sliceHpx);
         var ctx = canvas.getContext('2d');
         ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, contentWpx, hpx);
-        ctx.drawImage(img, 0, y, contentWpx, hpx, 0, 0, contentWpx, hpx);
+        ctx.fillRect(0, 0, contentWpx, sliceHpx);
+        if (bg) ctx.drawImage(bg.img, 0, 0);
+        if (hdr) ctx.drawImage(hdr.img, 0, 0);
+        if (hpx > 0) ctx.drawImage(body.img, 0, y, contentWpx, hpx, 0, hdrH, contentWpx, hpx);
+        if (ftr) ctx.drawImage(ftr.img, 0, sliceHpx - ftrH);
         var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
         var jb = new Uint8Array(await blob.arrayBuffer());
-        slices.push({ w: contentWpx, h: hpx, bytes: jb });
+        slices.push({ w: contentWpx, h: sliceHpx, bytes: jb });
         total += jb.length;
       }
       var headLen = 4 + slices.length * 12;
