@@ -1,0 +1,8 @@
+# Local validation of the unreleased nitro 0.7.3 — remove once published.
+dependency_overrides:
+  nitro:
+    path: /Users/shreemanarjunsahu/personal/flutter_package/nitro_ecosystem/packages/nitro
+  nitro_annotations:
+    path: /Users/shreemanarjunsahu/personal/flutter_package/nitro_ecosystem/packages/nitro_annotations
+  nitro_generator:
+    path: /Users/shreemanarjunsahu/personal/flutter_package/nitro_ecosystem/packages/nitro_generator
