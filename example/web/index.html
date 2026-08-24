@@ -41,9 +41,16 @@
         #090D1A;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #E2E8F0;
-      transition: opacity .35s ease;
+      /* Hidden until the load proves slow — warm cached loads never see it. */
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s ease;
       -webkit-user-select: none;
       user-select: none;
+    }
+    #splash.show {
+      opacity: 1;
+      pointer-events: auto;
     }
     #splash.gone {
       opacity: 0;
@@ -124,13 +131,30 @@
   </div>
 
   <script>
-    // Fade the splash out once Flutter has painted its first frame.
-    window.addEventListener('flutter-first-frame', function () {
+    // Show the splash only when loading is actually slow: if Flutter's first
+    // frame lands within 300ms (warm cache), it is removed before ever
+    // becoming visible — no flash on repeat visits.
+    (function () {
       var splash = document.getElementById('splash');
-      if (!splash) return;
-      splash.classList.add('gone');
-      splash.addEventListener('transitionend', function () { splash.remove(); });
-    });
+      // Repeat visits in this session boot warm — hold the splash back much
+      // longer so it only appears if something is genuinely slow.
+      var visited = false;
+      try { visited = !!sessionStorage.getItem('np-loaded'); } catch (e) {}
+      var showTimer = setTimeout(function () {
+        splash.classList.add('show');
+      }, visited ? 1500 : 300);
+      window.addEventListener('flutter-first-frame', function () {
+        clearTimeout(showTimer);
+        try { sessionStorage.setItem('np-loaded', '1'); } catch (e) {}
+        if (!splash) return;
+        if (splash.classList.contains('show')) {
+          splash.classList.add('gone');
+          splash.addEventListener('transitionend', function () { splash.remove(); });
+        } else {
+          splash.remove();
+        }
+      });
+    })();
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
