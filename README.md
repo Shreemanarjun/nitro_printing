@@ -29,7 +29,7 @@ Dart FFI instead of method channels. Docs: https://nitro.shreeman.dev
 dependencies:
   flutter:
     sdk: flutter
-  nitro_printing: ^0.0.4
+  nitro_printing: ^0.0.5
 ```
 
 ```bash
@@ -154,6 +154,9 @@ which `PrintSettings` fields are respected there.
 
 ```dart
 import 'package:nitro_printing/nitro_printing.dart';
+
+// Once at startup: instantiates the WASM module on web, no-op on native.
+await ensureNitroPrintingReady();
 
 final printing = NitroPrinting.instance;
 
