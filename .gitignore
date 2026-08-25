@@ -44,3 +44,9 @@ migrate_working_dir/
 # Local-only dependency pins (e.g. validating an unreleased nitro from a
 # sibling checkout). Absolute paths here would break CI's `pub get`.
 pubspec_overrides.yaml
+
+# `nitrogen link` regenerates this shim with an ABSOLUTE #include path to the
+# nitro package in the local pub cache, so it is machine-specific and must not
+# be committed. (The plugin's own src/dart_api_dl.c is the real vendored
+# source and stays tracked.)
+example/src/dart_api_dl.c

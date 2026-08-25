@@ -36,6 +36,12 @@ target 'Runner' do
   end
   target 'RunnerUITests' do
     inherit! :complete
+    # Flutter resolves plugins through Swift Package Manager here, and its SPM
+    # integration only wires the Runner app target — so the XCUITest runner is
+    # left without patrol and `@import patrol` fails to find the module. Pull
+    # patrol in from its podspec for this target explicitly; the symlink is
+    # created by flutter_install_all_ios_pods above.
+    pod 'patrol', :path => File.join('.symlinks', 'plugins', 'patrol', 'darwin')
   end
 end
 

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
-/// Scrolling helpers for the Print tab, shared by the Patrol suites.
+/// Scrolling helpers for the app's scrollable tabs, shared by the Patrol suites.
 ///
-/// The tab is a lazily-built `ListView` whose content height changes while the
-/// live preview renders, which defeats both naive approaches:
+/// A tab is a lazily-built `ListView`, and on the Print tab its content height
+/// changes while the live preview renders. That defeats both naive approaches:
 ///
 ///   * a pure drag loop (`scrollTo`) races the shrinking scroll extent and can
 ///     sail past the target to the bottom of the list;
@@ -15,7 +15,7 @@ import 'package:patrol/patrol.dart';
 ///     adds the routing field, which is enough to push them out).
 ///
 /// So: drag only until the target mounts, then let `ensureVisible` place it.
-Future<void> revealInPrintTab(
+Future<void> revealInList(
   PatrolIntegrationTester $,
   PatrolFinder target, {
   bool towardsTop = false,
@@ -29,17 +29,20 @@ Future<void> revealInPrintTab(
   final step = Offset(0, towardsTop ? 300 : -300);
   for (var i = 0; i < maxDrags && target.evaluate().isEmpty; i++) {
     await $.tester.drag(view, step);
-    await $.pumpAndSettle();
+    await $.pumpAndTrySettle();
   }
   await $.tester.ensureVisible(target.first);
-  await $.pumpAndSettle();
+  // `pumpAndTrySettle`, not `pumpAndSettle`: tabs with a looping animation
+  // (the Jobs tab's telemetry indicator) never reach a settled frame, and
+  // pumpAndSettle would throw instead of scrolling.
+  await $.pumpAndTrySettle();
 }
 
-/// [revealInPrintTab] followed by a tap on the target.
-Future<void> tapInPrintTab(
+/// [revealInList] followed by a tap on the target.
+Future<void> tapInList(
   PatrolIntegrationTester $,
   PatrolFinder target,
 ) async {
-  await revealInPrintTab($, target);
+  await revealInList($, target);
   await target.first.tap();
 }

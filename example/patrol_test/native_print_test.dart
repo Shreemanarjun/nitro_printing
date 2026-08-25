@@ -7,7 +7,7 @@ import 'package:patrol/patrol.dart';
 
 import 'package:nitro_printing_example/main.dart' as app;
 
-import 'print_tab.dart';
+import 'scroll_helpers.dart';
 
 /// Patrol tests for the *native* printing paths of nitro_printing.
 ///
@@ -42,7 +42,7 @@ void main() {
 
   /// Brings [label] into view inside the Print tab and taps it.
   Future<void> tapPrintAction(PatrolIntegrationTester $, String label) async {
-    await tapInPrintTab($, $(label));
+    await tapInList($, $(label));
   }
 
   /// Scrolls back up to the result banner that the app inserts at the top of
@@ -51,7 +51,7 @@ void main() {
     PatrolIntegrationTester $,
     Pattern pattern,
   ) async {
-    await revealInPrintTab($, $(pattern), towardsTop: true);
+    await revealInList($, $(pattern), towardsTop: true);
     await $(pattern).first.waitUntilVisible();
   }
 

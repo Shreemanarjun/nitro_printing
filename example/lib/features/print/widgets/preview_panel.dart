@@ -197,12 +197,18 @@ class _PreviewPanelState extends State<PreviewPanel> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 else if (_renderedAt != null)
-                  Text(
-                    'rendered in ${_renderMs}ms',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.grey),
+                  // Flexible + ellipsis: on a phone-width layout the header
+                  // (label + timing + action icons) is wider than the card and
+                  // the row overflowed by ~17px.
+                  Flexible(
+                    child: Text(
+                      'rendered in ${_renderMs}ms',
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Colors.grey),
+                    ),
                   ),
                 const Spacer(),
                 IconButton(
