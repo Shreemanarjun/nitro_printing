@@ -51,7 +51,23 @@ void main() {
     PatrolIntegrationTester $,
     Pattern pattern,
   ) async {
-    await revealInList($, $(pattern), towardsTop: true);
+    try {
+      await revealInList($, $(pattern), towardsTop: true);
+    } catch (_) {
+      // Report the banner the app DID show — a wrong result reads as "never
+      // appeared", which is indistinguishable from a timeout without this.
+      final shown = find
+          .byWidgetPredicate((w) =>
+              w is Text &&
+              (w.data?.startsWith('Batch:') == true ||
+                  w.data?.startsWith('OK') == true ||
+                  w.data?.startsWith('Failed') == true ||
+                  w.data?.startsWith('Error') == true))
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .toList();
+      fail('expected banner $pattern; app showed: $shown');
+    }
     await $(pattern).first.waitUntilVisible();
   }
 

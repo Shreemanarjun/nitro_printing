@@ -20,6 +20,7 @@ Future<void> revealInList(
   PatrolFinder target, {
   bool towardsTop = false,
   int maxDrags = 25,
+  Duration waitTimeout = const Duration(seconds: 90),
 }) async {
   // The app keeps every tab alive in an IndexedStack, so only the hit-testable
   // scrollables belong to the visible tab — and `first` is the tab's own list:
@@ -36,7 +37,7 @@ Future<void> revealInList(
     // inserts its result banner once every document has been dispatched, and
     // pumpAndTrySettle does not wait for that. Give it time before deciding
     // the target will never appear.
-    await target.waitUntilExists(timeout: const Duration(seconds: 30));
+    await target.waitUntilExists(timeout: waitTimeout);
   }
   await $.tester.ensureVisible(target.first);
   // `pumpAndTrySettle`, not `pumpAndSettle`: tabs with a looping animation
