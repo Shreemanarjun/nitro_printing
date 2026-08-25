@@ -3,6 +3,7 @@ import '../../core/repositories/printer_repository.dart';
 import '../../core/signals.dart';
 import 'jobs_signals.dart';
 import 'widgets/action_button.dart';
+import 'widgets/last_job_card.dart';
 import 'widgets/event_terminal.dart';
 import 'widgets/listening_toggle.dart';
 import 'widgets/pulsing_dot.dart';
@@ -111,6 +112,9 @@ class _PrintJobsTabState extends State<PrintJobsTab> {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+
+              const LastJobCard(),
               const SizedBox(height: 24),
 
               Text(

@@ -4,7 +4,7 @@ description: >-
   Supports text, image, PDF, raw/ESC-POS/ZPL printing, print-job management,
   mDNS printer discovery, IPP status queries, and a built-in print-settings UI —
   all with zero method-channel overhead.
-version: 0.0.4
+version: 0.0.5
 homepage: https://github.com/Shreemanarjun/nitro_printing
 repository: https://github.com/Shreemanarjun/nitro_printing
 issue_tracker: https://github.com/Shreemanarjun/nitro_printing/issues
@@ -26,17 +26,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  nitro: ^0.5.11
+  nitro: ^0.7.2
   plugin_platform_interface: ^2.0.2
 
 dev_dependencies:
+  test: ^1.25.8
+  stream_channel: ^2.1.2
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   build_runner: ^2.4.0
-  nitro_generator: ^0.5.11
+  nitro_generator: ^0.7.2
 
 flutter:
+  assets:
+    - assets/web/
   plugin:
     platforms:
       android:

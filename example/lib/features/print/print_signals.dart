@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:nitro_printing/nitro_printing.dart' as p;
 import '../../core/repositories/printer_repository.dart';
@@ -16,6 +17,17 @@ void updatePrintSettings(p.PrintSettings s) => printSettings.value = s;
 
 Future<void> printTextAction(PrinterRepository repo, String text) =>
     _run(() => repo.printText(text, settings: printSettings.value));
+
+Future<void> printHtmlAction(PrinterRepository repo, String html) =>
+    _run(() => repo.printDocument(
+          p.PrintDocument(
+            id: 'html-${DateTime.now().millisecondsSinceEpoch}',
+            title: printSettings.value.jobName,
+            type: p.DocumentType.html,
+            data: Uint8List.fromList(utf8.encode(html)),
+          ),
+          settings: printSettings.value,
+        ));
 
 Future<void> printImageAction(PrinterRepository repo, Uint8List data) =>
     _run(() => repo.printImage(data, settings: printSettings.value));

@@ -1,5 +1,7 @@
 import 'package:nitro/nitro.dart';
 
+import 'nitro_printing.platform.g.dart';
+
 part 'nitro_printing.g.dart';
 
 @NitroModule(
@@ -8,9 +10,10 @@ part 'nitro_printing.g.dart';
   macos: NativeImpl.swift,
   windows: WindowsNativeImpl.cpp,
   linux: LinuxNativeImpl.cpp,
+  web: WebNativeImpl.wasm,
 )
 abstract class NitroPrinting extends HybridObject {
-  static final NitroPrinting instance = _NitroPrintingImpl();
+  static final NitroPrinting instance = createNitroPrintingInstance();
 
   // ── Synchronous quick-lookup (no I/O, sub-microsecond) ───────────────────
   bool isPrintingSupported();

@@ -7,6 +7,8 @@ import 'package:patrol/patrol.dart';
 
 import 'package:nitro_printing_example/main.dart' as app;
 
+import 'print_tab.dart';
+
 /// Patrol UI tests for the NitroPrinting example app.
 ///
 /// Run with:
@@ -180,18 +182,11 @@ void main() {
     await $('Document Printing Panel').waitUntilVisible();
 
     // System Dialog mode is the default; dispatch a text print job. This
-    // hands off to the Android print activity (native UI). The app keeps all
-    // tabs alive in an IndexedStack, so scroll the visible (hit-testable)
-    // scrollable instead of the default first-in-tree one. The settings
-    // column above the print actions is tall, so the default 15×64px scroll
-    // budget is not enough.
-    await $('Print Text')
-        .scrollTo(
-          view: find.byType(Scrollable).hitTestable(),
-          step: 300,
-          maxScrolls: 40,
-        )
-        .tap();
+    // hands off to the Android print activity (native UI). The print actions
+    // sit below the tall settings column, and the live preview's height
+    // changes while it renders — a drag loop races that and can overshoot to
+    // the bottom of the list, so scroll the element into view directly.
+    await tapInPrintTab($, $('Print Text'));
     await Future<void>.delayed(const Duration(seconds: 3));
 
     // Leave the native print dialog and verify the app is responsive again.

@@ -12,9 +12,8 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 # Invoke the build for native code shared with the other target platforms.
 # This can be changed to accommodate different builds.
 # The Linux implementation of HybridNitroPrinting (TCP socket transport +
-# registration) is the SHARED desktop source ../src/HybridNitroPrinting.cpp,
-# compiled into the `nitro_printing` target by ../src/CMakeLists.txt —
-# there is intentionally no Linux-local impl source here.
+# registration) is linux/src/HybridNitroPrinting.cpp, compiled into the
+# `nitro_printing` target by ../src/CMakeLists.txt via NITRO_IMPL_SRC_<lib>.
 set(NITRO_IMPL_SRC_nitro_printing "${CMAKE_CURRENT_SOURCE_DIR}/src/HybridNitroPrinting.cpp")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../src" "${CMAKE_CURRENT_BINARY_DIR}/shared")
 

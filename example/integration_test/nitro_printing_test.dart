@@ -71,10 +71,17 @@ final bool _autoDialog = !kIsWeb && Platform.isAndroid;
 /// Android/iOS are no-ops and Linux/Windows return false, so only skip macOS.
 final bool _opensOsUi = !kIsWeb && Platform.isMacOS;
 
+/// Error code for a raw print with no printerId: an empty id selects each
+/// platform's default raw transport — the OS printer natively, WebUSB on web.
+final String _noRawTargetCode = kIsWeb ? 'NO_USB_DEVICE' : 'NO_PRINTER';
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late NitroPrinting printing;
+
+  // Web: the WASM module instantiates asynchronously. No-op natively.
+  setUpAll(ensureNitroPrintingReady);
 
   setUp(() {
     printing = NitroPrinting.instance;
@@ -969,14 +976,19 @@ void main() {
     });
 
     test('testPrinterConnection with short timeout returns bool', () async {
-      // Probe a loopback port that is guaranteed closed (bind then release) —
-      // '0.0.0.0' is NOT reliably unreachable: Darwin routes it to loopback.
-      final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      final closedPort = probe.port;
-      await probe.close();
+      // Probe a port that is guaranteed closed. Natively: bind then release —
+      // '0.0.0.0' is NOT reliably unreachable, Darwin routes it to loopback.
+      // On web there is no ServerSocket; a bare IP needs Direct Sockets, which
+      // is unavailable outside an Isolated Web App, so the probe fails there.
+      var target = '127.0.0.1:9';
+      if (!kIsWeb) {
+        final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        target = '127.0.0.1:${probe.port}';
+        await probe.close();
+      }
 
       final result = await printing.testPrinterConnection(
-        '127.0.0.1:$closedPort',
+        target,
         timeoutSeconds: 2,
       );
       expect(result, isFalse);
@@ -1051,7 +1063,7 @@ void main() {
       final escPosData = Uint8List.fromList([0x1B, 0x40]); // ESC @
       final result = await printing.printEscPos(escPosData);
       expect(result.success, isFalse);
-      expect(result.errorCode, equals('NO_PRINTER'));
+      expect(result.errorCode, equals(_noRawTargetCode));
     });
 
     test('printEscPos() with unreachable printer fails gracefully', () async {
@@ -1078,7 +1090,7 @@ void main() {
     test('printZpl() with no printerId returns failed result', () async {
       final result = await printing.printZpl('^XA^XZ');
       expect(result.success, isFalse);
-      expect(result.errorCode, equals('NO_PRINTER'));
+      expect(result.errorCode, equals(_noRawTargetCode));
     });
 
     test('printZpl() with unreachable printer fails gracefully', () async {

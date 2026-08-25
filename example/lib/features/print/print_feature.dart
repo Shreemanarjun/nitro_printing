@@ -6,8 +6,10 @@ import '../../core/repositories/printer_repository.dart';
 import '../../core/signals.dart';
 import 'print_signals.dart';
 import 'widgets/batch_results_card.dart' as widgets;
+import 'widgets/decor_panel.dart' as widgets;
 import 'widgets/direct_print_info.dart' as widgets;
 import 'widgets/mode_switcher.dart' as widgets;
+import 'widgets/preview_panel.dart' as widgets;
 import 'widgets/print_button.dart' as widgets;
 import 'widgets/result_banner.dart' as widgets;
 import 'widgets/settings_panel.dart' as widgets;
@@ -28,34 +30,60 @@ class _PrintTabState extends State<PrintTab> {
   );
   final _jobCtrl = TextEditingController(text: 'Test Print');
   final _printerIdCtrl = TextEditingController();
+  final _headerCtrl = TextEditingController();
+  final _footerCtrl = TextEditingController();
 
   p.PaperSize _paperSize = p.PaperSize.a4;
   double _orientationDegrees = 0.0;
   p.PrintQuality _quality = p.PrintQuality.normal;
   bool _color = true;
   bool _duplex = false;
+  bool _collate = true;
+  bool _fitToPage = false;
   int _copies = 1;
   int _pagesPerSheet = 1;
+  p.MediaType _mediaType = p.MediaType.plain;
+  double _marginPt = 0.0;
+  int _pageFrom = 0;
+  int _pageTo = 0;
+  double _customWidth = 420.0;
+  double _customHeight = 595.0;
   bool _showDialog = true;
+  bool _isHtml = false;
 
   @override
   void dispose() {
     _textCtrl.dispose();
     _jobCtrl.dispose();
     _printerIdCtrl.dispose();
+    _headerCtrl.dispose();
+    _footerCtrl.dispose();
     super.dispose();
   }
 
   p.PrintSettings _build() => p.PrintSettings(
     jobName: _jobCtrl.text,
+    headerText: _headerCtrl.text,
+    footerText: _footerCtrl.text,
     printerId: _printerIdCtrl.text.trim(),
     paperSize: _paperSize,
     orientationDegrees: _orientationDegrees,
     quality: _quality,
     color: _color,
     duplex: _duplex,
+    collate: _collate,
+    fitToPage: _fitToPage,
     copies: _copies,
     pagesPerSheet: _pagesPerSheet,
+    mediaType: _mediaType,
+    marginTop: _marginPt,
+    marginBottom: _marginPt,
+    marginLeft: _marginPt,
+    marginRight: _marginPt,
+    pageRangeFrom: _pageFrom,
+    pageRangeTo: _pageTo,
+    customPaperWidth: _customWidth,
+    customPaperHeight: _customHeight,
     showPrintDialog: _showDialog,
   );
 
@@ -133,16 +161,32 @@ class _PrintTabState extends State<PrintTab> {
                 quality: _quality,
                 color: _color,
                 duplex: _duplex,
+                collate: _collate,
+                fitToPage: _fitToPage,
                 copies: _copies,
                 pagesPerSheet: _pagesPerSheet,
+                mediaType: _mediaType,
+                marginPt: _marginPt,
+                pageFrom: _pageFrom,
+                pageTo: _pageTo,
+                customWidth: _customWidth,
+                customHeight: _customHeight,
                 onPaperSize: (v) => setState(() => _paperSize = v),
                 onOrientationDegrees: (v) =>
                     setState(() => _orientationDegrees = v),
                 onQuality: (v) => setState(() => _quality = v),
                 onColor: (v) => setState(() => _color = v),
                 onDuplex: (v) => setState(() => _duplex = v),
+                onCollate: (v) => setState(() => _collate = v),
+                onFitToPage: (v) => setState(() => _fitToPage = v),
                 onCopies: (v) => setState(() => _copies = v),
                 onPagesPerSheet: (v) => setState(() => _pagesPerSheet = v),
+                onMediaType: (v) => setState(() => _mediaType = v),
+                onMarginPt: (v) => setState(() => _marginPt = v),
+                onPageFrom: (v) => setState(() => _pageFrom = v),
+                onPageTo: (v) => setState(() => _pageTo = v),
+                onCustomWidth: (v) => setState(() => _customWidth = v),
+                onCustomHeight: (v) => setState(() => _customHeight = v),
               ),
             ],
           );
@@ -160,14 +204,61 @@ class _PrintTabState extends State<PrintTab> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: false,
+                            label: Text('Plain Text'),
+                            icon: Icon(Icons.text_snippet_rounded, size: 16),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            label: Text('HTML'),
+                            icon: Icon(Icons.code_rounded, size: 16),
+                          ),
+                        ],
+                        selected: {_isHtml},
+                        onSelectionChanged: (v) =>
+                            setState(() => _isHtml = v.first),
+                      ),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _textCtrl,
                         maxLines: 5,
-                        decoration: const InputDecoration(
-                          labelText: 'Print Text Content',
-                          hintText: 'Enter text here...',
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          labelText: _isHtml
+                              ? 'HTML Body Content'
+                              : 'Print Text Content',
+                          hintText: _isHtml
+                              ? '<h1>Invoice</h1><p>Hello <b>world</b></p>'
+                              : 'Enter text here...',
                           alignLabelWithHint: true,
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _headerCtrl,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                labelText: 'Header Text',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _footerCtrl,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                labelText: 'Footer Text',
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -181,6 +272,9 @@ class _PrintTabState extends State<PrintTab> {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+
+              widgets.DecorPanel(),
               const SizedBox(height: 24),
 
               Text(
@@ -204,15 +298,17 @@ class _PrintTabState extends State<PrintTab> {
                         runSpacing: 8,
                         children: [
                           widgets.PrintButton(
-                            label: 'Print Text',
-                            icon: Icons.text_snippet_rounded,
+                            label: _isHtml ? 'Print HTML' : 'Print Text',
+                            icon: _isHtml
+                                ? Icons.code_rounded
+                                : Icons.text_snippet_rounded,
                             loading: loading,
                             onPressed: () async {
                               updatePrintSettings(_build());
-                              await printTextAction(
-                                widget.repo,
-                                _textCtrl.text,
-                              );
+                              await (_isHtml
+                                  ? printHtmlAction(widget.repo, _textCtrl.text)
+                                  : printTextAction(
+                                      widget.repo, _textCtrl.text));
                             },
                           ),
                           widgets.PrintButton(
@@ -280,42 +376,87 @@ class _PrintTabState extends State<PrintTab> {
             ],
           );
 
+          final banners = <Widget>[
+            if (result != null) widgets.ResultBanner(result: result),
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 20),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    backgroundColor: Color(0xFF1E293B),
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+              ),
+            if (batch != null) ...[
+              widgets.BatchResultsCard(results: batch),
+              const SizedBox(height: 20),
+            ],
+          ];
+
+          if (isWide) {
+            // Configuration scrolls on the LEFT; the preview owns the full
+            // RIGHT pane height and stays put while settings scroll.
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...banners,
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 11,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                settingsColumn,
+                                const SizedBox(height: 24),
+                                contentColumn,
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          flex: 9,
+                          child: widgets.PreviewPanel(
+                            text: _textCtrl.text,
+                            settings: _build(),
+                            isHtml: _isHtml,
+                            fillHeight: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
           return ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              // Result and loading indicators
-              if (result != null) widgets.ResultBanner(result: result),
-              if (loading)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 20),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.all(Radius.circular(4)),
-                    child: LinearProgressIndicator(
-                      minHeight: 3,
-                      backgroundColor: Color(0xFF1E293B),
-                      color: Color(0xFF6366F1),
-                    ),
-                  ),
-                ),
-              if (batch != null) ...[
-                widgets.BatchResultsCard(results: batch),
-                const SizedBox(height: 20),
-              ],
+              ...banners,
+              settingsColumn,
+              const SizedBox(height: 24),
+              contentColumn,
 
-              if (isWide)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: settingsColumn),
-                    const SizedBox(width: 24),
-                    Expanded(child: contentColumn),
-                  ],
-                )
-              else ...[
-                settingsColumn,
-                const SizedBox(height: 24),
-                contentColumn,
-              ],
+              // Live preview below the configuration on narrow layouts.
+              const SizedBox(height: 32),
+              widgets.PreviewPanel(
+                text: _textCtrl.text,
+                settings: _build(),
+                isHtml: _isHtml,
+              ),
               const SizedBox(height: 48),
             ],
           );

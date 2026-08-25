@@ -30,6 +30,12 @@ import 'package:nitro_printing/nitro_printing.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  if (kIsWeb) {
+    test('native transport suite', () {},
+        skip: 'loopback fake printers need dart:io sockets — native only');
+    return;
+  }
+
   late NitroPrinting printing;
 
   setUp(() => printing = NitroPrinting.instance);

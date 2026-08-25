@@ -28,6 +28,53 @@ jobs:
         working-directory: example
       - run: flutter analyze lib example/lib example/integration_test example/patrol_test
 
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Unit tests with coverage
+        run: flutter test --coverage test/print_error_catalog_test.dart
+      - name: Coverage gate
+        run: bash tool/check_coverage.sh 85
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: warn
+
+  web:
+    name: Web (WASM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      # The wasm module is committed under assets/web/, so this needs no emsdk.
+      # Both compilers: the JS and WASM Dart backends marshal differently.
+      - name: Browser suite (dart2js)
+        run: flutter pub run test -p chrome test/nitro_printing_web_test.dart
+      - name: Browser suite (dart2wasm)
+        run: flutter pub run test -p chrome -c dart2wasm test/nitro_printing_web_test.dart
+      - name: Build example for web
+        run: flutter build web
+        working-directory: example
+
   android:
     name: Android (API 34 emulator)
     runs-on: ubuntu-latest
@@ -67,7 +114,9 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            dart pub global activate patrol_cli
+            # Pinned: patrol_cli must match `patrol` in example/pubspec.yaml,
+            # or it refuses to run (CI failed exactly this way in July).
+            dart pub global activate patrol_cli 4.7.0
             cd example && patrol test -d emulator-5554
 
   ios:
@@ -116,7 +165,7 @@ jobs:
       - name: Patrol suites
         env: { UDID: '${{ steps.sim.outputs.udid }}' }
         run: |
-          dart pub global activate patrol_cli
+          dart pub global activate patrol_cli 4.7.0
           (cd ios && pod install)
           set +e
           patrol test -d "$UDID" --verbose 2>&1 | tee patrol.log

@@ -7,6 +7,8 @@ import 'package:patrol/patrol.dart';
 
 import 'package:nitro_printing_example/main.dart' as app;
 
+import 'print_tab.dart';
+
 /// Patrol tests verifying that the *native Android print dialog* is opened
 /// with exactly the configuration selected in the app.
 ///
@@ -38,14 +40,9 @@ void main() {
     await $('Document Printing Panel').waitUntilVisible();
   }
 
+  /// Brings [label] into view inside the Print tab and taps it.
   Future<void> scrollToAndTap(PatrolIntegrationTester $, String label) async {
-    await $(label)
-        .scrollTo(
-          view: find.byType(Scrollable).hitTestable(),
-          step: 300,
-          maxScrolls: 40,
-        )
-        .tap();
+    await tapInPrintTab($, $(label));
   }
 
   Future<void> selectDropdownOption(
@@ -162,11 +159,7 @@ void main() {
       await selectDropdownOption($, 'Portrait', 'Landscape');
       // First switch in the settings panel is "Full Color Output" — turn it
       // off to request monochrome.
-      await $('Full Color Output').scrollTo(
-        view: find.byType(Scrollable).hitTestable(),
-        step: 300,
-        maxScrolls: 40,
-      );
+      await revealInPrintTab($, $('Full Color Output'));
       await $(Switch).at(0).tap();
       await $.pumpAndSettle();
 

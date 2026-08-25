@@ -7,6 +7,8 @@ import 'package:patrol/patrol.dart';
 
 import 'package:nitro_printing_example/main.dart' as app;
 
+import 'print_tab.dart';
+
 /// Patrol tests for the *native* printing paths of nitro_printing.
 ///
 /// Covers:
@@ -38,18 +40,9 @@ void main() {
     await $('Document Printing Panel').waitUntilVisible();
   }
 
-  /// Scrolls the Print tab's (visible) list far enough to reach the print
-  /// action buttons, which sit below the tall settings column. The app keeps
-  /// all tabs alive in an IndexedStack, so only the hit-testable scrollable
-  /// may be dragged.
+  /// Brings [label] into view inside the Print tab and taps it.
   Future<void> tapPrintAction(PatrolIntegrationTester $, String label) async {
-    await $(label)
-        .scrollTo(
-          view: find.byType(Scrollable).hitTestable(),
-          step: 300,
-          maxScrolls: 40,
-        )
-        .tap();
+    await tapInPrintTab($, $(label));
   }
 
   /// Scrolls back up to the result banner that the app inserts at the top of
@@ -58,13 +51,8 @@ void main() {
     PatrolIntegrationTester $,
     Pattern pattern,
   ) async {
-    // scrollTo itself fails if the pattern never becomes visible.
-    await $(pattern).scrollTo(
-      view: find.byType(Scrollable).hitTestable(),
-      scrollDirection: AxisDirection.up,
-      step: 300,
-      maxScrolls: 40,
-    );
+    await revealInPrintTab($, $(pattern), towardsTop: true);
+    await $(pattern).first.waitUntilVisible();
   }
 
   /// Taps the first native view matching any of [candidates] — system UI
