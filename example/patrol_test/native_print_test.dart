@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 
+import 'package:nitro_printing_example/features/print/print_signals.dart'
+    as signals;
 import 'package:nitro_printing_example/main.dart' as app;
 
 import 'scroll_helpers.dart';
@@ -63,7 +65,18 @@ void main() {
         for (final e in find.byType(EditableText).evaluate())
           (e.widget as EditableText).controller.text,
       ].where((t) => t.trim().isNotEmpty).toList();
-      fail('expected banner $pattern; screen showed: $shown');
+      // The app's own state pins down which of the three possibilities it is:
+      // the action never started (loading false, result null), it is still
+      // running (loading true), or it produced a different result.
+      final st = signals.printSettings.value;
+      fail(
+        'expected banner $pattern\n'
+        '  printLoading: ${signals.printLoading.value}\n'
+        '  printResult: ${signals.printResult.value}\n'
+        '  batchResults: ${signals.batchResults.value?.map((r) => "${r.success}/${r.errorCode}").toList()}\n'
+        '  showPrintDialog: ${st.showPrintDialog}  printerId: "${st.printerId}"\n'
+        '  screen showed: $shown',
+      );
     }
     await $(pattern).first.waitUntilVisible();
   }
