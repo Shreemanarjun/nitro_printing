@@ -31,6 +31,13 @@ Future<void> revealInList(
     await $.tester.drag(view, step);
     await $.pumpAndTrySettle();
   }
+  if (target.evaluate().isEmpty) {
+    // Not built yet because it has not been produced yet: a batch print only
+    // inserts its result banner once every document has been dispatched, and
+    // pumpAndTrySettle does not wait for that. Give it time before deciding
+    // the target will never appear.
+    await target.waitUntilExists(timeout: const Duration(seconds: 30));
+  }
   await $.tester.ensureVisible(target.first);
   // `pumpAndTrySettle`, not `pumpAndSettle`: tabs with a looping animation
   // (the Jobs tab's telemetry indicator) never reach a settled frame, and
