@@ -7,7 +7,7 @@ import 'package:patrol/patrol.dart';
 
 import 'package:nitro_printing_example/main.dart' as app;
 
-import 'print_tab.dart';
+import 'scroll_helpers.dart';
 
 /// Patrol UI tests for the NitroPrinting example app.
 ///
@@ -158,14 +158,15 @@ void main() {
     await $('TOTAL SPOOLED JOBS').waitUntilVisible();
     expect($(RegExp(r'\d+ Active Spool\(s\)')), findsOneWidget);
 
-    // Telemetry feed toggles on…
+    // Telemetry feed toggles on… (the spool-count card pushes these buttons
+    // below the fold on a phone-sized screen, so reveal before tapping).
     expect($('Telemetry Feed Idle'), findsOneWidget);
-    await $('Launch Feed').tap();
+    await tapInList($, $('Launch Feed'));
     await $('Telemetry Feed Active').waitUntilVisible();
     expect($('Kill Feed'), findsOneWidget);
 
     // …and off again.
-    await $('Kill Feed').tap();
+    await tapInList($, $('Kill Feed'));
     await $('Telemetry Feed Idle').waitUntilVisible();
   });
 
@@ -186,7 +187,7 @@ void main() {
     // sit below the tall settings column, and the live preview's height
     // changes while it renders — a drag loop races that and can overshoot to
     // the bottom of the list, so scroll the element into view directly.
-    await tapInPrintTab($, $('Print Text'));
+    await tapInList($, $('Print Text'));
     await Future<void>.delayed(const Duration(seconds: 3));
 
     // Leave the native print dialog and verify the app is responsive again.

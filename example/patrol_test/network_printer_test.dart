@@ -11,7 +11,7 @@ import 'package:patrol/patrol.dart';
 import 'package:nitro_printing/nitro_printing.dart' as np;
 import 'package:nitro_printing_example/main.dart' as app;
 
-import 'print_tab.dart';
+import 'scroll_helpers.dart';
 
 /// Patrol tests that verify the printer configuration selected in the app is
 /// exactly what the native layer transmits, using fake network printers that
@@ -72,7 +72,7 @@ void main() {
 
   /// Brings [label] into view inside the Print tab and taps it.
   Future<void> scrollToAndTap(PatrolIntegrationTester $, String label) async {
-    await tapInPrintTab($, $(label));
+    await tapInList($, $(label));
   }
 
   /// Scrolls the Raw tab's per-tab vertical scrollable (keyed
@@ -110,7 +110,7 @@ void main() {
     PatrolIntegrationTester $,
     Pattern pattern,
   ) async {
-    await revealInPrintTab($, $(pattern), towardsTop: true);
+    await revealInList($, $(pattern), towardsTop: true);
     await $(pattern).first.waitUntilVisible();
   }
 
