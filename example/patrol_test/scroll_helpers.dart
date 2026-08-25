@@ -27,10 +27,20 @@ Future<void> revealInList(
   // text fields carry their own Scrollable, so Direct Dispatch mode (which adds
   // the routing field) matches more than one.
   final view = find.byType(Scrollable).hitTestable().first;
-  final step = Offset(0, towardsTop ? 300 : -300);
-  for (var i = 0; i < maxDrags && target.evaluate().isEmpty; i++) {
-    await $.tester.drag(view, step);
+  if (towardsTop) {
+    // Jump instead of dragging. The result banner is index 0 of a lazy list,
+    // so it is only built once the viewport is actually back at the top — and
+    // a drag started from the scrollable's centre can be swallowed by a
+    // nested scrollable (the multi-line content field, whichever widget the
+    // centre lands on at this screen size), leaving the list where it was.
+    $.tester.state<ScrollableState>(view).position.jumpTo(0);
     await $.pumpAndTrySettle();
+  } else {
+    final step = const Offset(0, -300);
+    for (var i = 0; i < maxDrags && target.evaluate().isEmpty; i++) {
+      await $.tester.drag(view, step);
+      await $.pumpAndTrySettle();
+    }
   }
   if (target.evaluate().isEmpty) {
     // Not built yet because it has not been produced yet: a batch print only
