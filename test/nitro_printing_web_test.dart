@@ -26,6 +26,8 @@
 library;
 
 import 'dart:async';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:nitro/nitro.dart';
 import 'package:test/test.dart';
@@ -1445,6 +1447,293 @@ void main() {
           timeoutSeconds: 1);
       final d = (detail as NitroOk<PrinterStatusDetail>).value;
       expect(d.hasPaperJam, isTrue);
+    });
+  });
+
+  // ── Module instance lifecycle ─────────────────────────────────────────────
+  // Flutter hot restart keeps globalThis but rebuilds the WASM module. Helpers
+  // a previous instance parked on globalThis close over ITS heap and
+  // wasmExports, so reusing them lands out of bounds (getPrintJobsCount threw
+  // "memory access out of bounds") and posts reach the dead instance, leaving
+  // Dart futures hanging. The generated bridge exports
+  // nitro_web_instance_changed(); the web impl rebuilds its helpers on it.
+  group('module instance lifecycle', () {
+    test('helpers are stamped to the live instance', () async {
+      // Helpers are built lazily on the first EM_JS call, so make one rather
+      // than depending on an earlier test having run.
+      await p.getPrintJobsCount();
+      // The registry now names this lib and the helper object carries the
+      // dispose hook a later instance calls.
+      final reg = globalContext.getProperty('__nitroInstances'.toJS) as JSObject?;
+      expect(reg, isNotNull, reason: 'bridge did not install the registry');
+      expect(reg!.getProperty('nitro_printing'.toJS), isNotNull,
+          reason: 'this lib never claimed an instance');
+
+      final helpers = globalContext.getProperty('__nitroWeb'.toJS) as JSObject?;
+      expect(helpers, isNotNull, reason: 'web helpers were never built');
+      expect(helpers!.getProperty('__nitroDispose'.toJS), isNotNull,
+          reason: 'no dispose hook — a later instance cannot release timers');
+    });
+
+    test('a second claim from the same instance is a no-op', () async {
+      // dart2wasm hands out a fresh Dart wrapper per JS access, so identity is
+      // tracked with a tag on the JS object rather than `identical`.
+      await p.getPrintJobsCount(); // ensure helpers exist for this instance
+      final before = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      before.setProperty('__testTag'.toJS, 'keep'.toJS);
+      // Any call re-enters js_ensure_helpers; the same instance must keep the
+      // SAME helper object, or every call would rebuild the job cache.
+      await p.getPrintJobsCount();
+      await p.getPrintJobsCount();
+      final after = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      expect((after.getProperty('__testTag'.toJS) as JSString?)?.toDart, 'keep',
+          reason: 'helpers were rebuilt mid-instance — job state would reset');
+    });
+
+    test('each Dart instance gets its own C++ object', () {
+      // Legacy behaviour collapsed every key onto slot 0: create_instance
+      // ignored the key and returned 0 forever, so two instances shared all
+      // state. With the factory registered, each call builds its own
+      // Hybrid<Class> and gets a distinct id, as on the JNI path.
+      final a = createNitroPrintingInstance('printer-a');
+      final b = createNitroPrintingInstance('printer-b');
+      // Deliberately NOT disposed: disposing one instance releases the shared
+      // module for every other instance (the lib refcount drops to zero), which
+      // breaks the suite's own handle. Tracked separately from this test.
+      expect(a, isNot(same(b)));
+      // Both must answer independently rather than one shadowing the other.
+      expect(a.isPrintingSupported(), isTrue);
+      expect(b.isPrintingSupported(), isTrue);
+    });
+
+    test('disposing one instance leaves the others working', () async {
+      // The API must behave like the native ones: instances are independent,
+      // so tearing one down cannot take the module (or another instance) with
+      // it. Uses fresh keys so the suite's own handle is never the one closed.
+      final a = createNitroPrintingInstance('stability-a');
+      final b = createNitroPrintingInstance('stability-b');
+      expect(await a.getPrintJobsCount(), isA<int>());
+      expect(await b.getPrintJobsCount(), isA<int>());
+
+      a.dispose();
+
+      // b and the suite-wide instance must both survive a's teardown.
+      expect(await b.getPrintJobsCount(), isA<int>(),
+          reason: 'disposing a sibling broke this instance');
+      expect(await p.getPrintJobsCount(), isA<int>(),
+          reason: 'disposing an instance broke the shared module');
+      b.dispose();
+      expect(await p.getPrintJobsCount(), isA<int>(),
+          reason: 'module was evicted once the extra instances went away');
+    });
+
+    test('a disposed instance rejects calls instead of hitting another', () {
+      final c = createNitroPrintingInstance('stability-c');
+      c.dispose();
+      // Must fail loudly, not silently resolve to a surviving instance.
+      expect(() => c.isPrintingSupported(), throwsA(isA<StateError>()));
+    });
+
+    test('job history is bounded and never drops an in-flight job', () async {
+      // One record was appended per print and never released, so a
+      // long-running page grew this array without limit. Android reads the OS
+      // queue and macOS tracks nothing, so only web needed a cap.
+      await p.getPrintJobsCount(); // build helpers
+      // Caches are per instance now; the suite's handle uses the default key.
+      final root = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      final byKey = root.getProperty('byKey'.toJS) as JSObject;
+      final w = byKey.getProperty('default'.toJS) as JSObject;
+      final cache = w.getProperty('cache'.toJS) as JSObject;
+      final max = (w.getProperty('kMaxJobs'.toJS) as JSNumber).toDartInt;
+
+      final jobs = cache.getProperty('jobs'.toJS) as JSArray;
+      final startLen = (jobs.getProperty('length'.toJS) as JSNumber).toDartInt;
+
+      // A running job pinned by a port must survive eviction.
+      final live = JSObject()
+        ..setProperty('id'.toJS, 'live-job'.toJS)
+        ..setProperty('state'.toJS, 1.toJS);
+      (jobs.getProperty('push'.toJS) as JSFunction)
+          .callAsFunction(jobs, live);
+      final byPort = w.getProperty('jobsByPort'.toJS) as JSObject;
+      (byPort.getProperty('set'.toJS) as JSFunction)
+          .callAsFunction(byPort, (-999).toJS, live);
+
+      // Overflow the cap with finished jobs.
+      for (var i = 0; i < max + 50 - startLen; i++) {
+        final rec = JSObject()
+          ..setProperty('id'.toJS, 'done-$i'.toJS)
+          ..setProperty('state'.toJS, 2.toJS);
+        (jobs.getProperty('push'.toJS) as JSFunction)
+            .callAsFunction(jobs, rec);
+      }
+      // Go through the REAL path: newJob() is what every print calls, so this
+      // proves the trim is wired in, not merely that trimJobs() works.
+      (w.getProperty('newJob'.toJS) as JSFunction)
+          .callAsFunction(w, (-12345).toJS, ''.toJS, 'cap-probe'.toJS);
+
+      final after = cache.getProperty('jobs'.toJS) as JSArray;
+      final len = (after.getProperty('length'.toJS) as JSNumber).toDartInt;
+      expect(len, lessThanOrEqualTo(max),
+          reason: 'job history grew past the cap — unbounded memory');
+
+      final ids = <String>[];
+      for (var i = 0; i < len; i++) {
+        final r = after.getProperty(i.toString().toJS) as JSObject;
+        ids.add((r.getProperty('id'.toJS) as JSString).toDart);
+      }
+      expect(ids, contains('live-job'),
+          reason: 'evicted a job that was still running');
+
+      // Put the cache back so later tests see a clean history.
+      (byPort.getProperty('delete'.toJS) as JSFunction)
+          .callAsFunction(byPort, (-999).toJS);
+      (byPort.getProperty('delete'.toJS) as JSFunction)
+          .callAsFunction(byPort, (-12345).toJS);
+      cache.setProperty('jobs'.toJS, JSArray());
+    });
+
+    test('instances do not share JS helper state', () async {
+      // The whole point of per-instance modules: one instance's printer/job
+      // caches, agent socket and status poll must not be another's. These all
+      // lived on a single globalThis.__nitroWeb before.
+      final a = createNitroPrintingInstance('isolation-a');
+      final b = createNitroPrintingInstance('isolation-b');
+      await a.getPrintJobsCount();
+      await b.getPrintJobsCount();
+
+      final root = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      final byKey = root.getProperty('byKey'.toJS) as JSObject;
+      final wa = byKey.getProperty('isolation-a'.toJS) as JSObject?;
+      final wb = byKey.getProperty('isolation-b'.toJS) as JSObject?;
+      expect(wa, isNotNull, reason: 'instance a never got its own helpers');
+      expect(wb, isNotNull, reason: 'instance b never got its own helpers');
+
+      // Distinct state objects, each stamped with its own key.
+      expect((wa!.getProperty('key'.toJS) as JSString).toDart, 'isolation-a');
+      expect((wb!.getProperty('key'.toJS) as JSString).toDart, 'isolation-b');
+
+      // Mutating a's job cache must leave b's untouched.
+      final ca = wa.getProperty('cache'.toJS) as JSObject;
+      final cb = wb.getProperty('cache'.toJS) as JSObject;
+      final ja = ca.getProperty('jobs'.toJS) as JSArray;
+      final jb = cb.getProperty('jobs'.toJS) as JSArray;
+      final bBefore = (jb.getProperty('length'.toJS) as JSNumber).toDartInt;
+      (ja.getProperty('push'.toJS) as JSFunction).callAsFunction(ja, JSObject());
+      final bAfter = (jb.getProperty('length'.toJS) as JSNumber).toDartInt;
+      expect(bAfter, bBefore,
+          reason: "instance a's job cache is shared with b");
+
+      // Dropping a releases only a's helpers.
+      (root.getProperty('drop'.toJS) as JSFunction)
+          .callAsFunction(root, 'isolation-a'.toJS);
+      expect(byKey.getProperty('isolation-a'.toJS), isNull);
+      expect(byKey.getProperty('isolation-b'.toJS), isNotNull,
+          reason: "dropping one instance's helpers took another's");
+      expect(await b.getPrintJobsCount(), isA<int>());
+    });
+
+    test('disposing an instance releases its JS state', () async {
+      // Per-instance helpers would otherwise accumulate for the life of the
+      // page, each holding a status-poll timer and an agent socket.
+      final d = createNitroPrintingInstance('leak-check');
+      await d.getPrintJobsCount(); // force its helpers into existence
+
+      final root = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      final byKey = root.getProperty('byKey'.toJS) as JSObject;
+      expect(byKey.getProperty('leak-check'.toJS), isNotNull,
+          reason: 'instance never built its helpers');
+
+      d.dispose();
+
+      expect(byKey.getProperty('leak-check'.toJS), isNull,
+          reason: 'disposed instance left its JS state behind');
+    });
+
+    test('stream events reach only the instance that produced them', () async {
+      // The port registry was global, so every subscriber saw every instance's
+      // events. A stream belongs to the Hybrid<Class> that emits it.
+      final a = createNitroPrintingInstance('stream-a');
+      final b = createNitroPrintingInstance('stream-b');
+
+      final aSeen = <PrintJobUpdate>[];
+      final bSeen = <PrintJobUpdate>[];
+      final subA = a.onPrintJobChanged().listen(aSeen.add);
+      final subB = b.onPrintJobChanged().listen(bSeen.add);
+
+      // Print on a only.
+      final r = await a.printRaw(
+        Uint8List.fromList([1, 2, 3]),
+        settings: PrintSettings(printerId: 'ws://localhost:$serverPort/raw'),
+      );
+      expect(r.success, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await subA.cancel();
+      await subB.cancel();
+
+      expect(aSeen.where((u) => u.jobId == r.jobId), isNotEmpty,
+          reason: "the printing instance's own subscriber got nothing");
+      expect(bSeen.where((u) => u.jobId == r.jobId), isEmpty,
+          reason: "another instance's subscriber saw this job");
+    });
+
+    test('JPEG encoding runs on a worker, not the main thread', () async {
+      // Per A4 page at 150dpi the encode is ~12ms of ~20ms raster cost. Doing
+      // it inline blocked the main thread for every page; the pool moves it
+      // off and lets pages encode in parallel.
+      await p.getPrintJobsCount(); // build helpers
+      final root = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+
+      await p.renderPreview(PrintDocument(
+        id: 'w', title: 't', type: DocumentType.plainText,
+        data: Uint8List.fromList(('line of text\n' * 300).codeUnits)));
+
+      final pool = root.getProperty('pool'.toJS) as JSObject;
+      final dead = pool.getProperty('dead'.toJS).dartify() == true;
+      final workers = pool.getProperty('workers'.toJS) as JSArray;
+      final count = (workers.getProperty('length'.toJS) as JSNumber).toDartInt;
+      final seq = (pool.getProperty('seq'.toJS) as JSNumber).toDartInt;
+
+      // A browser without Worker/CSP-blocked falls back inline — that path is
+      // still correct, so only assert the offload when the pool is alive.
+      if (!dead) {
+        expect(count, greaterThan(0), reason: 'no worker was ever started');
+        expect(seq, greaterThan(0), reason: 'no page was encoded on a worker');
+      }
+    });
+
+    test('stale helpers from a dead instance are replaced, not reused',
+        () async {
+      // Simulate what hot restart leaves behind: an object belonging to some
+      // other module instance, with a dispose hook that must be called.
+      await p.getPrintJobsCount(); // ensure helpers exist for this instance
+      final live = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      var disposed = false;
+      final stale = JSObject();
+      stale.setProperty('__staleTag'.toJS, 'stale'.toJS);
+      stale.setProperty('__nitroDispose'.toJS,
+          (() => disposed = true).toJS);
+      globalContext.setProperty('__nitroWeb'.toJS, stale);
+      // Point the registry at a foreign instance so the next call sees a change.
+      final reg = globalContext.getProperty('__nitroInstances'.toJS) as JSObject;
+      final realExports = reg.getProperty('nitro_printing'.toJS);
+      reg.setProperty('nitro_printing'.toJS, JSObject());
+
+      // A real call must rebuild rather than call through the stale object.
+      final count = await p.getPrintJobsCount();
+      expect(count, isA<int>(),
+          reason: 'call through rebuilt helpers should succeed');
+
+      expect(disposed, isTrue,
+          reason: 'previous instance was never disposed — its timers live on');
+      final rebuilt = globalContext.getProperty('__nitroWeb'.toJS) as JSObject;
+      expect(rebuilt.getProperty('__staleTag'.toJS), isNull,
+          reason: 'stale helpers were reused — calls hit a dead heap');
+      expect(rebuilt.getProperty('__nitroDispose'.toJS), isNotNull);
+
+      // Leave the registry as we found it for the rest of the suite.
+      reg.setProperty('nitro_printing'.toJS, realExports);
+      expect(live, isNotNull);
     });
   });
 }

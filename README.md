@@ -4,9 +4,11 @@
 [![Platform](https://img.shields.io/badge/platform-android%20%7C%20ios%20%7C%20macos%20%7C%20windows%20%7C%20linux%20%7C%20web-blue)](https://pub.dev/packages/nitro_printing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**[Live demo (web)](https://printing.shreeman.dev/)** — the example app running on WASM.
+
 A Flutter printing plugin built on the [Nitrogen SDK](https://github.com/Shreemanarjun/nitro_ecosystem)
 (a Flutter port of [React Native Nitro Modules](https://nitro.margelo.com)): native calls go through
-Dart FFI instead of method channels. Docs: https://nitro.shreeman.dev
+Dart FFI instead of method channels. Docs: https://nitro.shreeman.dev — demo: https://printing.shreeman.dev
 
 ---
 

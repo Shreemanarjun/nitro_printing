@@ -2,30 +2,40 @@
 
 ### Added
 
-- **Web (WASM) platform support**: the same C++ implementation compiled with Emscripten, feature-detected at runtime. Dialog printing (text/HTML/image/PDF) applies `PrintSettings` to the document itself — paper size/orientation/margins via CSS `@page`, copies (collated or uncollated), grayscale, headers/footers, page ranges, N-up layout, job name. `printToFile` downloads a rendered PDF; `printFile` fetches and prints `http(s)`/`data:`/`blob:` URLs.
-- **Web raw transports**, routed by `PrintSettings.printerId` scheme: WebUSB (`usb:`), Web Serial (`serial:[baud]`), Web Bluetooth (`ble:[name]`), WebSocket relay (`ws://`), and Direct Sockets TCP in Isolated Web Apps (`socket://`/bare IP). ESC/POS text is CP437-translated; images raster to `GS v 0`.
-- **QZ Tray transport (`qz:`)**: silent raw and PDF printing through the [QZ Tray](https://github.com/qzind/tray) local agent with spool-confirmed results, printer enumeration, and OS printer status streamed onto `onPrinterStatusChanged`.
-- **Nitro Print Agent (`agent:`)**: a first-party local agent app (`agent/`) that embeds this plugin's own native backends behind a localhost WebSocket — silent text/image/PDF/raw printing to any OS printer from the web, with native job ids, live printer status, and job lifecycle events. Configure with `WebPrintAgent.configure(agentEndpoint:)`.
-- **Web Printing API and mDNS (Isolated Web Apps, Chrome 147+)**: system printer enumeration with full IPP capabilities and state reasons, silent PDF jobs with page-progress tracking and IPP template attributes (copies, duplex, color, quality, orientation, media, page ranges, collation, number-up, print-scaling), and one-shot mDNS printer discovery over Direct Sockets UDP.
-- **Page-accurate preview**: `renderPreview` rasters the same page pipeline the dialog prints, so copies, pages-per-sheet, grayscale, and decoration are visible in the preview. PDF documents support `pageRange` extraction in wasm; `getPageCount` walks PDF page trees; HTML documents rasterize to multi-page PDFs.
-- **Job tracking and typed status on web**: every print (dialog, raw, batch, agent) is a tracked job with `onPrintJobChanged` events. New `PrintErrorCode` catalog (`PrintResult.errorKind`), `PrintOutcome` (`printed` only on verified delivery; `dialogShown` for browser dialogs, which cannot reveal Print-vs-Cancel), `dialogDurationMs`/`dialogGuess` heuristics, `PrintOutcomeConfirmation.markJobOutcome` to settle dialog outcomes, `PrintJob.failureReason` (paper out, jam, cover open, …), `lastPrintJob()`, and `resumePrintJob` re-dispatching a finished raw job's payload.
-- **`WebPrintDecor`**: per-page background graphics (watermark/letterhead) and rich HTML header/footer for the web dialog and preview flows.
+- Web (WASM) support: the same C++ core compiled with Emscripten, feature-detected at runtime. Dialog printing (text/HTML/image/PDF) applies `PrintSettings` via CSS `@page` — paper size, orientation, margins, copies (collated or not), grayscale, header/footer, page ranges, N-up, job name. `printToFile` downloads a PDF; `printFile` prints `http(s)`/`data:`/`blob:` URLs.
+- Web raw transports, selected by `PrintSettings.printerId` scheme: WebUSB (`usb:`), Web Serial (`serial:[baud]`), Web Bluetooth (`ble:[name]`), WebSocket relay (`ws://`), Direct Sockets TCP in Isolated Web Apps (`socket://` or bare IP). ESC/POS text is CP437-encoded; images raster to `GS v 0`.
+- QZ Tray transport (`qz:`): silent raw and PDF printing through the [QZ Tray](https://github.com/qzind/tray) agent, with spool-confirmed results, printer enumeration, and status on `onPrinterStatusChanged`.
+- Nitro Print Agent (`agent:`): local agent app in `agent/` exposing this plugin's native backends over a localhost WebSocket — silent text/image/PDF/raw to any OS printer, with native job ids and lifecycle events. Configure via `WebPrintAgent.configure(agentEndpoint:)`.
+- Web Printing API + mDNS (Isolated Web Apps, Chrome 147+): printer enumeration with IPP capabilities and state reasons, silent PDF jobs with page progress and IPP attributes (copies, duplex, color, quality, orientation, media, page ranges, collation, number-up, print-scaling), and mDNS discovery over Direct Sockets UDP.
+- `renderPreview` rasters the same pipeline the dialog prints, so copies, N-up, grayscale, and decoration are accurate. PDF `pageRange` extraction on wasm, `getPageCount` via PDF page trees, HTML to multi-page PDF.
+- Job tracking on web — every print (dialog, raw, batch, agent) is a tracked job: `onPrintJobChanged`, `PrintErrorCode` catalog (`PrintResult.errorKind`), `PrintOutcome` (`printed` only on verified delivery, `dialogShown` where the browser hides Print-vs-Cancel), `dialogDurationMs`/`dialogGuess`, `PrintOutcomeConfirmation.markJobOutcome`, `PrintJob.failureReason`, `lastPrintJob()`, `resumePrintJob`.
+- `WebPrintDecor`: per-page background graphics (watermark/letterhead) and HTML header/footer for dialog and preview.
+- Web multi-instance: `createNitroPrintingInstance(key)` builds one `HybridNitroPrinting` per key, each with its own printer/job caches, agent socket and status poll. Stream events reach only the instance that emitted them; `dispose()` releases that instance's native and JS state.
+- Web JPEG encoding runs on a worker pool (`min(4, hardwareConcurrency)`), so rasterisation no longer blocks the main thread and pages encode in parallel. Falls back inline where `Worker` is unavailable or CSP-blocked.
 
 ### Changed
 
-- **Nitrogen SDK 0.7.2**: upgraded `nitro` / `nitro_generator` / `nitro_annotations` / `nitrogen_cli` from 0.5.11 to 0.7.2 and regenerated all platform bridges. `@nitroNativeAsync` methods now work on web (the 0.0.4 `UnsupportedError` note no longer applies).
-- The spec singleton is created through the generated platform factory (`createNitroPrintingInstance()`); the package barrel exports `ensureNitroPrintingReady()` — await it in `main()` (a no-op on native platforms).
+- Nitrogen SDK 0.5.11 to 0.7.4 (`nitro` / `nitro_generator` / `nitro_annotations` / `nitrogen_cli`); all platform bridges regenerated. `@nitroNativeAsync` now works on web — the 0.0.4 `UnsupportedError` note no longer applies.
+- The spec singleton comes from `createNitroPrintingInstance()`. Await `ensureNitroPrintingReady()` in `main()` — a no-op on native platforms.
+
+### Fixed
+
+- Web: helpers are rebuilt when the WASM module instance changes. A Flutter hot restart kept `globalThis` but replaced the module, so the first call after one threw `RuntimeError: memory access out of bounds`.
+- Web: job history is capped at 200 entries, evicting finished jobs first. Every print appended a record that was never released.
+- Nitro Print Agent prints silently — `showPrintDialog` defaults to true, so the agent opened a modal print panel in its own process and the browser call blocked until it was dismissed.
+- Example: the LIVE PREVIEW header no longer overflows at phone widths.
 
 ### Example app
 
-- Two-pane Print tab: all configuration on the left, a full-height live preview on the right with page/sheet/size stats, active-setting chips, and a flicker-free double-buffered PDF viewer.
+- Two-pane Print tab: configuration left, full-height live preview right, with page/sheet/size stats, active-setting chips, and a double-buffered PDF viewer.
 - Page decoration panel, header/footer fields, expanded Document Settings (media type, margins, page range, collate, fit-to-page, custom paper size).
-- Jobs tab last-job card with typed failure reason and a Resume action.
+- Jobs tab last-job card with typed failure reason and Resume.
 - Web integration test target (`integration_test/web_test.dart`).
 
 ### Testing
 
-- 119-test browser suite, run under both dart2js and dart2wasm: real WebSocket-relay byte round-trips, mock QZ Tray and Nitro Print Agent protocol servers, preview fidelity assertions (copies/N-up/geometry in the output PDF), and the full error/outcome catalog.
+- 130 browser tests under both dart2js and dart2wasm: WebSocket-relay byte round-trips, mock QZ Tray and Nitro Print Agent servers, preview fidelity (copies/N-up/geometry in the output PDF), and the full error/outcome catalog. Instance isolation, hot-restart recovery, job-history capping and worker offload are covered.
+- Patrol suites green in CI on iOS (24/24) and Android (24/24).
 
 ## 0.0.4
 

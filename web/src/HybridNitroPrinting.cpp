@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <unordered_map>
 #include <map>
 #include <optional>
 #include <stdexcept>
@@ -846,12 +847,121 @@ std::map<int64_t, PendingHtmlPdf> g_pendingHtmlPdf;
 //C++; tables use \x1F fields / \x1E rows.
 
 EM_JS(void, js_ensure_helpers, (), {
-  if (globalThis.__nitroWeb) return;
-  var W = globalThis.__nitroWeb = {
+  //nitro_web_instance_changed() is emitted by the generated bridge: it reports
+  //1 only the first time THIS module instance asks. Hot restart keeps
+  //globalThis but rebuilds the module, so helpers from the previous instance
+  //still close over its dead heap — rebuild them when the instance changes.
+  if (!nitro_web_instance_changed() && globalThis.__nitroWeb) return;
+  var prev = globalThis.__nitroWeb;
+  if (prev && prev.__nitroDispose) {
+    try { prev.__nitroDispose(); } catch (e) {}
+  }
+  //Root namespace: instance-agnostic. Every Dart instance gets its OWN helper
+  //object from mk(), so the printer/job caches, the agent socket and the
+  //status poll belong to a single instance — matching the native backends,
+  //where each Hybrid<Class> owns its state.
+  var R = globalThis.__nitroWeb = { byKey: {} };
+  R.get = function(k) { return R.byKey[k] || (R.byKey[k] = R.mk(k)); };
+  //Dart calls this on the root (PrintOutcomeConfirmation.markJobOutcome) and
+  //job ids are unique across instances, so ask each until one owns it.
+  R.markJobOutcome = function(jobId, printed) {
+    for (var k in R.byKey) {
+      try {
+        if (R.byKey[k].markJobOutcome(jobId, printed)) return true;
+      } catch (e) {}
+    }
+    return false;
+  };
+  //── JPEG encode pool ────────────────────────────────────────────────────
+  //Rasterising a page is ~4ms to decode the SVG (DOM, main thread only), ~4ms
+  //to draw, and ~12ms to JPEG-encode at A4/150dpi. The encode is pure
+  //OffscreenCanvas work, so it moves to workers: the main thread stops
+  //blocking on it and pages encode in parallel. Shared across instances.
+  R.pool = { workers: [], next: 0, seq: 0, dead: false };
+  R.worker = function() {
+    var p = R.pool;
+    if (p.dead) return null;
+    var want = Math.min(4, navigator.hardwareConcurrency || 2);
+    if (p.workers.length < want) {
+      try {
+        var src =
+          'onmessage=async function(e){var d=e.data;try{' +
+          'var c=new OffscreenCanvas(d.bmp.width,d.bmp.height);' +
+          'var x=c.getContext("2d");x.drawImage(d.bmp,0,0);d.bmp.close();' +
+          'var b=await c.convertToBlob({type:"image/jpeg",quality:d.q});' +
+          'var a=await b.arrayBuffer();postMessage({id:d.id,buf:a},[a]);' +
+          '}catch(err){postMessage({id:d.id,err:String(err)});}};';
+        var wk = new Worker(URL.createObjectURL(
+            new Blob([src], { type: 'text/javascript' })));
+        wk.pending = new Map();
+        wk.onmessage = function(e) {
+          var job = wk.pending.get(e.data.id);
+          if (!job) return;
+          wk.pending.delete(e.data.id);
+          if (e.data.err) job.rej(new Error(e.data.err));
+          else job.res(new Uint8Array(e.data.buf));
+        };
+        wk.onerror = function() { p.dead = true; };
+        p.workers.push(wk);
+      } catch (e) {
+        p.dead = true; // no Worker / blocked by CSP — caller encodes inline
+        return null;
+      }
+    }
+    var w = p.workers[p.next % p.workers.length];
+    p.next++;
+    return w;
+  };
+  //Encodes a finished OffscreenCanvas to JPEG off the main thread. Returns
+  //null when no worker is available so the caller can encode inline.
+  R.encodeCanvas = async function(canvas, quality) {
+    if (!canvas.transferToImageBitmap || typeof Worker === 'undefined') return null;
+    var wk = R.worker();
+    if (!wk) return null;
+    try {
+      var bmp = canvas.transferToImageBitmap();
+      var id = ++R.pool.seq;
+      return await new Promise(function(res, rej) {
+        wk.pending.set(id, { res: res, rej: rej });
+        wk.postMessage({ id: id, bmp: bmp, q: quality }, [bmp]);
+      });
+    } catch (e) {
+      return null;
+    }
+  };
+  R.poolDispose = function() {
+    for (var i = 0; i < R.pool.workers.length; i++) {
+      try { R.pool.workers[i].terminate(); } catch (e) {}
+    }
+    R.pool.workers = [];
+  };
+  R.drop = function(k) {
+    var w = R.byKey[k];
+    if (!w) return;
+    try { w.__nitroDispose(); } catch (e) {}
+    delete R.byKey[k];
+  };
+  //Runs when a LATER module instance claims globalThis (hot restart): stop
+  //every instance's timers and sockets before they post into a dead heap.
+  R.__nitroDispose = function() {
+    for (var k in R.byKey) {
+      try { R.byKey[k].__nitroDispose(); } catch (e) {}
+    }
+    R.byKey = {};
+    try { R.poolDispose(); } catch (e) {}
+  };
+  R.mk = function(instKey) {
+  var W = {
+    key: instKey,
     cache: { printers: [], caps: {}, status: {}, jobs: [] },
     rawAbort: null,
     batch: [],
     batchDone: null,
+  };
+  //Releases just THIS instance: its poll timer and its agent socket.
+  W.__nitroDispose = function() {
+    try { clearInterval(W.statusPoll); } catch (e) {}
+    try { if (W.agentReset) W.agentReset(); } catch (e) {}
   };
 
   //UTF-8 encode into a malloc'd NUL-terminated buffer the C++ side frees
@@ -868,14 +978,31 @@ EM_JS(void, js_ensure_helpers, (), {
   //States mirror PrintState: 1=printing, 2=completed, 3=cancelled, 4=failed.
   W.jobSeq = 0;
   W.jobsByPort = new Map();
+  //Job history is bounded. Android reads the OS print queue and macOS tracks
+  //nothing, so only web accumulated records — one per print, for the life of
+  //the page. Oldest FINISHED jobs are evicted first; anything a port still
+  //points at is in flight and never dropped.
+  W.kMaxJobs = 200;
+  W.trimJobs = function() {
+    var over = W.cache.jobs.length - W.kMaxJobs;
+    if (over <= 0) return;
+    var live = new Set(W.jobsByPort.values());
+    var kept = [];
+    for (var i = 0; i < W.cache.jobs.length; i++) {
+      var r = W.cache.jobs[i];
+      if (over > 0 && r.state >= 2 && !live.has(r)) { over--; continue; }
+      kept.push(r);
+    }
+    W.cache.jobs = kept;
+  };
   W.emitJob = function(rec) {
-    try { wasmExports.nitro_printing_web_job_changed(W.cstr(W.wpJobRow(rec))); } catch (e) {}
+    try { wasmExports.nitro_printing_web_job_changed(W.cstr(W.wpJobRow(rec)), W.cstr(W.key)); } catch (e) {}
   };
   W.newJob = function(port, printerId, title) {
     var rec = { id: 'web-print-' + (++W.jobSeq), printerId: printerId || "",
                 title: title || "", state: 1, progress: 0,
                 createdMs: Date.now(), completedMs: 0, error: "", pages: 0 };
-    W.cache.jobs.push(rec);
+    W.cache.jobs.push(rec); W.trimJobs();
     W.jobsByPort.set(port, rec);
     W.emitJob(rec);
     return rec;
@@ -961,7 +1088,7 @@ EM_JS(void, js_ensure_helpers, (), {
             ok ? '[DIALOG_OUTCOME_UNKNOWN] dialogMs=' + Math.round(dialogMs)
                : 'DIALOG_FAILED|Browser print failed or timed out');
         wasmExports.nitro_printing_web_done(port, kind, ok ? 1 : 0, W.cstr(rec.id),
-                                            Math.round(dialogMs));
+                                            Math.round(dialogMs), W.cstr(W.key));
       }, 0);
     };
     try {
@@ -1188,8 +1315,13 @@ EM_JS(void, js_ensure_helpers, (), {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, wpx, hpx);
     ctx.drawImage(img, 0, 0);
-    var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
-    return { w: wpx, h: hpx, bytes: new Uint8Array(await blob.arrayBuffer()) };
+    //Encode off the main thread when a worker is available.
+    var bytes = await R.encodeCanvas(canvas, 0.92);
+    if (!bytes) {
+      var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+      bytes = new Uint8Array(await blob.arrayBuffer());
+    }
+    return { w: wpx, h: hpx, bytes: bytes };
   };
   //Text preview: same logical→copies→N-up pipeline as the dialog, one JPEG
   //per physical sheet.
@@ -1631,8 +1763,11 @@ EM_JS(void, js_ensure_helpers, (), {
         if (hdr) ctx.drawImage(hdr.img, 0, 0);
         if (hpx > 0) ctx.drawImage(body.img, 0, y, contentWpx, hpx, 0, hdrH, contentWpx, hpx);
         if (ftr) ctx.drawImage(ftr.img, 0, sliceHpx - ftrH);
-        var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
-        var jb = new Uint8Array(await blob.arrayBuffer());
+        var jb = await R.encodeCanvas(canvas, 0.92);
+        if (!jb) {
+          var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+          jb = new Uint8Array(await blob.arrayBuffer());
+        }
         slices.push({ w: contentWpx, h: sliceHpx, bytes: jb });
         total += jb.length;
       }
@@ -1690,7 +1825,7 @@ EM_JS(void, js_ensure_helpers, (), {
         var rows = W.parseMdns(new Uint8Array(race.value.data), race.value.remoteAddress);
         for (var row of rows) {
           found = true;
-          wasmExports.nitro_printing_web_discovered(W.cstr(row));
+          wasmExports.nitro_printing_web_discovered(W.cstr(row), W.cstr(W.key));
         }
       }
       try { reader.releaseLock(); socket.close(); } catch (e) {}
@@ -1770,7 +1905,7 @@ EM_JS(void, js_ensure_helpers, (), {
             };
             var row = [id, state !== 'stopped' ? '1' : '0', state === 'processing' ? '1' : '0',
                        state, reasons].join('\x1F');
-            wasmExports.nitro_printing_web_status_changed(W.cstr(row));
+            wasmExports.nitro_printing_web_status_changed(W.cstr(row), W.cstr(W.key));
           }
         } catch (e) {}
       }
@@ -1822,12 +1957,12 @@ EM_JS(void, js_ensure_helpers, (), {
                              msg: d.statusMessage || "" };
       wasmExports.nitro_printing_web_status_changed(
           W.cstr([id, d.isOnline !== false ? '1' : '0', d.isPrinting ? '1' : '0',
-                  d.statusMessage || "", d.errorCode || ""].join('')));
+                  d.statusMessage || "", d.errorCode || ""].join('')), W.cstr(W.key));
     } else if (m.event === 'job') {
       // Native job lifecycle from the agent, re-emitted on onPrintJobChanged.
       wasmExports.nitro_printing_web_job_changed(
           W.cstr([d.jobId || "", "", "", String(W.agentStateInt(d.state)),
-                  String(d.progress || 0), '0', '0', d.message || "", '0'].join('')));
+                  String(d.progress || 0), '0', '0', d.message || "", '0'].join('')), W.cstr(W.key));
     }
   };
   W.agentConnect = function(timeoutMs) {
@@ -1926,7 +2061,7 @@ EM_JS(void, js_ensure_helpers, (), {
         }
         wasmExports.nitro_printing_web_discovered(
             W.cstr([id, p.name || p.id, 'localhost', '0', 'nitro-agent', id,
-                    p.isAvailable !== false ? '1' : '0'].join('')));
+                    p.isAvailable !== false ? '1' : '0'].join('')), W.cstr(W.key));
       }
       return printers.length > 0;
     } catch (e) { return false; }
@@ -2057,7 +2192,7 @@ EM_JS(void, js_ensure_helpers, (), {
     wasmExports.nitro_printing_web_status_changed(
         W.cstr([id, online ? '1' : '0',
                 status.indexOf('PRINTING') >= 0 ? '1' : '0',
-                status.toLowerCase() || 'idle', reasons].join('\x1F')));
+                status.toLowerCase() || 'idle', reasons].join('\x1F')), W.cstr(W.key));
   };
   W.qzB64 = function(bytes) {
     var s = "";
@@ -2113,7 +2248,7 @@ EM_JS(void, js_ensure_helpers, (), {
                                  msg: 'QZ Tray agent printer' };
         }
         wasmExports.nitro_printing_web_discovered(
-            W.cstr([id, n, 'localhost', '0', 'qz-tray', id, '1'].join('\x1F')));
+            W.cstr([id, n, 'localhost', '0', 'qz-tray', id, '1'].join('\x1F')), W.cstr(W.key));
       }
       try {
         await W.qzSend({ call: 'printers.startListening',
@@ -2305,10 +2440,10 @@ EM_JS(void, js_ensure_helpers, (), {
             var st = W.cache.status[printerId] || {};
             rec.error = W.jobFailure(rec.state, st.reasons || "");
           }
-          wasmExports.nitro_printing_web_job_changed(W.cstr(W.wpJobRow(rec)));
+          wasmExports.nitro_printing_web_job_changed(W.cstr(W.wpJobRow(rec)), W.cstr(W.key));
         } catch (e) {}
       };
-      W.cache.jobs.push(rec);
+      W.cache.jobs.push(rec); W.trimJobs();
       W.rawDone(port, 1, rec.id); // msg carries the job id on success
     } catch (e) {
       W.rawDone(port, 0, 'WP_SUBMIT_FAILED|Web Printing: ' + (e && e.message ? e.message : e));
@@ -2336,7 +2471,7 @@ EM_JS(void, js_ensure_helpers, (), {
         if (device) {
           var id = W.usbId(device);
           wasmExports.nitro_printing_web_discovered(
-              W.cstr([id, device.productName || id, "", '0', 'usb', id, '1'].join('\x1F')));
+              W.cstr([id, device.productName || id, "", '0', 'usb', id, '1'].join('\x1F')), W.cstr(W.key));
           granted = true;
         }
       } catch (e) {} // no gesture / picker dismissed — try the next picker
@@ -2346,7 +2481,7 @@ EM_JS(void, js_ensure_helpers, (), {
         var sp = await navigator.serial.requestPort();
         if (sp) {
           wasmExports.nitro_printing_web_discovered(
-              W.cstr(['serial:', 'Serial printer', "", '0', 'serial', 'serial:', '1'].join('\x1F')));
+              W.cstr(['serial:', 'Serial printer', "", '0', 'serial', 'serial:', '1'].join('\x1F')), W.cstr(W.key));
           granted = true;
         }
       } catch (e) {}
@@ -2361,7 +2496,7 @@ EM_JS(void, js_ensure_helpers, (), {
           W.bleOptIn = true;
           var bid = 'ble:' + (bd.name || bd.id);
           wasmExports.nitro_printing_web_discovered(
-              W.cstr([bid, bd.name || 'BLE printer', "", '0', 'ble', bid, '1'].join('\x1F')));
+              W.cstr([bid, bd.name || 'BLE printer', "", '0', 'ble', bid, '1'].join('\x1F')), W.cstr(W.key));
           granted = true;
         }
       } catch (e) {}
@@ -2465,13 +2600,19 @@ EM_JS(void, js_ensure_helpers, (), {
       ctx.fillStyle = '#fff'; // JPEG has no alpha — composite on white
       ctx.fillRect(0, 0, bitmap.width, bitmap.height);
       ctx.drawImage(bitmap, 0, 0);
-      var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
-      var jpeg = new Uint8Array(await blob.arrayBuffer());
+      //bitmap.width/height are read BEFORE the transfer: transferToImageBitmap
+      //empties the canvas, and the worker closes the bitmap it receives.
+      var iw = bitmap.width, ih = bitmap.height;
+      var jpeg = await R.encodeCanvas(canvas, 0.92);
+      if (!jpeg) {
+        var blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+        jpeg = new Uint8Array(await blob.arrayBuffer());
+      }
       if (fired) return; // watchdog already reported
       fired = true;
       var p = wasmExports.malloc(jpeg.length);
       HEAPU8.set(jpeg, p);
-      wasmExports.nitro_printing_web_image_jpeg(port, p, jpeg.length, bitmap.width, bitmap.height);
+      wasmExports.nitro_printing_web_image_jpeg(port, p, jpeg.length, iw, ih);
     } catch (e) { fail(); }
   };
 
@@ -2511,25 +2652,27 @@ EM_JS(void, js_ensure_helpers, (), {
     a.remove();
     setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
   };
+  return W;
+  };
 });
 
 // ── EM_JS entry points (thin wrappers over the helpers above) ────────────────
 
-EM_JS(void, js_print_text, (int64_t port, int kind, const char* text, const char* opts), {
+EM_JS(void, js_print_text, (const char* instKey, int64_t port, int kind, const char* text, const char* opts), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.printHtml(port, kind, W.textPagesHtml(UTF8ToString(text), W.parseOpts(UTF8ToString(opts))));
 });
 
-EM_JS(void, js_print_html, (int64_t port, int kind, const char* html, const char* opts), {
+EM_JS(void, js_print_html, (const char* instKey, int64_t port, int kind, const char* html, const char* opts), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.printHtml(port, kind, W.htmlDocHtml(UTF8ToString(html), W.parseOpts(UTF8ToString(opts))));
 });
 
-EM_JS(void, js_print_blob, (int64_t port, int kind, const uint8_t* data, int len, const char* mime, int asImage, const char* opts), {
+EM_JS(void, js_print_blob, (const char* instKey, int64_t port, int kind, const uint8_t* data, int len, const char* mime, int asImage, const char* opts), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var bytes = HEAPU8.slice(data, data + len); // copy — blob outlives wasm heap views
   var url = URL.createObjectURL(new Blob([bytes], { type: UTF8ToString(mime) }));
   if (asImage) {
@@ -2540,105 +2683,114 @@ EM_JS(void, js_print_blob, (int64_t port, int kind, const uint8_t* data, int len
   }
 });
 
-EM_JS(void, js_raw_print, (int64_t port, const uint8_t* data, int len, const char* printerId, int copies, int timeoutMs), {
+EM_JS(void, js_raw_print, (const char* instKey, int64_t port, const uint8_t* data, int len, const char* printerId, int copies, int timeoutMs), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.routeRaw(port, HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies, timeoutMs);
 });
 
-EM_JS(void, js_image_escpos, (int64_t port, const uint8_t* data, int len, const char* printerId, int copies, int timeoutMs, int widthDots), {
+EM_JS(void, js_image_escpos, (const char* instKey, int64_t port, const uint8_t* data, int len, const char* printerId, int copies, int timeoutMs, int widthDots), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.imageEscPos(port, HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies, timeoutMs, widthDots);
 });
 
-EM_JS(void, js_html_to_jpegs, (int64_t port, const char* html, double pageWpt, double pageHpt, const char* opts), {
+EM_JS(void, js_html_to_jpegs, (const char* instKey, int64_t port, const char* html, double pageWpt, double pageHpt, const char* opts), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.htmlToJpegs(port, UTF8ToString(html), pageWpt, pageHpt, UTF8ToString(opts));
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).htmlToJpegs(port, UTF8ToString(html), pageWpt, pageHpt, UTF8ToString(opts));
 });
 
-EM_JS(void, js_text_preview_jpegs, (int64_t port, const char* text, const char* opts, double pageWpt, double pageHpt), {
+EM_JS(void, js_text_preview_jpegs, (const char* instKey, int64_t port, const char* text, const char* opts, double pageWpt, double pageHpt), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.textPreviewJpegs(port, UTF8ToString(text), UTF8ToString(opts), pageWpt, pageHpt);
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).textPreviewJpegs(port, UTF8ToString(text), UTF8ToString(opts), pageWpt, pageHpt);
 });
 
-EM_JS(void, js_resume_job, (int64_t port, const char* jobId), {
+EM_JS(void, js_resume_job, (const char* instKey, int64_t port, const char* jobId), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.resumeJob(port, UTF8ToString(jobId));
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).resumeJob(port, UTF8ToString(jobId));
 });
 
-EM_JS(void, js_agent_print, (int64_t port, const char* kind, const uint8_t* data, int len, const char* printerId, int copies), {
+EM_JS(void, js_agent_print, (const char* instKey, int64_t port, const char* kind, const uint8_t* data, int len, const char* printerId, int copies), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.agentPrint(port, UTF8ToString(kind), HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies);
 });
 
-EM_JS(void, js_qz_pdf, (int64_t port, const uint8_t* data, int len, const char* printerId, int copies), {
+EM_JS(void, js_qz_pdf, (const char* instKey, int64_t port, const uint8_t* data, int len, const char* printerId, int copies), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.qzPrint(port, HEAPU8.slice(data, data + len), UTF8ToString(printerId), copies, true);
 });
 
-EM_JS(void, js_raw_cancel, (int64_t port), {
+EM_JS(void, js_raw_cancel, (const char* instKey, int64_t port), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   if (W.rawAbort) { W.rawAbort(); W.rawAbort = null; W.boolDone(port, 1); }
   else W.boolDone(port, 0);
 });
 
-EM_JS(void, js_refresh_printers, (int64_t port), {
+EM_JS(void, js_refresh_printers, (const char* instKey, int64_t port), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.refreshPrinters(port);
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).refreshPrinters(port);
 });
 
-EM_JS(void, js_discover, (int64_t port), {
+EM_JS(void, js_discover, (const char* instKey, int64_t port), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.discover(port);
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).discover(port);
 });
 
-EM_JS(void, js_test_connection, (int64_t port, const char* printerId, int timeoutMs), {
+EM_JS(void, js_test_connection, (const char* instKey, int64_t port, const char* printerId, int timeoutMs), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.testConnection(port, UTF8ToString(printerId), timeoutMs);
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).testConnection(port, UTF8ToString(printerId), timeoutMs);
 });
 
-EM_JS(void, js_wp_submit, (int64_t port, const char* printerId, const char* title, const uint8_t* data, int len, const char* attrs), {
+EM_JS(void, js_wp_submit, (const char* instKey, int64_t port, const char* printerId, const char* title, const uint8_t* data, int len, const char* attrs), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   W.wpSubmit(port, UTF8ToString(printerId), UTF8ToString(title), HEAPU8.slice(data, data + len), UTF8ToString(attrs));
 });
 
 // 1 when printerId names a Web Printing system printer from the cache.
-EM_JS(int, js_wp_has_printer, (const char* printerId), {
+EM_JS(int, js_wp_has_printer, (const char* instKey, const char* printerId), {
   js_ensure_helpers();
-  return globalThis.__nitroWeb.cache['wpPrinter:' + UTF8ToString(printerId)] ? 1 : 0;
+  return globalThis.__nitroWeb.get(UTF8ToString(instKey)).cache['wpPrinter:' + UTF8ToString(printerId)] ? 1 : 0;
+});
+
+//Releases one instance's helper object: stops its status poll, closes its
+//agent socket, and drops its caches. Called from the impl destructor, so a
+//disposed Dart instance leaves nothing behind.
+EM_JS(void, js_drop_instance, (const char* instKey), {
+  var R = globalThis.__nitroWeb;
+  if (R && R.drop) R.drop(UTF8ToString(instKey));
 });
 
 EM_JS(void, js_download, (const uint8_t* data, int len, const char* mime, const char* name), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.download(HEAPU8.slice(data, data + len), UTF8ToString(mime), UTF8ToString(name));
+  //Instance-agnostic: hands the blob to the browser, touches no instance state.
+  globalThis.__nitroWeb.get("").download(HEAPU8.slice(data, data + len), UTF8ToString(mime), UTF8ToString(name));
 });
 
-EM_JS(void, js_image_to_jpeg, (int64_t port, const uint8_t* data, int len), {
+EM_JS(void, js_image_to_jpeg, (const char* instKey, int64_t port, const uint8_t* data, int len), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.imageToJpeg(port, HEAPU8.slice(data, data + len));
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).imageToJpeg(port, HEAPU8.slice(data, data + len));
 });
 
-EM_JS(void, js_fetch_print, (int64_t port, const char* url), {
+EM_JS(void, js_fetch_print, (const char* instKey, int64_t port, const char* url), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.fetchPrint(port, UTF8ToString(url));
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).fetchPrint(port, UTF8ToString(url));
 });
 
 // ── Synchronous cache reads (serve the sync @NitroResult lookups) ────────────
 
-EM_JS(int, js_sync_printer_count, (), {
+EM_JS(int, js_sync_printer_count, (const char* instKey), {
   js_ensure_helpers();
-  return globalThis.__nitroWeb.cache.printers.length;
+  return globalThis.__nitroWeb.get(UTF8ToString(instKey)).cache.printers.length;
 });
 
 // Returns a malloc'd printers-table row for index, or 0 when out of range.
-EM_JS(char*, js_sync_printer_at, (int index), {
+EM_JS(char*, js_sync_printer_at, (const char* instKey, int index), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var id = W.cache.printers[index];
   if (id == null) return 0;
   var st = W.cache.status[id] || {};
@@ -2648,9 +2800,9 @@ EM_JS(char*, js_sync_printer_at, (int index), {
 
 // Returns a malloc'd caps row for printerId, or 0 when unknown:
 // color,duplex,maxCopies,dpi,a4,a5,letter,legal,draft,normal,high,trays
-EM_JS(char*, js_sync_caps, (const char* printerId), {
+EM_JS(char*, js_sync_caps, (const char* instKey, const char* printerId), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var c = W.cache.caps[UTF8ToString(printerId)];
   if (!c) return 0;
   var b = function(v) { return v ? '1' : '0'; };
@@ -2661,9 +2813,9 @@ EM_JS(char*, js_sync_caps, (const char* printerId), {
 
 // Returns a malloc'd status row for printerId, or 0 when unknown:
 // online,ready,state,reasons,msg
-EM_JS(char*, js_sync_status, (const char* printerId), {
+EM_JS(char*, js_sync_status, (const char* instKey, const char* printerId), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var s = W.cache.status[UTF8ToString(printerId)];
   if (!s) return 0;
   var b = function(v) { return v ? '1' : '0'; };
@@ -2671,16 +2823,16 @@ EM_JS(char*, js_sync_status, (const char* printerId), {
 });
 
 // Returns the malloc'd jobs table (may be empty).
-EM_JS(char*, js_sync_jobs, (), {
+EM_JS(char*, js_sync_jobs, (const char* instKey), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   return W.cstr(W.jobsTable());
 });
 
 // Cancels the Web Printing job with this id; 1 on success.
-EM_JS(int, js_wp_cancel_job, (const char* jobId), {
+EM_JS(int, js_wp_cancel_job, (const char* instKey, const char* jobId), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var id = UTF8ToString(jobId);
   for (var rec of W.cache.jobs) {
     if (rec.id === id && rec.cancel) return rec.cancel() ? 1 : 0;
@@ -2689,9 +2841,9 @@ EM_JS(int, js_wp_cancel_job, (const char* jobId), {
 });
 
 // Cancels every non-terminal Web Printing job; count cancelled.
-EM_JS(int, js_wp_clear_jobs, (), {
+EM_JS(int, js_wp_clear_jobs, (const char* instKey), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var n = 0;
   for (var rec of W.cache.jobs) {
     if (rec.state < 2 && rec.cancel && rec.cancel()) n++;
@@ -2703,14 +2855,14 @@ EM_JS(int, js_wp_clear_jobs, (), {
 
 // kind: 0 = dialog (item.type routes the flow), 1 = pre-encoded raw bytes
 // (ESC/POS via the raw transports), 2 = Web Printing PDF job.
-EM_JS(void, js_batch_add, (int kind, int type, const uint8_t* data, int len), {
+EM_JS(void, js_batch_add, (const char* instKey, int kind, int type, const uint8_t* data, int len), {
   js_ensure_helpers();
-  globalThis.__nitroWeb.batch.push({ kind: kind, type: type, bytes: HEAPU8.slice(data, data + len) });
+  globalThis.__nitroWeb.get(UTF8ToString(instKey)).batch.push({ kind: kind, type: type, bytes: HEAPU8.slice(data, data + len) });
 });
 
-EM_JS(void, js_batch_run, (int64_t port, int stopOnError, const char* opts, const char* printerId, const char* wpAttrs, int timeoutMs), {
+EM_JS(void, js_batch_run, (const char* instKey, int64_t port, int stopOnError, const char* opts, const char* printerId, const char* wpAttrs, int timeoutMs), {
   js_ensure_helpers();
-  var W = globalThis.__nitroWeb;
+  var W = globalThis.__nitroWeb.get(UTF8ToString(instKey));
   var items = W.batch;
   W.batch = [];
   var o = W.parseOpts(UTF8ToString(opts));
@@ -2763,21 +2915,27 @@ EM_JS(void, js_batch_run, (int64_t port, int stopOnError, const char* opts, cons
 
 // ── Wasm-exported completion callbacks (invoked from the JS flows) ───────────
 
-namespace { void emitDiscovered(const std::vector<std::string>& f); }
-namespace { void emitJobChanged(const std::vector<std::string>& f); }
-namespace { void emitStatusChanged(const std::vector<std::string>& f); }
+namespace { void emitDiscovered(const std::vector<std::string>& f, const std::string& key); }
+namespace { void emitJobChanged(const std::vector<std::string>& f, const std::string& key); }
+namespace { void emitStatusChanged(const std::vector<std::string>& f, const std::string& key); }
 
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
-void nitro_printing_web_done(int64_t port, int kind, int ok, char* jobId, int dialogMs) {
+void nitro_printing_web_done(int64_t port, int kind, int ok, char* jobId, int dialogMs,
+                            char* instKey) {
     std::string id = jobId ? jobId : "";
     ::free(jobId);
+    //The batch hook lives on the instance that started the batch, so the key
+    //has to come back with the completion.
+    std::string key = instKey ? instKey : "";
+    ::free(instKey);
     if (kind == kDoneBatchItem) {
         EM_ASM({
-          var W = globalThis.__nitroWeb;
+          var R = globalThis.__nitroWeb;
+          var W = R && R.byKey[UTF8ToString($1)];
           if (W && W.batchDone) W.batchDone($0);
-        }, ok);
+        }, ok, key.c_str());
         return;
     }
     if (kind == kDoneBool) { // printFile: dialog outcome as a bool
@@ -2971,26 +3129,32 @@ void nitro_printing_web_html_jpegs(int64_t port, uint8_t* pack, int packLen) {
 /// A Web Printing printer changed state (row: id, online, printing, state,
 /// reasons) — emitted on onPrinterStatusChanged.
 EMSCRIPTEN_KEEPALIVE
-void nitro_printing_web_status_changed(char* row) {
+void nitro_printing_web_status_changed(char* row, char* instKey) {
     auto f = splitFields(row ? row : "");
     ::free(row);
-    emitStatusChanged(f);
+    std::string key = instKey ? instKey : "";
+    ::free(instKey);
+    emitStatusChanged(f, key);
 }
 
 /// A USB device was granted through the discovery picker.
 EMSCRIPTEN_KEEPALIVE
-void nitro_printing_web_discovered(char* row) {
+void nitro_printing_web_discovered(char* row, char* instKey) {
     auto f = splitFields(row ? row : "");
     ::free(row);
-    emitDiscovered(f);
+    std::string key = instKey ? instKey : "";
+    ::free(instKey);
+    emitDiscovered(f, key);
 }
 
 /// A Web Printing job changed state.
 EMSCRIPTEN_KEEPALIVE
-void nitro_printing_web_job_changed(char* row) {
+void nitro_printing_web_job_changed(char* row, char* instKey) {
     auto f = splitFields(row ? row : "");
     ::free(row);
-    emitJobChanged(f);
+    std::string key = instKey ? instKey : "";
+    ::free(instKey);
+    emitJobChanged(f, key);
 }
 
 } // extern "C"
@@ -3007,6 +3171,32 @@ std::optional<std::string> takeString(char* p) {
 
 class HybridNitroPrintingImpl final : public HybridNitroPrinting {
 public:
+    HybridNitroPrintingImpl() = default;
+    explicit HybridNitroPrintingImpl(std::string key) : _key(std::move(key)) {
+        instancesByKey()[_key] = this;
+    }
+
+    //Dart's dispose() -> destroy_instance() -> this destructor. Release the
+    //instance's JS state here or its poll timer and agent socket outlive it.
+    ~HybridNitroPrintingImpl() override {
+        js_drop_instance(_key.c_str());
+        instancesByKey().erase(_key);
+    }
+
+    /// Browser events arrive with the key of the instance that caused them, so
+    /// stream emission can find its owner. Empty key -> the global fallback.
+    static std::unordered_map<std::string, HybridNitroPrintingImpl*>& instancesByKey() {
+        static std::unordered_map<std::string, HybridNitroPrintingImpl*> m;
+        return m;
+    }
+
+    /// The key Dart created this instance with (createNitroPrintingInstance).
+    const std::string& instanceKey() const { return _key; }
+
+private:
+    std::string _key;
+public:
+
     // ── Synchronous quick-lookup ─────────────────────────────────────────
 
     //Dialog printing always works; WebUSB / Web Printing add raw and system
@@ -3015,7 +3205,7 @@ public:
 
     /// Printers known to the cache (granted USB + system printers from the
     /// last getAllPrinters() refresh).
-    int64_t getPrintersCount() override { return js_sync_printer_count(); }
+    int64_t getPrintersCount() override { return js_sync_printer_count(_key.c_str()); }
 
     std::string getPrinterDriverVersion(const std::string& printerId) override {
         (void)printerId;
@@ -3026,7 +3216,7 @@ public:
     // (populated by getAllPrinters(); throwing encodes NitroErr for Dart.)
 
     NitroCppBuffer getPrinterAt(int64_t index) override {
-        auto row = takeString(js_sync_printer_at((int)index));
+        auto row = takeString(js_sync_printer_at(_key.c_str(), (int)index));
         if (!row) throw std::runtime_error("Printer index out of range — call getAllPrinters() first");
         return printerFromRow(splitFields(*row)).toNativeBuffer();
     }
@@ -3037,7 +3227,7 @@ public:
     }
 
     NitroCppBuffer getPrinterCapabilities(const std::string& printerId) override {
-        auto row = takeString(js_sync_caps(printerId.c_str()));
+        auto row = takeString(js_sync_caps(_key.c_str(), printerId.c_str()));
         if (!row) throw std::runtime_error("Unknown printer '" + printerId + "' — call getAllPrinters() first");
         auto f = splitFields(*row);
         if (f.size() < 12) throw std::runtime_error("Malformed capabilities");
@@ -3062,7 +3252,7 @@ public:
     }
 
     NitroCppBuffer getPrintJobAt(int64_t index) override {
-        auto jobs = currentJobs();
+        auto jobs = currentJobs(_key);
         if (index < 0 || (size_t)index >= jobs.size()) {
             throw std::runtime_error("Job index out of range");
         }
@@ -3070,7 +3260,7 @@ public:
     }
 
     NitroCppBuffer getPrintJobStatus(const std::string& jobId) override {
-        for (const auto& j : currentJobs()) {
+        for (const auto& j : currentJobs(_key)) {
             if (j.id == jobId) return j.toNativeBuffer();
         }
         throw std::runtime_error("Unknown job '" + jobId + "'");
@@ -3079,7 +3269,7 @@ public:
     NitroCppBuffer getPrinterStatusDetail(const std::string& printerId,
                                           std::optional<int64_t> timeoutSeconds) override {
         (void)timeoutSeconds;
-        auto row = takeString(js_sync_status(printerId.c_str()));
+        auto row = takeString(js_sync_status(_key.c_str(), printerId.c_str()));
         if (!row) throw std::runtime_error("Unknown printer '" + printerId + "' — call getAllPrinters() first");
         auto f = splitFields(*row);
         if (f.size() < 5) throw std::runtime_error("Malformed status");
@@ -3096,8 +3286,8 @@ public:
                        f[3].find("marker-supply-empty") != std::string::npos;
         d.inkLevelBlack = d.inkLevelCyan = d.inkLevelMagenta = d.inkLevelYellow = -1;
         d.tonerLevel = d.paperLevel = -1;
-        d.jobsInQueue = (int64_t)currentJobs().size();
-        auto caps = takeString(js_sync_caps(printerId.c_str()));
+        d.jobsInQueue = (int64_t)currentJobs(_key).size();
+        auto caps = takeString(js_sync_caps(_key.c_str(), printerId.c_str()));
         if (caps) {
             auto cf = splitFields(*caps);
             if (cf.size() >= 2) {
@@ -3115,7 +3305,7 @@ public:
     /// lookups above.
     void getAllPrinters(NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        js_refresh_printers(dartPort);
+        js_refresh_printers(_key.c_str(), dartPort);
     }
 
     /// Opens the WebUSB device picker (requires a user gesture — call from a
@@ -3123,7 +3313,7 @@ public:
     /// is also emitted on onPrinterDiscovered.
     void startPrinterDiscovery(NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        js_discover(dartPort);
+        js_discover(_key.c_str(), dartPort);
     }
 
     void stopPrinterDiscovery(NitroError* _nitro_err, int64_t dartPort) override {
@@ -3141,16 +3331,16 @@ public:
         auto s = decodeSettings(settings);
         if (s && s->printerId.rfind("agent:", 0) == 0) {
             //Agent: the native backend lays the text out (any OS printer).
-            js_agent_print(dartPort, "text", (const uint8_t*)text.data(), (int)text.size(),
+            js_agent_print(_key.c_str(), dartPort, "text", (const uint8_t*)text.data(), (int)text.size(),
                            s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
         if (s && isRawPrinterId(s->printerId)) {
             auto escPos = textToEscPos(text);
-            rawPrintDecoded(escPos.data(), escPos.size(), s, dartPort, /*forceSingle=*/false);
+            rawPrintDecoded(_key, escPos.data(), escPos.size(), s, dartPort, /*forceSingle=*/false);
             return;
         }
-        js_print_text(dartPort, kDonePrint, text.c_str(), buildDialogOpts(s).c_str());
+        js_print_text(_key.c_str(), dartPort, kDonePrint, text.c_str(), buildDialogOpts(s).c_str());
     }
 
     /// A raw-capable printerId rasters the image to ESC/POS (GS v 0) for
@@ -3160,7 +3350,7 @@ public:
         (void)_nitro_err;
         auto s = decodeSettings(settings);
         if (s && s->printerId.rfind("agent:", 0) == 0) {
-            js_agent_print(dartPort, "image", imageData, (int)imageData_length,
+            js_agent_print(_key.c_str(), dartPort, "image", imageData, (int)imageData_length,
                            s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
@@ -3169,11 +3359,11 @@ public:
             int widthDots = (s->paperSize == PAPERSIZE_CUSTOM && s->customPaperWidth > 200) ? 576 : 384;
             int copies = s->copies > 1 ? (int)s->copies : 1;
             int64_t t = s->networkTimeoutSeconds > 0 ? s->networkTimeoutSeconds : 30;
-            js_image_escpos(dartPort, imageData, (int)imageData_length,
+            js_image_escpos(_key.c_str(), dartPort, imageData, (int)imageData_length,
                             s->printerId.c_str(), copies, (int)(t * 1000), widthDots);
             return;
         }
-        js_print_blob(dartPort, kDonePrint, imageData, (int)imageData_length,
+        js_print_blob(_key.c_str(), dartPort, kDonePrint, imageData, (int)imageData_length,
                       sniffImageMime(imageData, imageData_length), 1,
                       buildDialogOpts(s).c_str());
     }
@@ -3184,19 +3374,19 @@ public:
                   NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
         auto s = decodeSettings(settings);
-        if (s && !s->printerId.empty() && js_wp_has_printer(s->printerId.c_str())) {
-            js_wp_submit(dartPort, s->printerId.c_str(), s->jobName.c_str(),
+        if (s && !s->printerId.empty() && js_wp_has_printer(_key.c_str(), s->printerId.c_str())) {
+            js_wp_submit(_key.c_str(), dartPort, s->printerId.c_str(), s->jobName.c_str(),
                          pdfData, (int)pdfData_length, buildWpAttrs(s).c_str());
             return;
         }
         if (s && s->printerId.rfind("qz:", 0) == 0) {
             //QZ: silent driver print, resolved on spooler accept (PrintOutcome.printed).
-            js_qz_pdf(dartPort, pdfData, (int)pdfData_length,
+            js_qz_pdf(_key.c_str(), dartPort, pdfData, (int)pdfData_length,
                       s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
         if (s && s->printerId.rfind("agent:", 0) == 0) {
-            js_agent_print(dartPort, "pdf", pdfData, (int)pdfData_length,
+            js_agent_print(_key.c_str(), dartPort, "pdf", pdfData, (int)pdfData_length,
                            s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
@@ -3206,12 +3396,12 @@ public:
             auto sub = extractPdfPages(pdfData, pdfData_length,
                                        s->pageRangeFrom, s->pageRangeTo);
             if (!sub.empty()) {
-                js_print_blob(dartPort, kDonePrint, sub.data(), (int)sub.size(),
+                js_print_blob(_key.c_str(), dartPort, kDonePrint, sub.data(), (int)sub.size(),
                               "application/pdf", 0, "");
                 return;
             }
         }
-        js_print_blob(dartPort, kDonePrint, pdfData, (int)pdfData_length,
+        js_print_blob(_key.c_str(), dartPort, kDonePrint, pdfData, (int)pdfData_length,
                       "application/pdf", 0, "");
     }
 
@@ -3221,14 +3411,14 @@ public:
         PrintDocument doc = PrintDocument::fromNative(document);
         auto s = decodeSettings(settings);
         if (doc.type == DOCUMENTTYPE_PDF && s && !s->printerId.empty() &&
-            js_wp_has_printer(s->printerId.c_str())) {
+            js_wp_has_printer(_key.c_str(), s->printerId.c_str())) {
             std::string title = !doc.title.empty() ? doc.title : s->jobName;
-            js_wp_submit(dartPort, s->printerId.c_str(), title.c_str(),
+            js_wp_submit(_key.c_str(), dartPort, s->printerId.c_str(), title.c_str(),
                          doc.data.data(), (int)doc.data.size(), buildWpAttrs(s).c_str());
             return;
         }
         if (doc.type == DOCUMENTTYPE_PDF && s && s->printerId.rfind("qz:", 0) == 0) {
-            js_qz_pdf(dartPort, doc.data.data(), (int)doc.data.size(),
+            js_qz_pdf(_key.c_str(), dartPort, doc.data.data(), (int)doc.data.size(),
                       s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
@@ -3236,20 +3426,20 @@ public:
             doc.type != DOCUMENTTYPE_HTML) {
             const char* kind = doc.type == DOCUMENTTYPE_PDF ? "pdf"
                 : doc.type == DOCUMENTTYPE_IMAGE ? "image" : "text";
-            js_agent_print(dartPort, kind, doc.data.data(), (int)doc.data.size(),
+            js_agent_print(_key.c_str(), dartPort, kind, doc.data.data(), (int)doc.data.size(),
                            s->printerId.c_str(), s->copies > 1 ? (int)s->copies : 1);
             return;
         }
         if (doc.type == DOCUMENTTYPE_PLAIN_TEXT && s && isRawPrinterId(s->printerId)) {
             auto escPos = textToEscPos(std::string(doc.data.begin(), doc.data.end()));
-            rawPrintDecoded(escPos.data(), escPos.size(), s, dartPort, /*forceSingle=*/false);
+            rawPrintDecoded(_key, escPos.data(), escPos.size(), s, dartPort, /*forceSingle=*/false);
             return;
         }
         if (doc.type == DOCUMENTTYPE_IMAGE && s && isRawPrinterId(s->printerId)) {
             int widthDots = (s->paperSize == PAPERSIZE_CUSTOM && s->customPaperWidth > 200) ? 576 : 384;
             int copies = s->copies > 1 ? (int)s->copies : 1;
             int64_t t = s->networkTimeoutSeconds > 0 ? s->networkTimeoutSeconds : 30;
-            js_image_escpos(dartPort, doc.data.data(), (int)doc.data.size(),
+            js_image_escpos(_key.c_str(), dartPort, doc.data.data(), (int)doc.data.size(),
                             s->printerId.c_str(), copies, (int)(t * 1000), widthDots);
             return;
         }
@@ -3258,12 +3448,12 @@ public:
             auto sub = extractPdfPages(doc.data.data(), doc.data.size(),
                                        s->pageRangeFrom, s->pageRangeTo);
             if (!sub.empty()) {
-                js_print_blob(dartPort, kDonePrint, sub.data(), (int)sub.size(),
+                js_print_blob(_key.c_str(), dartPort, kDonePrint, sub.data(), (int)sub.size(),
                               "application/pdf", 0, "");
                 return;
             }
         }
-        dispatchDoc(doc, dartPort, kDonePrint, buildDialogOpts(s));
+        dispatchDoc(_key, doc, dartPort, kDonePrint, buildDialogOpts(s));
     }
 
     ///Per item: plain text to a raw printerId → ESC/POS, PDF to a Web Printing
@@ -3273,7 +3463,7 @@ public:
         (void)_nitro_err;
         auto s = decodeSettings(settings);
         bool rawId = s && isRawPrinterId(s->printerId);
-        bool wpId = s && !s->printerId.empty() && js_wp_has_printer(s->printerId.c_str());
+        bool wpId = s && !s->printerId.empty() && js_wp_has_printer(_key.c_str(), s->printerId.c_str());
         // Param wire format: [int32 count][int64 offsets×count][item bytes...]
         NitroRecordReader r(documents);
         int32_t count = r.readInt32();
@@ -3290,15 +3480,15 @@ public:
             PrintDocument doc = PrintDocument::fromReader(itemReader);
             if (rawId && doc.type == DOCUMENTTYPE_PLAIN_TEXT) {
                 auto escPos = textToEscPos(std::string(doc.data.begin(), doc.data.end()));
-                js_batch_add(1, (int)doc.type, escPos.data(), (int)escPos.size());
+                js_batch_add(_key.c_str(), 1, (int)doc.type, escPos.data(), (int)escPos.size());
             } else if (wpId && doc.type == DOCUMENTTYPE_PDF) {
-                js_batch_add(2, (int)doc.type, doc.data.data(), (int)doc.data.size());
+                js_batch_add(_key.c_str(), 2, (int)doc.type, doc.data.data(), (int)doc.data.size());
             } else {
-                js_batch_add(0, (int)doc.type, doc.data.data(), (int)doc.data.size());
+                js_batch_add(_key.c_str(), 0, (int)doc.type, doc.data.data(), (int)doc.data.size());
             }
         }
         int64_t t = (s && s->networkTimeoutSeconds > 0) ? s->networkTimeoutSeconds : 30;
-        js_batch_run(dartPort, stopOnError ? 1 : 0, buildDialogOpts(s).c_str(),
+        js_batch_run(_key.c_str(), dartPort, stopOnError ? 1 : 0, buildDialogOpts(s).c_str(),
                      s ? s->printerId.c_str() : "", buildWpAttrs(s).c_str(),
                      (int)(t * 1000));
     }
@@ -3313,7 +3503,7 @@ public:
                      filePath.rfind("data:", 0) == 0 ||
                      filePath.rfind("blob:", 0) == 0;
         if (isUrl) {
-            js_fetch_print(dartPort, filePath.c_str());
+            js_fetch_print(_key.c_str(), dartPort, filePath.c_str());
             return;
         }
         postBool(dartPort, false);
@@ -3327,7 +3517,7 @@ public:
         auto s = decodeSettings(initialSettings);
         g_pendingDialogs[dartPort] = s ? *s : defaultSettings();
         PrintDocument doc = PrintDocument::fromNative(document);
-        dispatchDoc(doc, dartPort, kDoneDialog, buildDialogOpts(s));
+        dispatchDoc(_key, doc, dartPort, kDoneDialog, buildDialogOpts(s));
     }
 
     /// PDF documents pass through (pageRange extracts a sub-document); plain
@@ -3339,14 +3529,14 @@ public:
         auto s = decodeSettings(settings);
         if (doc.type == DOCUMENTTYPE_IMAGE && !doc.data.empty()) {
             g_pendingImagePdf[dartPort] = {0, pageGeomFrom(s), ""};
-            js_image_to_jpeg(dartPort, doc.data.data(), (int)doc.data.size());
+            js_image_to_jpeg(_key.c_str(), dartPort, doc.data.data(), (int)doc.data.size());
             return; // completes via nitro_printing_web_image_jpeg
         }
         if (doc.type == DOCUMENTTYPE_HTML && !doc.data.empty()) {
             PageGeom g = pageGeomFrom(s);
             g_pendingHtmlPdf[dartPort] = {0, g, ""};
             std::string html(doc.data.begin(), doc.data.end());
-            js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h, buildDialogOpts(s).c_str());
+            js_html_to_jpegs(_key.c_str(), dartPort, html.c_str(), g.w, g.h, buildDialogOpts(s).c_str());
             return; // completes via nitro_printing_web_html_jpegs
         }
         if (doc.type == DOCUMENTTYPE_PLAIN_TEXT) {
@@ -3354,7 +3544,7 @@ public:
             PageGeom g = pageGeomFrom(s);
             g_pendingHtmlPdf[dartPort] = {0, g, "", 0};
             std::string text(doc.data.begin(), doc.data.end());
-            js_text_preview_jpegs(dartPort, text.c_str(),
+            js_text_preview_jpegs(_key.c_str(), dartPort, text.c_str(),
                                   buildDialogOpts(s).c_str(), g.w, g.h);
             return; // completes via nitro_printing_web_html_jpegs
         }
@@ -3416,7 +3606,7 @@ public:
                 PageGeom g;
                 g_pendingHtmlPdf[dartPort] = {2, g, ""};
                 std::string html(doc.data.begin(), doc.data.end());
-                js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h, "");
+                js_html_to_jpegs(_key.c_str(), dartPort, html.c_str(), g.w, g.h, "");
                 return; // completes via nitro_printing_web_html_jpegs
             }
         }
@@ -3436,14 +3626,14 @@ public:
         if (name.empty()) name = doc.title.empty() ? "document" : doc.title;
         if (doc.type == DOCUMENTTYPE_IMAGE && !doc.data.empty()) {
             g_pendingImagePdf[dartPort] = {1, pageGeomFrom(s), name};
-            js_image_to_jpeg(dartPort, doc.data.data(), (int)doc.data.size());
+            js_image_to_jpeg(_key.c_str(), dartPort, doc.data.data(), (int)doc.data.size());
             return; // completes via nitro_printing_web_image_jpeg
         }
         if (doc.type == DOCUMENTTYPE_HTML && !doc.data.empty()) {
             PageGeom g = pageGeomFrom(s);
             g_pendingHtmlPdf[dartPort] = {1, g, name};
             std::string html(doc.data.begin(), doc.data.end());
-            js_html_to_jpegs(dartPort, html.c_str(), g.w, g.h, buildDialogOpts(s).c_str());
+            js_html_to_jpegs(_key.c_str(), dartPort, html.c_str(), g.w, g.h, buildDialogOpts(s).c_str());
             return; // completes via nitro_printing_web_html_jpegs
         }
         std::vector<uint8_t> out;
@@ -3472,7 +3662,7 @@ public:
 
     void cancelPrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        postBool(dartPort, js_wp_cancel_job(jobId.c_str()) != 0);
+        postBool(dartPort, js_wp_cancel_job(_key.c_str(), jobId.c_str()) != 0);
     }
 
     void pausePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
@@ -3484,17 +3674,17 @@ public:
     ///and dialog prints are not resumable.
     void resumePrintJob(const std::string& jobId, NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        js_resume_job(dartPort, jobId.c_str());
+        js_resume_job(_key.c_str(), dartPort, jobId.c_str());
     }
 
     void clearPrintQueue(NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        postBool(dartPort, js_wp_clear_jobs() > 0);
+        postBool(dartPort, js_wp_clear_jobs(_key.c_str()) > 0);
     }
 
     void getPrintJobsCount(NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        postInt64(dartPort, (int64_t)currentJobs().size());
+        postInt64(dartPort, (int64_t)currentJobs(_key).size());
     }
 
     // ── Connection / admin ───────────────────────────────────────────────
@@ -3503,7 +3693,7 @@ public:
                                NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
         int64_t t = (timeoutSeconds && *timeoutSeconds > 0) ? *timeoutSeconds : 5;
-        js_test_connection(dartPort, printerId.c_str(), (int)(t * 1000));
+        js_test_connection(_key.c_str(), dartPort, printerId.c_str(), (int)(t * 1000));
     }
 
     void setDefaultPrinter(const std::string& printerId, NitroError* _nitro_err, int64_t dartPort) override {
@@ -3526,25 +3716,25 @@ public:
     void printRaw(const uint8_t* data, size_t data_length, NitroCppBuffer settings,
                   NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        rawPrint(data, data_length, settings, dartPort, /*forceSingle=*/false);
+        rawPrint(_key, data, data_length, settings, dartPort, /*forceSingle=*/false);
     }
 
     void printEscPos(const uint8_t* escPosData, size_t escPosData_length, NitroCppBuffer settings,
                      NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        rawPrint(escPosData, escPosData_length, settings, dartPort, /*forceSingle=*/false);
+        rawPrint(_key, escPosData, escPosData_length, settings, dartPort, /*forceSingle=*/false);
     }
 
     void printZpl(const std::string& zpl, NitroCppBuffer settings,
                   NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
         //ZPL carries its own quantity commands: always one write.
-        rawPrint((const uint8_t*)zpl.data(), zpl.size(), settings, dartPort, /*forceSingle=*/true);
+        rawPrint(_key, (const uint8_t*)zpl.data(), zpl.size(), settings, dartPort, /*forceSingle=*/true);
     }
 
     void cancelRawPrint(NitroError* _nitro_err, int64_t dartPort) override {
         (void)_nitro_err;
-        js_raw_cancel(dartPort);
+        js_raw_cancel(_key.c_str(), dartPort);
     }
 
     // Streams: onPrinterDiscovered fires when the WebUSB picker grants a
@@ -3552,41 +3742,41 @@ public:
     // onPrinterStatusChanged never fires (no push source in the sandbox).
 
 private:
-    static void rawPrint(const uint8_t* data, size_t len, NitroCppBuffer settings,
+    static void rawPrint(const std::string& _key, const uint8_t* data, size_t len, NitroCppBuffer settings,
                          int64_t port, bool forceSingle) {
-        rawPrintDecoded(data, len, decodeSettings(settings), port, forceSingle);
+        rawPrintDecoded(_key, data, len, decodeSettings(settings), port, forceSingle);
     }
 
-    static void rawPrintDecoded(const uint8_t* data, size_t len,
+    static void rawPrintDecoded(const std::string& _key, const uint8_t* data, size_t len,
                                 const std::optional<PrintSettings>& s,
                                 int64_t port, bool forceSingle) {
         std::string printerId = s ? s->printerId : "";
         int copies = (!forceSingle && s && s->copies > 1) ? (int)s->copies : 1;
         int64_t t = (s && s->networkTimeoutSeconds > 0) ? s->networkTimeoutSeconds : 30;
-        js_raw_print(port, data, (int)len, printerId.c_str(), copies, (int)(t * 1000));
+        js_raw_print(_key.c_str(), port, data, (int)len, printerId.c_str(), copies, (int)(t * 1000));
     }
 
     /// Routes a PrintDocument to the matching dialog print flow.
-    static void dispatchDoc(const PrintDocument& doc, int64_t port, int kind,
-                            const std::string& opts) {
+    static void dispatchDoc(const std::string& _key, const PrintDocument& doc,
+                            int64_t port, int kind, const std::string& opts) {
         switch (doc.type) {
             case DOCUMENTTYPE_PLAIN_TEXT: {
                 std::string text(doc.data.begin(), doc.data.end());
-                js_print_text(port, kind, text.c_str(), opts.c_str());
+                js_print_text(_key.c_str(), port, kind, text.c_str(), opts.c_str());
                 break;
             }
             case DOCUMENTTYPE_HTML: {
                 std::string html(doc.data.begin(), doc.data.end());
-                js_print_html(port, kind, html.c_str(), opts.c_str());
+                js_print_html(_key.c_str(), port, kind, html.c_str(), opts.c_str());
                 break;
             }
             case DOCUMENTTYPE_PDF:
-                js_print_blob(port, kind, doc.data.data(), (int)doc.data.size(),
+                js_print_blob(_key.c_str(), port, kind, doc.data.data(), (int)doc.data.size(),
                               "application/pdf", 0, "");
                 break;
             case DOCUMENTTYPE_IMAGE:
             default:
-                js_print_blob(port, kind, doc.data.data(), (int)doc.data.size(),
+                js_print_blob(_key.c_str(), port, kind, doc.data.data(), (int)doc.data.size(),
                               sniffImageMime(doc.data.data(), doc.data.size()), 1,
                               opts.c_str());
                 break;
@@ -3594,8 +3784,8 @@ private:
     }
 
     /// Web Printing jobs from the JS cache.
-    static std::vector<PrintJob> currentJobs() {
-        auto table = takeString(js_sync_jobs());
+    static std::vector<PrintJob> currentJobs(const std::string& _key) {
+        auto table = takeString(js_sync_jobs(_key.c_str()));
         std::vector<PrintJob> jobs;
         if (!table) return jobs;
         for (const auto& row : splitTable(table->c_str())) {
@@ -3605,11 +3795,23 @@ private:
     }
 };
 
-//Registers during module instantiation (__wasm_call_ctors), before any
-//Dart call; single-instance register_impl API.
+//Registers during module instantiation (__wasm_call_ctors), before any Dart
+//call. The factory gives each Dart instance its own C++ object, exactly as the
+//JNI path does; slot 0 stays registered because the stream emitters below post
+//through it and browser events are not addressed to one instance.
 HybridNitroPrintingImpl g_nitro_printing_impl;
 
-void emitDiscovered(const std::vector<std::string>& f) {
+
+//Events come from the browser for one instance; emit on that instance so a
+//subscriber only sees its own stream. Falls back to the global impl for the
+//legacy single-instance path (empty key).
+HybridNitroPrintingImpl& ownerFor(const std::string& key) {
+    auto& m = HybridNitroPrintingImpl::instancesByKey();
+    auto it = m.find(key);
+    return (it != m.end() && it->second) ? *it->second : g_nitro_printing_impl;
+}
+
+void emitDiscovered(const std::vector<std::string>& f, const std::string& key) {
     // row: id, name, host, port(unused=""), serviceType, uri, isAvailable
     if (f.size() < 7) return;
     DiscoveredPrinter p{};
@@ -3620,10 +3822,10 @@ void emitDiscovered(const std::vector<std::string>& f) {
     p.serviceType = f[4];
     p.uri = f[5];
     p.isAvailable = toBool(f[6]);
-    g_nitro_printing_impl.emit_onPrinterDiscovered(p.toNativeBuffer());
+    ownerFor(key).emit_onPrinterDiscovered(p.toNativeBuffer());
 }
 
-void emitJobChanged(const std::vector<std::string>& f) {
+void emitJobChanged(const std::vector<std::string>& f, const std::string& key) {
     if (f.size() < 9) return;
     PrintJob j = jobFromRow(f);
     PrintJobUpdate u{};
@@ -3631,11 +3833,11 @@ void emitJobChanged(const std::vector<std::string>& f) {
     u.state = j.state;
     u.progress = j.progress;
     u.message = j.errorMessage;
-    g_nitro_printing_impl.emit_onPrintJobChanged(u.toNativeBuffer());
+    ownerFor(key).emit_onPrintJobChanged(u.toNativeBuffer());
 }
 
 // row: id, online, printing, state, reasons
-void emitStatusChanged(const std::vector<std::string>& f) {
+void emitStatusChanged(const std::vector<std::string>& f, const std::string& key) {
     if (f.size() < 5) return;
     PrinterStatus s{};
     s.printerId = f[0];
@@ -3645,11 +3847,21 @@ void emitStatusChanged(const std::vector<std::string>& f) {
     s.errorCode = f[4];
     s.inkLevel = s.tonerLevel = s.paperLevel = -1;
     s.jobsInQueue = 0;
-    g_nitro_printing_impl.emit_onPrinterStatusChanged(s.toNativeBuffer());
+    ownerFor(key).emit_onPrinterStatusChanged(s.toNativeBuffer());
 }
 
 __attribute__((constructor))
 void nitro_printing_auto_register() {
+    //Function-local static: a namespace-scope std::function is dynamically
+    //initialised, and this constructor can run BEFORE that happens — copying
+    //an empty factory. create_instance then fell back to the legacy branch and
+    //handed every instance id 0, so disposing one erased the slot for all.
+    static HybridNitroPrintingFactory factory =
+        [](const std::string& key) -> std::shared_ptr<HybridNitroPrinting> {
+          return std::make_shared<HybridNitroPrintingImpl>(key);
+        };
+    nitro_printing_register_factory(&factory);
+    //Slot 0 stays the emitter target; Dart instances live at ids >= 1.
     nitro_printing_register_impl(&g_nitro_printing_impl);
 }
 

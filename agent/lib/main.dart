@@ -93,7 +93,14 @@ Future<Object?> _dispatch(Map<String, dynamic> msg) async {
       final printer = msg['printer'] as String? ?? '';
       final kind = msg['kind'] as String? ?? 'raw';
       final copies = (msg['copies'] as num?)?.toInt() ?? 1;
-      final settings = PrintSettings(printerId: printer, copies: copies);
+      // The agent prints silently: showPrintDialog defaults to true, which
+      // opens a modal print panel in THIS process and blocks the reply until
+      // someone dismisses it.
+      final settings = PrintSettings(
+        printerId: printer,
+        copies: copies,
+        showPrintDialog: false,
+      );
       final raw = msg['data'] as String? ?? '';
       final result = await switch (kind) {
         'text' => printing.printText(raw, settings: settings),
