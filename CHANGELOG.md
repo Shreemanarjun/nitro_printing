@@ -1,3 +1,13 @@
+## 0.0.6
+
+### Changed
+
+- Nitrogen SDK 0.7.4 to 0.7.5 (`nitro` / `nitro_generator` / `nitro_annotations` / `nitrogen_cli`); all platform bridges regenerated.
+
+### Fixed
+
+- `web` is now declared in the plugin's `platforms:` map. 0.0.5 shipped the WASM backend but never declared the platform, so pub.dev did not list Web as supported. Registration is a no-op stub (`NitroPrintingWeb`) — the backend is the WASM module loaded by `ensureNitroPrintingReady()`, not a method channel — but Flutter requires a `pluginClass` before `web:` may be declared.
+
 ## 0.0.5
 
 ### Added
