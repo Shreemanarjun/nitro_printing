@@ -17,6 +17,7 @@ abstract class NitroPrinting extends HybridObject {
 
   // ── Synchronous quick-lookup (no I/O, sub-microsecond) ───────────────────
   bool isPrintingSupported();
+  @nitroFast
   int getPrintersCount();
   String getPrinterDriverVersion(String printerId);
 

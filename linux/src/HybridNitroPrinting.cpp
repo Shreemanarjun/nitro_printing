@@ -656,7 +656,7 @@ public:
                 PrintResult res = directPrint(payload, s);
                 NitroRecordWriter w;
                 res.encodeInto(w);
-                resultBlobs.push_back(std::move(w._buf));
+                { NitroCppBuffer b = w.toBuffer(); resultBlobs.emplace_back(b.data, b.data + b.size); }
                 if (stopOnError && !res.success) break;
             }
             postRecordList(dartPort, resultBlobs);
