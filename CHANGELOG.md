@@ -1,3 +1,11 @@
+## 0.0.7
+
+### Changed
+
+- Nitrogen SDK 0.7.5 to 0.9.1 (`nitro` / `nitro_generator` / `nitrogen_cli`); all platform bridges regenerated. Desktop and web C++ impls move to the `NitroRecordWriter.toBuffer()` record API.
+- Web is declared through the top-level pubspec `platforms:` list instead of a stub `pluginClass`; the `NitroPrintingWeb` no-op registrant and the `flutter_web_plugins` dependency are removed.
+- iOS/macOS podspec versions now track the package version.
+
 ## 0.0.6
 
 ### Changed
