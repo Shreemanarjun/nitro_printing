@@ -16,6 +16,11 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 # `nitro_printing` target by ../src/CMakeLists.txt via NITRO_IMPL_SRC_<lib>.
 set(NITRO_IMPL_SRC_nitro_printing "${CMAKE_CURRENT_SOURCE_DIR}/src/HybridNitroPrinting.cpp")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../src" "${CMAKE_CURRENT_BINARY_DIR}/shared")
+# Flutter 3.50's libflutter_linux_gtk.so exports its own _Unwind_* symbols,
+# which interpose on libgcc's: a C++ throw in this library is then unwound by
+# an unwinder that can't drive libstdc++'s personality, so std::terminate
+# fires even inside the bridge's try/catch. Bind our own unwinder/runtime.
+target_link_options(nitro_printing PRIVATE -static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
