@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Non-web: no inline PDF surface — the preview card's stats still show.
 class PdfView extends StatelessWidget {

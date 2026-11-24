@@ -1,3 +1,5 @@
+// Not material_ui: it needs Flutter 3.47+, and this package supports 3.29+.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:nitro_printing/nitro_printing.dart';
 

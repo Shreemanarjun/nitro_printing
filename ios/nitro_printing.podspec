@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'nitro_printing'
-  s.version          = '0.0.1'
+  s.version          = '0.0.7'
   s.summary          = 'A new Flutter FFI plugin project.'
   s.description      = <<-DESC
 A new Flutter FFI plugin project.
@@ -23,12 +23,11 @@ A new Flutter FFI plugin project.
   s.platform = :ios, '13.0'
 
   # Flutter.framework does not contain a i386 slice.
-  s.dependency 'nitro'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
     'CLANG_CXX_LIBRARY' => 'libc++',
-    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_ROOT}/../.symlinks/plugins/nitro/src/native" "${PODS_TARGET_SRCROOT}/../src" "${PODS_TARGET_SRCROOT}/../lib/src/generated/cpp"'
+    'HEADER_SEARCH_PATHS' => '$(inherited) "${PODS_TARGET_SRCROOT}/../src/native" "${PODS_TARGET_SRCROOT}/../src" "${PODS_TARGET_SRCROOT}/../lib/src/generated/cpp"'
   }
   s.swift_version = '5.9'
 end

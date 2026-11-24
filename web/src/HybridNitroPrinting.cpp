@@ -3003,7 +3003,7 @@ void nitro_printing_web_batch_done(int64_t port, int64_t mask, int64_t dialogMas
                                          viaDialog ? "DIALOG_OUTCOME_UNKNOWN" : ""}
                            : failedResult("Browser print failed or timed out", "WEB_PRINT_FAILED");
         r.encodeInto(w);
-        blobs.push_back(std::move(w._buf));
+        { NitroCppBuffer b = w.toBuffer(); blobs.emplace_back(b.data, b.data + b.size); }
     }
     postRecordList(port, blobs);
 }
@@ -3018,7 +3018,7 @@ void nitro_printing_web_printers_done(int64_t port, char* table) {
     for (const auto& f : rows) {
         NitroRecordWriter w;
         printerFromRow(f).encodeInto(w);
-        blobs.push_back(std::move(w._buf));
+        { NitroCppBuffer b = w.toBuffer(); blobs.emplace_back(b.data, b.data + b.size); }
     }
     postRecordList(port, blobs);
 }

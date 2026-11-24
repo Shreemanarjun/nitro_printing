@@ -4,7 +4,7 @@ description: >-
   Supports text, image, PDF, raw/ESC-POS/ZPL printing, print-job management,
   mDNS printer discovery, IPP status queries, and a built-in print-settings UI —
   all with zero method-channel overhead.
-version: 0.0.6
+version: 0.0.7
 homepage: https://github.com/Shreemanarjun/nitro_printing
 repository: https://github.com/Shreemanarjun/nitro_printing
 issue_tracker: https://github.com/Shreemanarjun/nitro_printing/issues
@@ -19,16 +19,24 @@ topics:
   - pdf
   - escpos
 
+# Web is WASM loaded at runtime, not a Flutter plugin entry; declaring every
+# platform here keeps pub.dev listing Web.
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
+
 environment:
-  sdk: ^3.11.5
-  flutter: '>=3.3.0'
+  sdk: ^3.7.0
+  flutter: '>=3.29.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_web_plugins:
-    sdk: flutter
-  nitro: ^0.7.5
+  nitro: ^0.9.1
   plugin_platform_interface: ^2.0.2
 
 dev_dependencies:
@@ -36,9 +44,9 @@ dev_dependencies:
   stream_channel: ^2.1.2
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: '>=5.0.0 <7.0.0'
   build_runner: ^2.4.0
-  nitro_generator: ^0.7.5
+  nitro_generator: ^0.9.1
 
 flutter:
   assets:
@@ -62,9 +70,3 @@ flutter:
         ffiPlugin: true
       linux:
         ffiPlugin: true
-      # The web backend is WASM loaded at runtime, not a method channel, but
-      # Flutter requires a pluginClass before `web:` may be declared — and
-      # without the declaration pub.dev omits Web from the platform list.
-      web:
-        pluginClass: NitroPrintingWeb
-        fileName: src/nitro_printing_web_plugin.dart

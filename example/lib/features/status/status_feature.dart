@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../core/repositories/printer_repository.dart';
 import '../../core/signals.dart';
 import 'status_signals.dart';

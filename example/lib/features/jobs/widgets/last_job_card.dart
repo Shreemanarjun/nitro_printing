@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:nitro_printing/nitro_printing.dart' as p;
 
 /// Live "last job" panel: follows onPrintJobChanged, shows the newest job's

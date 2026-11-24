@@ -29,10 +29,10 @@ packages:
     dependency: transitive
     description:
       name: clock
-      sha256: fddb70d9b5277016c77a80201021d40a2247104d9f4aa7bab7157b7e3f05b84b
+      sha256: e51d50bca3217c9a9fa2b41a30e4a38971133f5f9ec7a3d57bae095007f1d28e
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.2"
+    version: "1.1.3"
   collection:
     dependency: transitive
     description:
@@ -49,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.9"
+  cupertino_ui:
+    dependency: transitive
+    description:
+      name: cupertino_ui
+      sha256: c3eaf7f5bdfee36deb0b14a4cbf7602f1b6b8d8b8576b81f38fc08c25881c94c
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.7"
   dispose_scope:
     dependency: transitive
     description:
@@ -107,13 +115,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
-  flutter_test:
-    dependency: "direct dev"
+  flutter_localizations:
+    dependency: transitive
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_web_plugins:
-    dependency: transitive
+  flutter_test:
+    dependency: "direct dev"
     description: flutter
     source: sdk
     version: "0.0.0"
@@ -151,6 +159,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.3"
   json_annotation:
     dependency: transitive
     description:
@@ -207,6 +223,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
+  material_ui:
+    dependency: "direct main"
+    description:
+      name: material_ui
+      sha256: a6b19012df437a356cbc01f8ea22a105e07194c47c9a6009da0032a0ce35c4ab
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.11.1"
   meta:
     dependency: transitive
     description:
@@ -219,25 +243,25 @@ packages:
     dependency: "direct main"
     description:
       name: nitro
-      sha256: "6da05527ae957a9fd5d029a72a9b10c168834ae484702cff815645fd503afb40"
+      sha256: a08c0324f14213c62ba803cada7df3717fecf03c7e94a11856bc7f179ce1ef0d
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.5"
+    version: "0.9.1"
   nitro_annotations:
     dependency: transitive
     description:
       name: nitro_annotations
-      sha256: a3b886096f2a544743b5f3f118e44d08ba8f3d31dc0eaa3c38763b1313fdf77c
+      sha256: "081862ace02d85db92651f310718efdbb039dda34613bd672916c80d42156a1c"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.4"
+    version: "0.9.1"
   nitro_printing:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.0.5"
+    version: "0.0.7"
   path:
     dependency: transitive
     description:
@@ -319,10 +343,10 @@ packages:
     dependency: transitive
     description:
       name: stack_trace
-      sha256: "8b27215b45d22309b5cddda1aa2b19bdfec9df0e765f2de506401c071d38d1b1"
+      sha256: "277654b3034d17ac6f9f1cb5595db011b1d5d41e8806866db28e0abaa101c490"
       url: "https://pub.dev"
     source: hosted
-    version: "1.12.1"
+    version: "1.12.2"
   stream_channel:
     dependency: transitive
     description:
@@ -375,10 +399,10 @@ packages:
     dependency: transitive
     description:
       name: vector_math
-      sha256: f36f9f3be64c6198714492bb455c11056e33e2f85d9a0b676a48301e44fdcf47
+      sha256: fa49e1674cb84acb900141714e6c6e1f9ae099827c24d141430ff6819db4e1bc
       url: "https://pub.dev"
     source: hosted
-    version: "2.4.2"
+    version: "2.4.4"
   vm_service:
     dependency: transitive
     description:
@@ -404,5 +428,5 @@ packages:
     source: hosted
     version: "3.1.0"
 sdks:
-  dart: ">=3.11.5 <4.0.0"
-  flutter: ">=3.32.0"
+  dart: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"

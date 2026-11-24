@@ -4,7 +4,7 @@ import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 import 'dart:ui_web' as ui_web;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 int _viewSeq = 0;
 
