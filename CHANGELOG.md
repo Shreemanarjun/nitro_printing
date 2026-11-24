@@ -5,6 +5,8 @@
 - Nitrogen SDK 0.7.5 to 0.9.1 (`nitro` / `nitro_generator` / `nitrogen_cli`); all platform bridges regenerated. Desktop and web C++ impls move to the `NitroRecordWriter.toBuffer()` record API.
 - Web is declared through the top-level pubspec `platforms:` list instead of a stub `pluginClass`; the `NitroPrintingWeb` no-op registrant and the `flutter_web_plugins` dependency are removed.
 - iOS/macOS podspec versions now track the package version.
+- Minimum supported Flutter is now declared as 3.29 (Dart 3.7) — the actual floor of `nitro` 0.9.x; verified with a fresh Flutter 3.29 app (Android build, macOS integration suites, web build) and on Flutter 3.50.
+- Example and agent apps use `package:material_ui` (Flutter 3.50 deprecates `package:flutter/material.dart`); the example's Android build moves to AGP 9.3.1 / Gradle 9.5.0 as Flutter 3.50 requires. The plugin itself keeps `flutter/material.dart` so 3.29 consumers still resolve.
 
 ## 0.0.6
 

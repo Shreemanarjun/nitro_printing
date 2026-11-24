@@ -30,8 +30,8 @@ platforms:
   windows:
 
 environment:
-  sdk: ^3.11.5
-  flutter: '>=3.3.0'
+  sdk: ^3.7.0
+  flutter: '>=3.29.0'
 
 dependencies:
   flutter:
@@ -44,7 +44,7 @@ dev_dependencies:
   stream_channel: ^2.1.2
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: '>=5.0.0 <7.0.0'
   build_runner: ^2.4.0
   nitro_generator: ^0.9.1
 

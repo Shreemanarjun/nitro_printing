@@ -11,7 +11,8 @@ dependencies:
     sdk: flutter
   nitro_printing:
     path: ../
-  nitro: ^0.7.2
+  nitro: ^0.9.1
+  material_ui: ^1.11.1
 
 dev_dependencies:
   flutter_test:

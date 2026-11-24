@@ -28,6 +28,36 @@ jobs:
         working-directory: example
       - run: flutter analyze lib example/lib example/integration_test example/patrol_test
 
+  # The pubspec floor (Flutter 3.29) must keep resolving and compiling for a
+  # fresh consumer; dev deps (nitro_generator) are newer, so test from outside.
+  min-flutter:
+    name: Min Flutter (3.29 consumer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          path: plugin
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.29.3
+          cache: true
+      - run: |
+          flutter create --platforms web consumer
+          cd consumer
+          flutter pub add 'nitro_printing:{"path":"../plugin"}'
+          cat > lib/main.dart <<'EOF'
+          import 'package:nitro_printing/nitro_printing.dart';
+
+          Future<void> main() async {
+            await ensureNitroPrintingReady();
+            NitroPrinting.instance.isPrintingSupported();
+          }
+          EOF
+          flutter analyze lib
+          flutter build web
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -136,18 +166,21 @@ jobs:
       - name: Boot simulator
         id: sim
         run: |
-          # Pick an iPhone from the NEWEST iOS runtime — patrol targets xcodebuild
+          # Pick an iPhone from the newest iOS runtime the SDK supports — patrol targets xcodebuild
           # with `OS=latest,name=<device>`, which only matches if the device is on
-          # the latest runtime (flattening across runtimes can pick an older one).
+          # the SDK's runtime (flattening across runtimes can pick an older one).
           UDID=$(xcrun simctl list devices available --json | python3 -c "
           import json, sys
           data = json.load(sys.stdin)['devices']
-          rts = sorted(k for k in data if 'iOS' in k)
+          # Runtimes newer than the Xcode SDK can't host the SDK-built xctestrun.
+          sdk = tuple(int(x) for x in sys.argv[1].split('.'))
+          ver = lambda k: tuple(int(x) for x in k.rsplit('iOS-', 1)[1].split('-'))
+          rts = sorted((k for k in data if 'iOS-' in k and ver(k) <= sdk), key=ver)
           for rt in reversed(rts):
               iphones = [d for d in data[rt] if d['name'].startswith('iPhone')]
               if iphones:
                   print(iphones[-1]['udid']); break
-          ")
+          " "$(xcrun --sdk iphonesimulator --show-sdk-version)")
           echo "Using simulator $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
@@ -231,10 +264,10 @@ jobs:
         run: flutter build linux --debug
         working-directory: example
       - name: API integration tests (headless X)
-        run: xvfb-run -a flutter test integration_test/nitro_printing_test.dart -d linux
+        run: xvfb-run -a flutter test integration_test/nitro_printing_test.dart -d linux -r expanded
         working-directory: example
       - name: Native transport tests (headless X)
-        run: xvfb-run -a flutter test integration_test/native_transport_test.dart -d linux
+        run: xvfb-run -a flutter test integration_test/native_transport_test.dart -d linux -r expanded
         working-directory: example
 
   windows:

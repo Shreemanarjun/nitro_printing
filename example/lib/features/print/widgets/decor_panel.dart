@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:nitro_printing/nitro_printing.dart';
 
 /// Page decoration controls (web): background graphic / watermark plus rich

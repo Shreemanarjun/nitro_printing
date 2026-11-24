@@ -1,7 +1,7 @@
 
 
 import 'core/build_stamp/build_stamp.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:nitro/nitro.dart';
 import 'package:nitro_printing/nitro_printing.dart';
 import 'core/repositories/printer_repository.dart';
